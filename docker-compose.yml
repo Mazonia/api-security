@@ -1,0 +1,57 @@
+networks:
+  api-net:
+    driver: bridge
+
+services:
+  vulnerable-api:
+    build: ./vulnerable-api
+    container_name: vulnerable-api
+    ports:
+      - "8000:8000"
+    networks:
+      - api-net
+    environment:
+      - ENV=vulnerable
+    volumes:
+      - ./reports:/reports
+
+  hardened-api:
+    build: ./hardened-api
+    container_name: hardened-api
+    ports:
+      - "8001:8001"
+    networks:
+      - api-net
+    env_file:
+      - .env
+    environment:
+      - ENV=hardened
+
+  monitoring:
+    build: ./monitoring
+    container_name: monitoring
+    ports:
+      - "9000:9000"
+    networks:
+      - api-net
+    volumes:
+      - ./data:/data
+      - ./reports:/reports
+    depends_on:
+      - vulnerable-api
+
+  testing-engine:
+    build: ./testing-engine
+    container_name: testing-engine
+    networks:
+      - api-net
+    volumes:
+      - ./reports:/reports
+    depends_on:
+      - vulnerable-api
+    profiles:
+      - tools
+    environment:
+      - TARGET=http://vulnerable-api:8000
+      - REPORT_DIR=/reports
+      - REPORT_DETAIL=brief

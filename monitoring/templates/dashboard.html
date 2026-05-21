@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>API Security Monitor</title>
+<script src="/static/chart.min.js"></script>
+<style>
+:root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2128;--border:#30363d;--text:#c9d1d9;--muted:#8b949e;--red:#f85149;--green:#3fb950;--blue:#58a6ff;--yellow:#e3b341;--purple:#bc8cff;--orange:#ffa657;--sidebar:240px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px}
+
+/* ─── Sidebar ─────────────────────────────────────────────────────── */
+#sidebar{width:var(--sidebar);background:var(--surf);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;top:0;left:0;z-index:100}
+.brand{padding:20px 16px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.brand-icon{font-size:1.6em}
+.brand-name{font-weight:700;font-size:1em;color:var(--blue)}
+.brand-sub{font-size:.72em;color:var(--muted)}
+nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-section{font-size:.7em;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:10px 14px 4px;margin-top:6px}
+.nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.88em;font-weight:500;transition:all .15s;cursor:pointer;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+.nav-link:hover{background:var(--surf2);color:var(--text)}
+.nav-link.active{background:rgba(88,166,255,.12);color:var(--blue)}
+.nav-link.ext{color:var(--muted)}
+.nav-link.ext:hover{color:var(--text)}
+.nav-icon{font-size:1.1em;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:.72em;padding:2px 7px;border-radius:10px;font-weight:700;min-width:20px;text-align:center}
+.nav-ext-arrow{margin-left:auto;font-size:.75em;color:var(--border)}
+.sidebar-bottom{padding:12px 8px;border-top:1px solid var(--border)}
+.refresh-row{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px}
+.refresh-row label{color:var(--muted);font-size:.8em}
+select{background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:.82em;cursor:pointer}
+.countdown-row{padding:4px 12px 8px;font-size:.78em;color:var(--muted)}
+.live-dot{display:flex;align-items:center;gap:6px;padding:8px 12px;color:var(--green);font-size:.8em}
+.dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ─── Main ─────────────────────────────────────────────────────────── */
+#main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh}
+header{background:var(--surf);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+#page-title{font-size:1.1em;font-weight:700;color:var(--text)}
+.header-right{display:flex;align-items:center;gap:12px}
+#last-updated{font-size:.8em;color:var(--muted)}
+.btn{background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:7px;cursor:pointer;font-size:.82em;font-weight:500;transition:all .15s}
+.btn:hover{border-color:var(--blue);color:var(--blue)}
+#content{padding:20px 24px;flex:1}
+
+/* ─── Tab content ──────────────────────────────────────────────────── */
+.tab{display:none}.tab.active{display:block}
+
+/* ─── Stat cards ───────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:16px 14px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:10px 10px 0 0}
+.stat-card.c-blue::before{background:var(--blue)}
+.stat-card.c-red::before{background:var(--red)}
+.stat-card.c-yellow::before{background:var(--yellow)}
+.stat-card.c-green::before{background:var(--green)}
+.stat-card.c-purple::before{background:var(--purple)}
+.stat-card.c-orange::before{background:var(--orange)}
+.stat-val{font-size:1.9em;font-weight:700;margin:6px 0 2px;line-height:1}
+.stat-lbl{font-size:.78em;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stat-sub{font-size:.78em;color:var(--muted);margin-top:4px}
+.c-blue .stat-val{color:var(--blue)}.c-red .stat-val{color:var(--red)}
+.c-yellow .stat-val{color:var(--yellow)}.c-green .stat-val{color:var(--green)}
+.c-purple .stat-val{color:var(--purple)}.c-orange .stat-val{color:var(--orange)}
+
+/* ─── Charts ───────────────────────────────────────────────────────── */
+.chart-full{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.chart-header h3,.chart-card h3{font-size:.88em;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.charts-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.chart-card{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+.chart-card h3{margin-bottom:14px}
+.btn-group{display:flex;gap:4px}
+.btn-sm{background:var(--surf2);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:500;transition:all .15s}
+.btn-sm:hover,.btn-sm.active{background:rgba(88,166,255,.15);border-color:var(--blue);color:var(--blue)}
+
+/* ─── Filter bar ───────────────────────────────────────────────────── */
+.filter-bar{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:6px}
+.filter-group label{font-size:.75em;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.btn-filter{background:var(--surf2);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.8em;font-weight:500;transition:all .15s}
+.btn-filter.active{background:rgba(88,166,255,.15);border-color:var(--blue);color:var(--blue)}
+.btn-filter:hover:not(.active){border-color:var(--muted);color:var(--text)}
+.search-input{background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:7px;font-size:.85em;width:180px;outline:none}
+.search-input:focus{border-color:var(--blue)}
+.toggle-label{font-size:.82em;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:6px}
+input[type=checkbox]{accent-color:var(--blue);cursor:pointer;width:14px;height:14px}
+.btn-export{background:rgba(63,185,80,.12);border:1px solid var(--green);color:var(--green);padding:6px 14px;border-radius:7px;cursor:pointer;font-size:.82em;font-weight:600;transition:all .15s;margin-left:auto}
+.btn-export:hover{background:rgba(63,185,80,.25)}
+
+/* ─── Tables ───────────────────────────────────────────────────────── */
+.table-meta{font-size:.8em;color:var(--muted);margin-bottom:8px}
+.table-wrap{background:var(--surf);border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:480px}
+table{width:100%;border-collapse:collapse;min-width:700px}
+thead{position:sticky;top:0;z-index:10}
+th{background:#0d1117;padding:10px 14px;text-align:left;font-size:.76em;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--text)}
+td{padding:9px 14px;border-top:1px solid var(--border);font-size:.83em;white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+tr.row-anomaly{background:rgba(248,81,73,.05)}
+tr:hover td{background:var(--surf2);cursor:pointer}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.74em;font-weight:700}
+.badge-yes{background:rgba(248,81,73,.2);color:var(--red);border:1px solid var(--red)}
+.badge-no{background:rgba(63,185,80,.15);color:var(--green)}
+.m-get{color:var(--green)}.m-post{color:var(--blue)}.m-put{color:var(--yellow)}.m-delete{color:var(--red)}.m-patch{color:var(--purple)}
+.s-2{color:var(--green)}.s-3{color:var(--blue)}.s-4{color:var(--yellow)}.s-5{color:var(--red)}
+
+/* ─── Alert banner ─────────────────────────────────────────────────── */
+.alert-banner{border-radius:10px;padding:14px 20px;margin-bottom:16px;font-size:.9em;font-weight:500;border:1px solid}
+.alert-warn{background:rgba(248,81,73,.12);color:var(--red);border-color:var(--red)}
+.alert-ok{background:rgba(63,185,80,.12);color:var(--green);border-color:var(--green)}
+
+/* ─── Modal ────────────────────────────────────────────────────────── */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal.hidden{display:none}
+.modal-box{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:28px;width:520px;max-width:95vw;position:relative}
+.modal-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2em;cursor:pointer}
+.modal-close:hover{color:var(--text)}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.modal-field label{font-size:.75em;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.modal-field .val{font-size:.95em;margin-top:3px;font-family:'Consolas',monospace}
+.modal-title{font-size:1.1em;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding-bottom:12px}
+
+/* ─── CVE tooltip ──────────────────────────────────────────────────── */
+#cve-tip{position:fixed;z-index:500;background:#1c2128;border:1px solid #30363d;border-radius:10px;padding:14px 16px;width:300px;pointer-events:none;opacity:0;transition:opacity .12s;box-shadow:0 8px 28px rgba(0,0,0,.6);font-family:'Segoe UI',sans-serif}
+#cve-tip.show{opacity:1}
+.tip-owasp{font-size:.76em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.tip-cve-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.tip-cve-chip{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:2px 7px;font-size:.73em;font-family:monospace;color:var(--blue)}
+.tip-sec{font-size:.73em;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.tip-fix{font-size:.8em;color:#c9d1d9;line-height:1.5}
+.tip-reason{cursor:help;border-bottom:1px dashed var(--muted);transition:color .1s}
+.tip-reason:hover{color:var(--yellow)}
+
+/* ─── Reports tab ──────────────────────────────────────────────────── */
+.reports-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.report-stat{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.report-stat .num{font-size:1.8em;font-weight:700;color:var(--blue)}
+.report-stat .lbl{font-size:.78em;color:var(--muted);margin-top:4px}
+.report-card{background:var(--surf);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;transition:border-color .15s}
+.report-card:hover{border-color:var(--blue)}
+.report-card.selected{border-color:var(--purple);background:rgba(188,140,255,.06)}
+.rep-cb{width:15px;height:15px;cursor:pointer;accent-color:var(--purple);flex-shrink:0;margin-right:4px}
+.sel-bar{display:none;align-items:center;gap:10px;padding:10px 16px;background:rgba(188,140,255,.08);border:1px solid rgba(188,140,255,.28);border-radius:8px;margin-bottom:14px}
+.sel-bar.active{display:flex}
+.sel-count{font-size:.88em;font-weight:600;color:var(--purple);flex:1}
+.report-card-hdr{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.report-type{font-size:.75em;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 10px;border-radius:10px}
+.type-scan{background:rgba(88,166,255,.15);color:var(--blue);border:1px solid rgba(88,166,255,.4)}
+.type-comparison{background:rgba(188,140,255,.15);color:var(--purple);border:1px solid rgba(188,140,255,.4)}
+.detail-badge{font-size:.72em;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:10px}
+.detail-brief{background:rgba(227,179,65,.12);color:var(--yellow);border:1px solid rgba(227,179,65,.4)}
+.detail-detailed{background:rgba(63,185,80,.12);color:var(--green);border:1px solid rgba(63,185,80,.4)}
+.report-target{font-size:.88em;color:var(--text);font-family:'Consolas',monospace;flex:1;overflow:hidden;text-overflow:ellipsis}
+.report-ts{font-size:.78em;color:var(--muted)}
+.report-score-row{padding:0 18px 14px;display:flex;align-items:center;gap:14px}
+.score-chip{padding:5px 14px;border-radius:20px;font-size:.88em;font-weight:700}
+.score-good{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.4)}
+.score-mid{background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid rgba(227,179,65,.4)}
+.score-bad{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.4)}
+.report-actions{display:flex;gap:8px;margin-left:auto}
+.btn-report{padding:5px 12px;border-radius:6px;font-size:.8em;font-weight:600;text-decoration:none;cursor:pointer;border:1px solid}
+.btn-html{background:rgba(88,166,255,.12);color:var(--blue);border-color:rgba(88,166,255,.4)}
+.btn-html:hover{background:rgba(88,166,255,.25)}
+.btn-json{background:var(--surf2);color:var(--muted);border-color:var(--border)}
+.btn-json:hover{color:var(--text);border-color:var(--muted)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state .icon{font-size:3em;margin-bottom:12px}
+.empty-state p{font-size:.9em}
+
+/* ─── Live Scan panel ──────────────────────────────────────────────── */
+.live-scan-card{background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.lsc-hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.lsc-presets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.preset-btn{background:var(--surf2);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.8em;font-weight:500;transition:all .15s}
+.preset-btn:hover{border-color:var(--blue);color:var(--blue)}
+.lsc-score-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}
+.lsc-score-card{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.lsc-score-card .lsc-num{font-size:1.8em;font-weight:700}
+.lsc-score-card .lsc-lbl{font-size:.74em;color:var(--muted);margin-top:3px}
+.btn-save-brief{background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.4);color:var(--green)}
+.btn-save-brief:hover{background:rgba(63,185,80,.25)}
+.btn-save-detail{background:rgba(88,166,255,.12);border-color:rgba(88,166,255,.4);color:var(--blue)}
+.btn-save-detail:hover{background:rgba(88,166,255,.25)}
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="brand">
+    <div class="brand-icon">🔒</div>
+    <div><div class="brand-name">API Monitor</div><div class="brand-sub">CY384 Security Lab</div></div>
+  </div>
+  <nav>
+    <div class="nav-section">Monitor</div>
+    <button class="nav-link active" data-tab="overview" onclick="switchTab('overview',this)">
+      <span class="nav-icon">📊</span> Overview
+    </button>
+    <button class="nav-link" data-tab="feed" onclick="switchTab('feed',this)">
+      <span class="nav-icon">📡</span> Live Feed
+    </button>
+    <button class="nav-link" data-tab="anomalies" onclick="switchTab('anomalies',this)">
+      <span class="nav-icon">⚠️</span> Anomalies
+      <span class="nav-badge hidden" id="anomaly-badge">0</span>
+    </button>
+    <button class="nav-link" data-tab="endpoints" onclick="switchTab('endpoints',this)">
+      <span class="nav-icon">🗂️</span> Endpoints
+    </button>
+    <button class="nav-link" data-tab="reports" onclick="switchTab('reports',this)">
+      <span class="nav-icon">📋</span> Reports
+      <span class="nav-badge hidden" id="reports-badge">0</span>
+    </button>
+
+    <div class="nav-section">Tools</div>
+    <a class="nav-link ext" href="/scan-ui">
+      <span class="nav-icon">🔍</span> Scanner
+      <span class="nav-ext-arrow">↗</span>
+    </a>
+    <a class="nav-link ext" href="http://localhost:8000/ui" target="_blank">
+      <span class="nav-icon">🛒</span> ShopApp Demo
+      <span class="nav-ext-arrow">↗</span>
+    </a>
+    <a class="nav-link ext" href="http://localhost:8000/docs" target="_blank">
+      <span class="nav-icon">📄</span> API Docs (Vuln)
+      <span class="nav-ext-arrow">↗</span>
+    </a>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="refresh-row">
+      <label>Refresh every</label>
+      <select id="refresh-select" onchange="setRefreshInterval(+this.value)">
+        <option value="5">5 s</option>
+        <option value="10" selected>10 s</option>
+        <option value="30">30 s</option>
+        <option value="60">60 s</option>
+        <option value="0">Paused</option>
+      </select>
+    </div>
+    <div class="countdown-row" id="countdown-row">Next refresh in <span id="countdown">10</span>s</div>
+    <div class="live-dot"><div class="dot"></div> LIVE</div>
+  </div>
+</aside>
+
+<div id="main">
+  <header>
+    <div id="page-title">Overview</div>
+    <div class="header-right">
+      <span id="last-updated" style="font-size:.8em;color:var(--muted)">—</span>
+      <button class="btn" id="reset-btn" onclick="resetLogs()"
+        style="color:var(--red);border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.08)">
+        &#8856; Reset Logs
+      </button>
+      <button class="btn" onclick="fetchAll()">&#8635; Refresh now</button>
+    </div>
+  </header>
+
+  <div id="content">
+
+    <!-- ── OVERVIEW ── -->
+    <div id="tab-overview" class="tab active">
+      <div class="stats-grid">
+        <div class="stat-card c-blue">
+          <div class="stat-lbl">Total Requests</div>
+          <div class="stat-val" id="s-total">—</div>
+          <div class="stat-sub" id="s-rpm">— / 2 min</div>
+        </div>
+        <div class="stat-card c-red">
+          <div class="stat-lbl">Anomalies</div>
+          <div class="stat-val" id="s-anomalies">—</div>
+          <div class="stat-sub" id="s-arate">—% anomaly rate</div>
+        </div>
+        <div class="stat-card c-yellow">
+          <div class="stat-lbl">Error Rate</div>
+          <div class="stat-val" id="s-erate">—</div>
+          <div class="stat-sub" id="s-ecount">— error responses</div>
+        </div>
+        <div class="stat-card c-green">
+          <div class="stat-lbl">Avg Response</div>
+          <div class="stat-val" id="s-avgms">—</div>
+          <div class="stat-sub">milliseconds</div>
+        </div>
+        <div class="stat-card c-purple">
+          <div class="stat-lbl">Auth Rate</div>
+          <div class="stat-val" id="s-authrate">—</div>
+          <div class="stat-sub" id="s-unauth">— unauthenticated</div>
+        </div>
+        <div class="stat-card c-orange">
+          <div class="stat-lbl">Last Anomaly</div>
+          <div class="stat-val" id="s-last">—</div>
+          <div class="stat-sub">seconds ago</div>
+        </div>
+      </div>
+
+      <div id="traffic-status" style="display:none;font-size:.82em;margin-bottom:14px;padding:10px 16px;background:var(--surf);border:1px solid var(--border);border-radius:8px"></div>
+
+      <div class="chart-full">
+        <div class="chart-header">
+          <h3>Request &amp; Anomaly Timeline</h3>
+          <div class="btn-group">
+            <button class="btn-sm active" onclick="setTimeWindow(60,this)">60 min</button>
+            <button class="btn-sm" onclick="setTimeWindow(30,this)">30 min</button>
+            <button class="btn-sm" onclick="setTimeWindow(10,this)">10 min</button>
+          </div>
+        </div>
+        <canvas id="timelineChart" height="70"></canvas>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3>HTTP Methods</h3>
+          <canvas id="methodChart" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Status Codes</h3>
+          <canvas id="statusChart" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Top 8 Endpoints</h3>
+          <canvas id="topChart" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LIVE FEED ── -->
+    <div id="tab-feed" class="tab">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label>Method</label>
+          <div class="btn-group" id="method-btns">
+            <button class="btn-filter active" onclick="setFilter('method','',this)">All</button>
+            <button class="btn-filter" onclick="setFilter('method','GET',this)">GET</button>
+            <button class="btn-filter" onclick="setFilter('method','POST',this)">POST</button>
+            <button class="btn-filter" onclick="setFilter('method','PUT',this)">PUT</button>
+            <button class="btn-filter" onclick="setFilter('method','DELETE',this)">DELETE</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label>Status</label>
+          <div class="btn-group">
+            <button class="btn-filter active" onclick="setFilter('status','',this)">All</button>
+            <button class="btn-filter" onclick="setFilter('status','2',this)">2xx</button>
+            <button class="btn-filter" onclick="setFilter('status','4',this)">4xx</button>
+            <button class="btn-filter" onclick="setFilter('status','5',this)">5xx</button>
+          </div>
+        </div>
+        <div class="filter-group">
+          <label>Show</label>
+          <label class="toggle-label">
+            <input type="checkbox" id="anomaly-only" onchange="renderFeedTable()">
+            Anomalies only
+          </label>
+        </div>
+        <div class="filter-group">
+          <label>Search path</label>
+          <input class="search-input" id="path-search" placeholder="/users, /admin…" oninput="renderFeedTable()">
+        </div>
+        <div class="filter-group">
+          <label>Load last</label>
+          <select onchange="state.feedLimit=+this.value; fetchFeed()" id="feed-limit-sel">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+          </select>
+        </div>
+        <button class="btn-export" onclick="exportCSV()">⬇ Export CSV</button>
+      </div>
+      <div class="table-meta" id="feed-meta">Loading…</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Time</th>
+            <th onclick="sortFeed('method')">Method</th>
+            <th onclick="sortFeed('path')">Path</th>
+            <th onclick="sortFeed('status_code')">Status</th>
+            <th onclick="sortFeed('response_time_ms')">ms ↕</th>
+            <th>Auth</th><th>Anomaly</th><th>Reason</th>
+          </tr></thead>
+          <tbody id="feed-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ANOMALIES ── -->
+    <div id="tab-anomalies" class="tab">
+      <div id="anomaly-alert" class="alert-banner hidden"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3>Top Attacked Paths</h3>
+          <canvas id="anomalyPathChart" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Detection Reasons</h3>
+          <canvas id="reasonChart" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+          <h3>Methods Triggering Anomalies</h3>
+          <canvas id="anomalyMethodChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="table-meta" id="anomaly-meta">—</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>#</th><th>Time</th><th>Method</th><th>Path</th>
+            <th>Status</th><th>ms</th><th>Score</th><th>Reason</th>
+          </tr></thead>
+          <tbody id="anomaly-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ENDPOINTS ── -->
+    <div id="tab-endpoints" class="tab">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+        <input class="search-input" id="ep-search" placeholder="Filter paths…" oninput="renderEndpointsTable()" style="width:240px">
+        <span id="ep-meta" style="color:var(--muted);font-size:.82em"></span>
+      </div>
+      <div class="chart-full" style="margin-bottom:16px">
+        <div class="chart-header"><h3>Top Endpoints by Request Volume</h3></div>
+        <canvas id="epBarChart" height="90"></canvas>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th onclick="sortEndpoints('path')">Path ↕</th>
+            <th onclick="sortEndpoints('total')">Hits ↕</th>
+            <th onclick="sortEndpoints('errors')">Errors ↕</th>
+            <th onclick="sortEndpoints('error_rate')">Err% ↕</th>
+            <th onclick="sortEndpoints('anomalies')">Anomalies ↕</th>
+            <th onclick="sortEndpoints('avg_ms')">Avg ms ↕</th>
+            <th onclick="sortEndpoints('authenticated')">Auth Req ↕</th>
+          </tr></thead>
+          <tbody id="ep-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── REPORTS ── -->
+    <div id="tab-reports" class="tab">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="search-input" id="rep-search" placeholder="Filter by target or date…" oninput="renderReports()" style="width:260px">
+            <div class="btn-group">
+              <button class="btn-filter active" id="rep-f-all"  onclick="setRepFilter('all',this)">All</button>
+              <button class="btn-filter" id="rep-f-scan"        onclick="setRepFilter('scan',this)">Scan</button>
+              <button class="btn-filter" id="rep-f-comparison"  onclick="setRepFilter('comparison',this)">Comparison</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn" onclick="fetchReports()">↻ Refresh</button>
+      </div>
+      <!-- selection toolbar -->
+      <div class="sel-bar" id="sel-bar">
+        <button class="btn-filter" onclick="selectAllVisible()">Select All</button>
+        <button class="btn-filter" onclick="clearSelection()">✕ Clear</button>
+        <span class="sel-count" id="sel-count">0 selected</span>
+        <button class="btn btn-del-sel" onclick="deleteSelected()" style="color:var(--red);border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.08)">&#128465; Delete Selected</button>
+      </div>
+      <div class="reports-grid">
+        <div class="report-stat"><div class="num" id="rep-total">—</div><div class="lbl">Total Reports</div></div>
+        <div class="report-stat"><div class="num" id="rep-scans">—</div><div class="lbl">Scan Reports</div></div>
+        <div class="report-stat"><div class="num" id="rep-comparisons">—</div><div class="lbl">Comparisons</div></div>
+      </div>
+      <!-- ── Live Scan panel ── -->
+      <div class="live-scan-card">
+        <div class="lsc-hdr">
+          <div>
+            <span style="font-size:.95em;font-weight:600;color:var(--text)">Run Live Scan</span>
+            <span style="font-size:.77em;color:var(--muted);margin-left:8px">Scan an API and save results as a report</span>
+          </div>
+          <button class="btn btn-sm" id="lsc-toggle-btn" onclick="toggleLiveScan()">&#9660; Show</button>
+        </div>
+        <div id="lsc-body" style="display:none;padding-top:14px;border-top:1px solid var(--border);margin-top:12px">
+          <div class="lsc-presets">
+            <span style="font-size:.8em;color:var(--muted);align-self:center;white-space:nowrap">Target:</span>
+            <button class="preset-btn" onclick="lscPreset('vulnerable')">Vulnerable API (lab)</button>
+            <button class="preset-btn" onclick="lscPreset('hardened')">Hardened API (lab)</button>
+            <input id="lsc-target" class="search-input" placeholder="or enter custom URL…" style="flex:1;min-width:200px">
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap">
+            <span style="font-size:.8em;color:var(--muted)">Report mode:</span>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.83em">
+              <input type="radio" name="lsc-detail" value="brief" checked style="accent-color:var(--blue)"> Brief
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:.83em">
+              <input type="radio" name="lsc-detail" value="detailed" style="accent-color:var(--blue)"> Detailed
+            </label>
+            <span style="font-size:.75em;color:var(--muted)">Detailed adds impact assessment, PoC steps &amp; code-level fixes.</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button class="btn" id="lsc-run-btn" onclick="runLiveScan()"
+              style="background:rgba(35,134,54,.18);border-color:#238636;color:var(--green);font-weight:600">
+              &#9654; Run Scan
+            </button>
+            <span id="lsc-status" style="font-size:.82em;color:var(--muted)"></span>
+          </div>
+          <div id="lsc-result" style="display:none;margin-top:14px;padding:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+            <div id="lsc-result-body"></div>
+            <div id="lsc-actions" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Run Comparison panel ── -->
+      <div class="live-scan-card" style="margin-top:0">
+        <div class="lsc-hdr">
+          <div>
+            <span style="font-size:.95em;font-weight:600;color:var(--text)">Run Comparison</span>
+            <span style="font-size:.77em;color:var(--muted);margin-left:8px">Compare vulnerable vs hardened API — side-by-side OWASP results</span>
+          </div>
+          <button class="btn btn-sm" id="cmp-toggle-btn" onclick="toggleComparison()">&#9660; Show</button>
+        </div>
+        <div id="cmp-body" style="display:none;padding-top:14px;border-top:1px solid var(--border);margin-top:12px">
+          <p style="font-size:.82em;color:var(--muted);margin-bottom:12px">
+            Runs 7 OWASP attack scenarios against <code>vulnerable-api:8000</code> and <code>hardened-api:8001</code>
+            simultaneously and generates a side-by-side comparison report saved to /reports.
+          </p>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button class="btn" id="cmp-run-btn" onclick="runComparison()"
+              style="background:rgba(188,140,255,.12);border-color:rgba(188,140,255,.4);color:var(--purple);font-weight:600">
+              &#9654; Run Comparison
+            </button>
+            <span id="cmp-status" style="font-size:.82em;color:var(--muted)"></span>
+          </div>
+          <div id="cmp-result" style="display:none;margin-top:14px;padding:14px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+            <div id="cmp-result-body"></div>
+            <div id="cmp-actions" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="reports-list"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- CVE Tooltip -->
+<div id="cve-tip">
+  <div class="tip-owasp" id="tip-owasp"></div>
+  <div class="tip-sec">Related CVEs</div>
+  <div class="tip-cve-row" id="tip-cves"></div>
+  <div class="tip-sec">Remediation</div>
+  <div class="tip-fix" id="tip-fix"></div>
+</div>
+
+<!-- Modal -->
+<div id="modal" class="modal hidden" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   CVE TOOLTIP DATA
+═══════════════════════════════════════════════════════════════════════════ */
+const REASON_MAP = {
+  debug_endpoint_access: {
+    owasp: 'API8:2023 — Security Misconfiguration',
+    color: '#e3b341',
+    cves: ['CVE-2021-44228','CVE-2020-1938','CVE-2019-0232'],
+    fix: 'Remove /debug endpoints before production deployment; use ENV flags to gate them.'
+  },
+  admin_endpoint_access: {
+    owasp: 'API5:2023 — Broken Function Level Authorization',
+    color: '#f85149',
+    cves: ['CVE-2021-41773','CVE-2022-22947','CVE-2020-14882'],
+    fix: 'Add a role-check dependency to every admin route. Default to deny — require explicit permission grant.'
+  },
+  elevated_error_rate: {
+    owasp: 'API4:2023 — Unrestricted Resource Consumption',
+    color: '#ffa657',
+    cves: ['CVE-2019-11324','CVE-2020-26258','CVE-2021-25742'],
+    fix: 'Apply rate limiting (5/min) on auth endpoints; implement IP lockout after repeated failures.'
+  },
+  slow_response: {
+    owasp: 'API4:2023 — Unrestricted Resource Consumption',
+    color: '#ffa657',
+    cves: ['CVE-2021-25742'],
+    fix: 'Set request timeouts; reject oversized payloads early; add resource quotas per client.'
+  },
+  unusual_pattern: {
+    owasp: 'API1:2023 — Broken Object Level Authorization',
+    color: '#bc8cff',
+    cves: ['CVE-2019-14234','CVE-2020-7927','CVE-2021-21302'],
+    fix: 'Verify object ownership on every data endpoint: check current_user.id == resource.owner_id.'
+  },
+};
+
+function showTip(el, reason) {
+  const info = REASON_MAP[reason];
+  if (!info) return;
+  document.getElementById('tip-owasp').textContent = info.owasp;
+  document.getElementById('tip-owasp').style.color = info.color;
+  document.getElementById('tip-cves').innerHTML = info.cves
+    .map(c => `<span class="tip-cve-chip">${c}</span>`).join('');
+  document.getElementById('tip-fix').textContent = info.fix;
+  const tip = document.getElementById('cve-tip');
+  const rect = el.getBoundingClientRect();
+  let left = rect.left + window.scrollX;
+  if (left + 310 > window.innerWidth) left = window.innerWidth - 316;
+  tip.style.left = left + 'px';
+  tip.style.top  = (rect.bottom + window.scrollY + 6) + 'px';
+  tip.classList.add('show');
+}
+
+function hideTip() {
+  document.getElementById('cve-tip').classList.remove('show');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════════════ */
+const state = {
+  tab: 'overview',
+  stats: null,
+  timeline: [],
+  endpoints: [],
+  feed: [],
+  anomalies: [],
+  reports: [],
+  repFilter: 'all',
+  selectedReports: new Set(),
+  _visibleReports: [],
+  lscData: null,
+  feedFilter: { method: '', status: '', anomalyOnly: false, path: '' },
+  feedSort: { key: 'id', asc: false },
+  epSort: { key: 'total', asc: false },
+  feedLimit: 100,
+  timeWindow: 60,
+  refreshSecs: 10,
+  countdown: 10,
+  timer: null,
+  charts: {},
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FETCH
+═══════════════════════════════════════════════════════════════════════════ */
+const api = path => fetch(path).then(r => r.json()).catch(() => null);
+
+async function resetLogs() {
+  if (!confirm('Clear all traffic logs from the database? This cannot be undone.')) return;
+  const btn = document.getElementById('reset-btn');
+  btn.textContent = 'Clearing…';
+  btn.disabled = true;
+  try {
+    await fetch('/monitor/reset-logs', {method: 'POST'});
+    await fetchAll();
+  } finally {
+    btn.innerHTML = '&#8856; Reset Logs';
+    btn.disabled = false;
+  }
+}
+
+async function fetchAll() {
+  document.getElementById('last-updated').textContent = 'Updating…';
+  const [stats, timeline, endpoints, feed, anomalies] = await Promise.all([
+    api('/monitor/stats'),
+    api(`/monitor/timeline?minutes=${state.timeWindow}`),
+    api('/monitor/endpoints?limit=30'),
+    api(`/monitor/feed?limit=${state.feedLimit}`),
+    api('/monitor/anomalies?limit=200'),
+  ]);
+  if (stats)      state.stats     = stats;
+  if (timeline)   state.timeline  = timeline;
+  if (endpoints)  state.endpoints = endpoints;
+  if (feed)       state.feed      = feed;
+  if (anomalies)  state.anomalies = anomalies;
+
+  document.getElementById('last-updated').textContent =
+    'Updated: ' + new Date().toLocaleTimeString();
+  renderAll();
+  resetCountdown();
+}
+
+async function fetchFeed() {
+  const feed = await api(`/monitor/feed?limit=${state.feedLimit}`);
+  if (feed) { state.feed = feed; renderFeedTable(); }
+}
+
+async function fetchReports() {
+  const reports = await api('/monitor/reports');
+  if (reports) { state.reports = reports; renderReports(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RENDER — dispatch
+═══════════════════════════════════════════════════════════════════════════ */
+function renderAll() {
+  renderStats();
+  updateCharts();
+  renderFeedTable();
+  renderAnomalyTab();
+  renderEndpointsTable();
+  updateAnomalyBadge();
+}
+
+/* ─── Stats cards ─────────────────────────────────────────────────── */
+function renderStats() {
+  const s = state.stats;
+  if (!s) return;
+  setText('s-total',    s.total_requests);
+  setText('s-rpm',      `${s.recent_per_2min} in last 2 min`);
+  setText('s-anomalies', s.anomalies);
+  setText('s-arate',    `${s.anomaly_rate}% anomaly rate`);
+  setText('s-erate',    s.error_rate + '%');
+  setText('s-ecount',   `${s.error_count} error responses`);
+  setText('s-avgms',    s.avg_response_ms + ' ms');
+  const authRate = s.total_requests ? Math.round(s.authenticated / s.total_requests * 100) : 0;
+  setText('s-authrate', authRate + '%');
+  setText('s-unauth',   `${s.unauthenticated} unauthenticated`);
+  const last = s.last_anomaly_secs;
+  setText('s-last', last < 0 ? 'None' : last);
+
+  // Traffic status bar
+  const bar = document.getElementById('traffic-status');
+  if (bar) {
+    const lrt = s.last_request_time;
+    if (!lrt) {
+      bar.style.display = 'block';
+      bar.style.color = 'var(--muted)';
+      bar.style.borderColor = 'var(--border)';
+      bar.innerHTML = '⬤ &nbsp;No traffic yet — stats update when API requests flow through <strong>port 9000</strong> (the proxy).';
+    } else if (s.recent_per_2min > 0) {
+      bar.style.display = 'block';
+      bar.style.color = 'var(--green)';
+      bar.style.borderColor = 'var(--green)';
+      bar.innerHTML = `⬤ &nbsp;Traffic active — last request logged at <strong>${lrt}</strong>`;
+    } else {
+      bar.style.display = 'block';
+      bar.style.color = 'var(--yellow)';
+      bar.style.borderColor = 'var(--yellow)';
+      bar.innerHTML = `⬤ &nbsp;Traffic idle — last request was at <strong>${lrt}</strong>. Stats update when requests go through <strong>port 9000</strong>.`;
+    }
+  }
+}
+
+/* ─── Anomaly badge ───────────────────────────────────────────────── */
+function updateAnomalyBadge() {
+  const n = state.anomalies.length;
+  const el = document.getElementById('anomaly-badge');
+  el.textContent = n;
+  el.classList.toggle('hidden', n === 0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════════════════════════════════════════ */
+const CHART_OPTS = {
+  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+  scales:  {
+    x: { ticks: { color: '#8b949e', maxTicksLimit: 12 }, grid: { color: '#21262d' } },
+    y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' }, beginAtZero: true },
+  },
+};
+const DONUT_OPTS = {
+  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+};
+
+function mkChart(id, type, data, opts) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  if (state.charts[id]) state.charts[id].destroy();
+  state.charts[id] = new Chart(ctx, { type, data, options: opts });
+  return state.charts[id];
+}
+
+function updateCharts() {
+  buildTimeline();
+  buildMethodChart();
+  buildStatusChart();
+  buildTopChart();
+  buildEpBarChart();
+  buildTopPathsChart();
+  buildAnomalyMethodChart();
+  buildReasonChart();
+}
+
+function buildTimeline() {
+  const d = state.timeline.slice(-(state.timeWindow));
+  mkChart('timelineChart', 'line', {
+    labels: d.map(r => r.minute),
+    datasets: [
+      { label: 'Requests', data: d.map(r => r.total),
+        borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.08)',
+        tension: .4, fill: true, pointRadius: 2 },
+      { label: 'Anomalies', data: d.map(r => r.anomalies),
+        borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,.08)',
+        tension: .4, fill: true, pointRadius: 2, yAxisID: 'y2' },
+    ],
+  }, { ...CHART_OPTS,
+    scales: {
+      x:  { ...CHART_OPTS.scales.x },
+      y:  { ...CHART_OPTS.scales.y, title: { display: true, text: 'Requests', color: '#58a6ff', font:{size:10} } },
+      y2: { position:'right', ticks:{color:'#f85149'}, grid:{drawOnChartArea:false},
+             beginAtZero:true, title:{display:true,text:'Anomalies',color:'#f85149',font:{size:10}} },
+    },
+  });
+}
+
+function buildMethodChart() {
+  const m = state.stats?.method_counts || {};
+  const keys = Object.keys(m);
+  const colors = { GET:'rgba(63,185,80,.75)', POST:'rgba(88,166,255,.75)',
+                   PUT:'rgba(227,179,65,.75)', DELETE:'rgba(248,81,73,.75)',
+                   PATCH:'rgba(188,140,255,.75)' };
+  mkChart('methodChart', 'doughnut', {
+    labels: keys,
+    datasets: [{ data: keys.map(k => m[k]),
+      backgroundColor: keys.map(k => colors[k] || 'rgba(139,148,158,.5)'),
+      borderColor: '#161b22', borderWidth: 2 }],
+  }, DONUT_OPTS);
+}
+
+function buildStatusChart() {
+  const s = state.stats?.status_buckets || {};
+  const keys = Object.keys(s).sort();
+  const colors = { '2xx':'rgba(63,185,80,.75)', '3xx':'rgba(88,166,255,.75)',
+                   '4xx':'rgba(227,179,65,.75)', '5xx':'rgba(248,81,73,.75)' };
+  mkChart('statusChart', 'doughnut', {
+    labels: keys,
+    datasets: [{ data: keys.map(k => s[k]),
+      backgroundColor: keys.map(k => colors[k] || 'rgba(139,148,158,.5)'),
+      borderColor: '#161b22', borderWidth: 2 }],
+  }, DONUT_OPTS);
+}
+
+function buildTopChart() {
+  const eps = [...state.endpoints].sort((a,b) => b.total - a.total).slice(0, 8);
+  mkChart('topChart', 'bar', {
+    labels: eps.map(e => e.path.length > 22 ? e.path.slice(0,20)+'…' : e.path),
+    datasets: [
+      { label: 'Requests', data: eps.map(e => e.total),
+        backgroundColor: 'rgba(88,166,255,.7)', borderRadius: 4 },
+      { label: 'Anomalies', data: eps.map(e => e.anomalies),
+        backgroundColor: 'rgba(248,81,73,.7)', borderRadius: 4 },
+    ],
+  }, { ...CHART_OPTS, indexAxis: 'y',
+    scales: {
+      x: { ...CHART_OPTS.scales.x, stacked: false },
+      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+    },
+  });
+}
+
+function buildEpBarChart() {
+  const eps = [...state.endpoints].sort((a,b) => b.total - a.total).slice(0, 15);
+  mkChart('epBarChart', 'bar', {
+    labels: eps.map(e => e.path),
+    datasets: [
+      { label: 'Total', data: eps.map(e => e.total),
+        backgroundColor: 'rgba(88,166,255,.6)', borderRadius: 4 },
+      { label: 'Errors', data: eps.map(e => e.errors),
+        backgroundColor: 'rgba(227,179,65,.7)', borderRadius: 4 },
+      { label: 'Anomalies', data: eps.map(e => e.anomalies),
+        backgroundColor: 'rgba(248,81,73,.7)', borderRadius: 4 },
+    ],
+  }, { ...CHART_OPTS, indexAxis: 'y' });
+}
+
+function buildTopPathsChart() {
+  const counts = {};
+  state.anomalies.forEach(a => { counts[a.path] = (counts[a.path] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,8);
+  if (!entries.length) { mkChart('anomalyPathChart','bar',{labels:[],datasets:[]},CHART_OPTS); return; }
+  mkChart('anomalyPathChart', 'bar', {
+    labels: entries.map(([k]) => k.length > 24 ? k.slice(0,22)+'…' : k),
+    datasets: [{ label: 'Anomalies', data: entries.map(([,v]) => v),
+      backgroundColor: 'rgba(248,81,73,.7)', borderRadius: 4 }],
+  }, { ...CHART_OPTS, indexAxis: 'y',
+    scales: {
+      x: { ...CHART_OPTS.scales.x, ticks: { ...CHART_OPTS.scales.x.ticks, stepSize: 1 } },
+      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+    },
+  });
+}
+
+function buildAnomalyMethodChart() {
+  const counts = {};
+  state.anomalies.forEach(a => { const m = a.method || 'UNKNOWN'; counts[m] = (counts[m]||0)+1; });
+  const keys = Object.keys(counts);
+  if (!keys.length) { mkChart('anomalyMethodChart','doughnut',{labels:[],datasets:[]},DONUT_OPTS); return; }
+  const colors = { GET:'rgba(63,185,80,.75)', POST:'rgba(88,166,255,.75)',
+                   PUT:'rgba(227,179,65,.75)', DELETE:'rgba(248,81,73,.75)', PATCH:'rgba(188,140,255,.75)' };
+  mkChart('anomalyMethodChart', 'doughnut', {
+    labels: keys,
+    datasets: [{ data: keys.map(k => counts[k]),
+      backgroundColor: keys.map(k => colors[k]||'rgba(139,148,158,.5)'),
+      borderColor: '#161b22', borderWidth: 2 }],
+  }, DONUT_OPTS);
+}
+
+function buildReasonChart() {
+  const counts = {};
+  state.anomalies.forEach(a => {
+    const r = a.anomaly_reason || 'unknown';
+    counts[r] = (counts[r] || 0) + 1;
+  });
+  const keys = Object.keys(counts);
+  const colors = ['#f85149','#e3b341','#58a6ff','#3fb950','#bc8cff','#ffa657'];
+  mkChart('reasonChart', 'doughnut', {
+    labels: keys,
+    datasets: [{ data: keys.map(k => counts[k]),
+      backgroundColor: keys.map((_,i) => colors[i % colors.length]),
+      borderColor: '#161b22', borderWidth: 2 }],
+  }, DONUT_OPTS);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FEED TABLE
+═══════════════════════════════════════════════════════════════════════════ */
+function renderFeedTable() {
+  let rows = [...state.feed];
+  const f  = state.feedFilter;
+
+  if (f.method) rows = rows.filter(r => r.method === f.method);
+  if (f.status) rows = rows.filter(r => String(r.status_code).startsWith(f.status));
+  if (f.anomalyOnly || document.getElementById('anomaly-only')?.checked)
+    rows = rows.filter(r => r.anomaly);
+  const q = document.getElementById('path-search')?.value.trim();
+  if (q) rows = rows.filter(r => r.path.includes(q));
+
+  const { key, asc } = state.feedSort;
+  rows.sort((a,b) => {
+    const v = a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0;
+    return asc ? v : -v;
+  });
+
+  setText('feed-meta', `Showing ${rows.length} of ${state.feed.length} requests`);
+  document.getElementById('feed-body').innerHTML = rows.map((r,i) =>
+    `<tr class="${r.anomaly ? 'row-anomaly' : ''}" onclick="openModal(${JSON.stringify(JSON.stringify(r))})">
+      <td>${i+1}</td>
+      <td>${r.timestamp}</td>
+      <td class="m-${r.method.toLowerCase()}">${r.method}</td>
+      <td title="${r.path}">${r.path.length>40 ? r.path.slice(0,38)+'…' : r.path}</td>
+      <td class="s-${String(r.status_code)[0]}">${r.status_code}</td>
+      <td>${r.response_time_ms}</td>
+      <td>${r.has_auth ? '✓' : '—'}</td>
+      <td><span class="badge ${r.anomaly ? 'badge-yes' : 'badge-no'}">${r.anomaly ? 'YES' : 'no'}</span></td>
+      <td>${r.anomaly_reason ? `<span class="tip-reason" onmouseenter="showTip(this,'${r.anomaly_reason}')" onmouseleave="hideTip()">${r.anomaly_reason}</span>` : ''}</td>
+    </tr>`
+  ).join('');
+}
+
+function setFilter(type, val, btn) {
+  if (type === 'method') state.feedFilter.method = val;
+  if (type === 'status') state.feedFilter.status = val;
+  btn.closest('.btn-group').querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderFeedTable();
+}
+
+function sortFeed(key) {
+  if (state.feedSort.key === key) state.feedSort.asc = !state.feedSort.asc;
+  else { state.feedSort.key = key; state.feedSort.asc = false; }
+  renderFeedTable();
+}
+
+function exportCSV() {
+  let rows = [...state.feed];
+  const headers = ['id','timestamp','method','path','status_code','response_time_ms','has_auth','anomaly','anomaly_score','anomaly_reason'];
+  const csv = [headers.join(','), ...rows.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','))].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = `traffic_${Date.now()}.csv`;
+  a.click();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANOMALIES TAB
+═══════════════════════════════════════════════════════════════════════════ */
+function renderAnomalyTab() {
+  const rows = state.anomalies;
+  const banner = document.getElementById('anomaly-alert');
+  const s = state.stats;
+
+  if (rows.length === 0) {
+    banner.className = 'alert-banner alert-ok';
+    banner.textContent = '✓ No anomalies detected in current traffic log.';
+    banner.classList.remove('hidden');
+  } else {
+    const ago = s?.last_anomaly_secs >= 0 ? `${s.last_anomaly_secs}s ago` : 'recently';
+    banner.className = 'alert-banner alert-warn';
+    banner.textContent = `⚠ ${rows.length} anomalies detected — last detected ${ago}`;
+    banner.classList.remove('hidden');
+  }
+
+  setText('anomaly-meta', `${rows.length} anomalous requests`);
+  document.getElementById('anomaly-body').innerHTML = rows.map((r,i) =>
+    `<tr class="row-anomaly" onclick="openModal(${JSON.stringify(JSON.stringify(r))})">
+      <td>${i+1}</td>
+      <td>${r.timestamp}</td>
+      <td class="m-${(r.method||'').toLowerCase()}">${r.method||''}</td>
+      <td title="${r.path}">${r.path?.length>40 ? r.path.slice(0,38)+'…' : r.path||''}</td>
+      <td class="s-${String(r.status_code)[0]}">${r.status_code}</td>
+      <td>${r.response_time_ms}</td>
+      <td style="color:var(--muted);font-size:.8em">${(r.anomaly_score||0).toFixed(4)}</td>
+      <td style="color:var(--red)">${r.anomaly_reason ? `<span class="tip-reason" style="color:var(--red)" onmouseenter="showTip(this,'${r.anomaly_reason}')" onmouseleave="hideTip()">${r.anomaly_reason}</span>` : ''}</td>
+    </tr>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENDPOINTS TAB
+═══════════════════════════════════════════════════════════════════════════ */
+function renderEndpointsTable() {
+  const q = document.getElementById('ep-search')?.value.trim().toLowerCase();
+  let rows = [...state.endpoints];
+  if (q) rows = rows.filter(r => r.path.toLowerCase().includes(q));
+
+  const { key, asc } = state.epSort;
+  rows.sort((a,b) => {
+    const v = a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0;
+    return asc ? v : -v;
+  });
+
+  setText('ep-meta', `${rows.length} endpoints`);
+  document.getElementById('ep-body').innerHTML = rows.map(r => {
+    const errColor = r.error_rate > 20 ? 'var(--red)' : r.error_rate > 5 ? 'var(--yellow)' : 'var(--green)';
+    return `<tr onclick="openModal(${JSON.stringify(JSON.stringify(r))})">
+      <td title="${r.path}">${r.path.length>45 ? r.path.slice(0,43)+'…' : r.path}</td>
+      <td style="color:var(--blue)">${r.total}</td>
+      <td>${r.errors}</td>
+      <td style="color:${errColor}">${r.error_rate}%</td>
+      <td style="color:${r.anomalies>0?'var(--red)':'var(--muted)'}">${r.anomalies}</td>
+      <td>${r.avg_ms} ms</td>
+      <td>${r.authenticated || 0}</td>
+    </tr>`;
+  }).join('');
+}
+
+function sortEndpoints(key) {
+  if (state.epSort.key === key) state.epSort.asc = !state.epSort.asc;
+  else { state.epSort.key = key; state.epSort.asc = false; }
+  renderEndpointsTable();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REPORTS TAB
+═══════════════════════════════════════════════════════════════════════════ */
+function setRepFilter(f, btn) {
+  state.repFilter = f;
+  document.querySelectorAll('#tab-reports .btn-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderReports();
+}
+
+function scoreChip(score) {
+  if (score == null) return '';
+  const cls = score >= 80 ? 'score-good' : score >= 50 ? 'score-mid' : 'score-bad';
+  return `<span class="score-chip ${cls}">${score}%</span>`;
+}
+
+function renderReports() {
+  let rows = [...state.reports];
+  const q = document.getElementById('rep-search')?.value.trim().toLowerCase();
+  if (q) rows = rows.filter(r =>
+    (r.target||'').toLowerCase().includes(q) ||
+    (r.timestamp||'').toLowerCase().includes(q) ||
+    (r.json_file||'').toLowerCase().includes(q)
+  );
+
+  const scans = state.reports.filter(r => r.json_file?.startsWith('report_'));
+  const comps  = state.reports.filter(r => r.json_file?.startsWith('comparison_'));
+
+  setText('rep-total',       state.reports.length);
+  setText('rep-scans',       scans.length);
+  setText('rep-comparisons', comps.length);
+
+  const repBadge = document.getElementById('reports-badge');
+  repBadge.textContent = state.reports.length;
+  repBadge.classList.toggle('hidden', state.reports.length === 0);
+
+  if (state.repFilter === 'scan')       rows = rows.filter(r => r.json_file?.startsWith('report_'));
+  if (state.repFilter === 'comparison') rows = rows.filter(r => r.json_file?.startsWith('comparison_'));
+
+  // Prune selection to only reports that still exist
+  const allFileSet = new Set(state.reports.map(r => r.json_file));
+  for (const fn of state.selectedReports) {
+    if (!allFileSet.has(fn)) state.selectedReports.delete(fn);
+  }
+  state._visibleReports = rows;
+
+  const el = document.getElementById('reports-list');
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="icon">📋</div>
+      <p>No reports yet. Run the testing engine or use the Scanner to generate reports.</p>
+      <p style="margin-top:8px;font-size:.82em;color:var(--muted)">
+        docker compose run --rm --profile tools testing-engine
+      </p>
+    </div>`;
+    updateSelTB();
+    return;
+  }
+
+  el.innerHTML = rows.map(r => {
+    const isScan = r.json_file?.startsWith('report_');
+    const type = isScan ? 'scan' : 'comparison';
+    const typeLabel = isScan ? 'Scan Report' : 'Comparison';
+    const checked = state.selectedReports.has(r.json_file) ? 'checked' : '';
+    const selCls  = state.selectedReports.has(r.json_file) ? ' selected' : '';
+    const detailBadge = r.detail
+      ? `<span class="detail-badge detail-${r.detail}">${r.detail}</span>`
+      : '';
+    let scoreHtml = '';
+    if (isScan && r.score != null) {
+      scoreHtml = scoreChip(r.score);
+    } else if (!isScan && r.vuln_score != null && r.hard_score != null) {
+      scoreHtml = `
+        <span style="font-size:.82em;color:var(--muted);margin-right:4px">Vuln:</span>${scoreChip(r.vuln_score)}
+        <span style="font-size:.82em;color:var(--muted);margin:0 4px">Hard:</span>${scoreChip(r.hard_score)}`;
+    }
+    const htmlLink = r.html_file
+      ? `<a class="btn-report btn-html" href="/monitor/reports/${r.html_file}" target="_blank">Open Report</a>`
+      : '';
+    const jsonLink = `<a class="btn-report btn-json" href="/monitor/reports/${r.json_file}" target="_blank" download>JSON</a>`;
+    const delLink  = `<button class="btn-report" onclick="deleteReport('${r.json_file}')" style="color:var(--red);border-color:rgba(248,81,73,.35);background:rgba(248,81,73,.07);cursor:pointer">Delete</button>`;
+
+    return `<div class="report-card${selCls}" id="card-${r.json_file}">
+      <div class="report-card-hdr">
+        <input type="checkbox" class="rep-cb" ${checked} onchange="toggleSelect('${r.json_file}',this)">
+        <span class="report-type type-${type}">${typeLabel}</span>
+        ${detailBadge}
+        <span class="report-target" title="${r.target||''}">${r.target || r.json_file}</span>
+        <span class="report-ts">${r.timestamp || ''}</span>
+      </div>
+      <div class="report-score-row">
+        ${scoreHtml}
+        <div class="report-actions">${htmlLink}${jsonLink}${delLink}</div>
+      </div>
+    </div>`;
+  }).join('');
+  updateSelTB();
+}
+
+function toggleSelect(fn, cb) {
+  if (cb.checked) state.selectedReports.add(fn);
+  else            state.selectedReports.delete(fn);
+  const card = document.getElementById(`card-${fn}`);
+  if (card) card.classList.toggle('selected', cb.checked);
+  updateSelTB();
+}
+
+function selectAllVisible() {
+  (state._visibleReports || []).forEach(r => state.selectedReports.add(r.json_file));
+  renderReports();
+}
+
+function clearSelection() {
+  state.selectedReports.clear();
+  renderReports();
+}
+
+function updateSelTB() {
+  const n = state.selectedReports.size;
+  const bar = document.getElementById('sel-bar');
+  const cnt = document.getElementById('sel-count');
+  if (bar) bar.classList.toggle('active', n > 0);
+  if (cnt) cnt.textContent = `${n} selected`;
+}
+
+async function deleteSelected() {
+  const files = [...state.selectedReports];
+  if (!files.length) return;
+  if (!confirm(`Permanently delete ${files.length} report${files.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+  const btn = document.querySelector('#sel-bar .btn-del-sel');
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    await Promise.all(files.map(fn =>
+      fetch(`/monitor/reports/${fn}`, {method: 'DELETE'}).catch(() => {})
+    ));
+  } finally {
+    state.selectedReports.clear();
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#128465; Delete Selected'; }
+    await fetchReports();
+  }
+}
+
+async function deleteReport(filename) {
+  if (!confirm(`Delete "${filename}" and its HTML? This cannot be undone.`)) return;
+  const card = document.getElementById(`card-${filename}`);
+  if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+  state.selectedReports.delete(filename);
+  try {
+    const r = await fetch(`/monitor/reports/${filename}`, {method: 'DELETE'});
+    if (!r.ok) { alert('Delete failed: ' + (await r.text())); }
+    await fetchReports();
+  } catch(e) {
+    alert('Delete error: ' + e.message);
+    if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════════════════════════════════ */
+function openModal(jsonStr) {
+  const r = JSON.parse(jsonStr);
+  const fields = Object.entries(r).map(([k,v]) =>
+    `<div class="modal-field">
+       <label>${k.replace(/_/g,' ')}</label>
+       <div class="val" style="color:${v===1?'var(--green)':v===0&&k.includes('anomaly')&&k!='anomaly_score'?'var(--muted)':k==='anomaly'&&v?'var(--red)':'var(--text)'}">${v ?? '—'}</div>
+     </div>`
+  ).join('');
+  document.getElementById('modal-content').innerHTML =
+    `<div class="modal-title">Request Detail</div>
+     <div class="modal-grid">${fields}</div>`;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════════════════════════════ */
+function switchTab(name, btn) {
+  state.tab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.nav-link[data-tab]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const titles = { overview:'Overview', feed:'Live Feed', anomalies:'Anomalies', endpoints:'Endpoints', reports:'Reports' };
+  document.getElementById('page-title').textContent = titles[name] || name;
+  if (name === 'endpoints') { buildEpBarChart(); renderEndpointsTable(); }
+  if (name === 'anomalies') { buildTopPathsChart(); buildAnomalyMethodChart(); buildReasonChart(); renderAnomalyTab(); }
+  if (name === 'feed')     renderFeedTable();
+  if (name === 'reports')  { fetchReports(); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIME WINDOW
+═══════════════════════════════════════════════════════════════════════════ */
+function setTimeWindow(n, btn) {
+  state.timeWindow = n;
+  document.querySelectorAll('#tab-overview .btn-sm').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  buildTimeline();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTO-REFRESH
+═══════════════════════════════════════════════════════════════════════════ */
+function setRefreshInterval(secs) {
+  state.refreshSecs = secs;
+  clearInterval(state.timer);
+  if (secs > 0) {
+    state.countdown = secs;
+    updateCountdown();
+    state.timer = setInterval(tick, 1000);
+    document.getElementById('countdown-row').style.display = '';
+  } else {
+    document.getElementById('countdown-row').style.display = 'none';
+  }
+}
+
+function tick() {
+  state.countdown--;
+  updateCountdown();
+  if (state.countdown <= 0) { fetchAll(); }
+}
+
+function resetCountdown() {
+  state.countdown = state.refreshSecs;
+  updateCountdown();
+}
+
+function updateCountdown() {
+  const el = document.getElementById('countdown');
+  if (el) el.textContent = state.countdown;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════════════════════════════════ */
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIVE SCAN PANEL
+═══════════════════════════════════════════════════════════════════════════ */
+function toggleLiveScan() {
+  const body = document.getElementById('lsc-body');
+  const btn  = document.getElementById('lsc-toggle-btn');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  btn.innerHTML = open ? '&#9660; Show' : '&#9650; Hide';
+}
+
+function lscPreset(name) {
+  const targets = {
+    vulnerable: 'http://vulnerable-api:8000',
+    hardened:   'http://hardened-api:8001',
+  };
+  document.getElementById('lsc-target').value = targets[name] || '';
+}
+
+async function runLiveScan() {
+  const target = document.getElementById('lsc-target').value.trim();
+  if (!target) return alert('Enter a target URL or select a preset.');
+  const detail = document.querySelector('input[name="lsc-detail"]:checked')?.value || 'brief';
+
+  const btn    = document.getElementById('lsc-run-btn');
+  const status = document.getElementById('lsc-status');
+  btn.disabled = true;
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Scanning — this may take 20–40 seconds…';
+  document.getElementById('lsc-result').style.display = 'none';
+
+  try {
+    const r = await fetch('/monitor/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target,
+        auth_endpoint:  '/auth/login',
+        auth_body:      { username: 'alice', password: 'alice123' },
+        token_field:    'access_token',
+        bola_path:      '/users/{id}',
+        update_path:    '/users/1',
+        protected_path: '/admin/users',
+      }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    state.lscData = data;
+    renderLiveScanResult(data, detail);
+    status.textContent = '';
+  } catch(e) {
+    status.style.color = 'var(--red)';
+    status.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderLiveScanResult(data, detail) {
+  const sc = data.score >= 80 ? 'var(--green)' : data.score >= 50 ? 'var(--yellow)' : 'var(--red)';
+  document.getElementById('lsc-result-body').innerHTML = `
+    <div class="lsc-score-grid">
+      <div class="lsc-score-card"><div class="lsc-num" style="color:${sc}">${data.score}%</div><div class="lsc-lbl">Security Score</div></div>
+      <div class="lsc-score-card"><div class="lsc-num" style="color:var(--blue)">${data.total_tests}</div><div class="lsc-lbl">Tests Run</div></div>
+      <div class="lsc-score-card"><div class="lsc-num" style="color:var(--red)">${data.total_vulnerable}</div><div class="lsc-lbl">Vulnerable</div></div>
+      <div class="lsc-score-card"><div class="lsc-num" style="color:var(--green)">${data.total_tests - data.total_vulnerable}</div><div class="lsc-lbl">Passed</div></div>
+    </div>
+    <div style="font-size:.8em;color:var(--muted)">
+      Target: <code style="color:var(--text)">${data.target}</code>
+      &nbsp;|&nbsp; ${data.timestamp}
+    </div>`;
+  document.getElementById('lsc-actions').innerHTML = `
+    <button class="btn btn-save-brief" onclick="saveLiveReport('brief')">Save Brief Report</button>
+    <button class="btn btn-save-detail" onclick="saveLiveReport('detailed')">Save Detailed Report</button>
+    <span id="lsc-save-msg" style="font-size:.82em;color:var(--muted)"></span>`;
+  document.getElementById('lsc-result').style.display = 'block';
+}
+
+async function saveLiveReport(detail) {
+  const data = state.lscData;
+  if (!data) return;
+  const msg = document.getElementById('lsc-save-msg');
+  msg.style.color = 'var(--muted)';
+  msg.textContent = 'Saving…';
+  try {
+    const r = await fetch('/monitor/save-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        target:          data.target,
+        timestamp:       data.timestamp,
+        score:           data.score,
+        total_tests:     data.total_tests,
+        total_vulnerable: data.total_vulnerable,
+        categories:      data.categories,
+        detail,
+      }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const res = await r.json();
+    msg.innerHTML = `Saved! <a href="/monitor/reports/${res.html_file}" target="_blank" style="color:var(--blue);font-weight:600">View Report &rarr;</a>`;
+    fetchReports();
+  } catch(e) {
+    msg.style.color = 'var(--red)';
+    msg.textContent = 'Error: ' + e.message;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPARISON PANEL
+═══════════════════════════════════════════════════════════════════════════ */
+function toggleComparison() {
+  const body = document.getElementById('cmp-body');
+  const btn  = document.getElementById('cmp-toggle-btn');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  btn.innerHTML = open ? '&#9660; Show' : '&#9650; Hide';
+}
+
+async function runComparison() {
+  const btn    = document.getElementById('cmp-run-btn');
+  const status = document.getElementById('cmp-status');
+  btn.disabled = true;
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Running — this may take 30–60 seconds…';
+  document.getElementById('cmp-result').style.display = 'none';
+  try {
+    const r = await fetch('/monitor/run-comparison', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({})
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    renderComparisonResult(data);
+    status.textContent = '';
+    fetchReports();
+  } catch(e) {
+    status.style.color = 'var(--red)';
+    status.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderComparisonResult(data) {
+  const impColor = data.improvement > 0 ? 'var(--green)' : data.improvement < 0 ? 'var(--red)' : 'var(--yellow)';
+  const impSign  = data.improvement > 0 ? '+' : '';
+  document.getElementById('cmp-result-body').innerHTML = `
+    <div class="lsc-score-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="lsc-score-card"><div class="lsc-num" style="color:var(--red)">${data.vuln_score}%</div><div class="lsc-lbl">Vulnerable Score</div></div>
+      <div class="lsc-score-card"><div class="lsc-num" style="color:${impColor}">${impSign}${data.improvement}pp</div><div class="lsc-lbl">Improvement</div></div>
+      <div class="lsc-score-card"><div class="lsc-num" style="color:var(--green)">${data.hard_score}%</div><div class="lsc-lbl">Hardened Score</div></div>
+    </div>
+    <div style="font-size:.8em;color:var(--muted);margin-top:4px">
+      Scenarios: ${data.total_scenarios} &nbsp;|&nbsp; ${data.timestamp}
+    </div>`;
+  document.getElementById('cmp-actions').innerHTML = `
+    <a href="/monitor/reports/${data.html_file}" target="_blank" class="btn"
+       style="color:var(--purple);border-color:rgba(188,140,255,.4);background:rgba(188,140,255,.12)">
+      View Comparison Report &rarr;
+    </a>
+    <span style="font-size:.8em;color:var(--muted)">Saved as ${data.json_file}</span>`;
+  document.getElementById('cmp-result').style.display = 'block';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  fetchAll();
+  fetchReports();
+  setRefreshInterval(10);
+});
+</script>
+</body>
+</html>

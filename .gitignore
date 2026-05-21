@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+.env
+
+# Data — generated at runtime, not source
+data/traffic.db
+data/model.joblib
+
+# Generated reports — produced by the scanner and comparison tool
+reports/*.html
+reports/*.json
+
+# Generated presenter guide (binary PDF and derived HTML)
+CY384_Presenter_Guide.pdf
+CY384_Presenter_Guide.html
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
