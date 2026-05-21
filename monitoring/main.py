@@ -215,12 +215,20 @@ async def dashboard(request: Request):
 
 class ScanRequest(BaseModel):
     target: str
+    # auth: login-flow
     auth_endpoint: Optional[str] = "/auth/login"
     auth_body: Optional[dict] = None
     token_field: Optional[str] = "access_token"
+    # auth: direct token / API key
+    direct_token: Optional[str] = None
+    api_key_header: Optional[str] = None
+    api_key_value: Optional[str] = None
+    # endpoint config
     bola_path: Optional[str] = "/users/{id}"
     update_path: Optional[str] = "/users/1"
     protected_path: Optional[str] = "/admin/users"
+    # test selection: None = all; else list of "api1","api2","api3","api4","api5","api8"
+    tests: Optional[list] = None
 
 
 class SaveReportRequest(BaseModel):
@@ -328,62 +336,147 @@ _CVE_DB_M = {
 
 @app.post("/monitor/scan")
 async def external_scan(req: ScanRequest):
-    base = req.target.rstrip("/")
+    base    = req.target.rstrip("/")
     results: list = []
-    token = ""
+    token   = req.direct_token or ""
     user_id = 1
+    _run    = set(req.tests) if req.tests else {"api1","api2","api3","api4","api5","api8"}
+
+    # Build effective auth headers from whichever method was provided
+    eff_hdrs: dict = {}
+    if req.api_key_header and req.api_key_value:
+        eff_hdrs[req.api_key_header] = req.api_key_value
+    if token:
+        eff_hdrs["Authorization"] = f"Bearer {token}"
+        try:
+            _pld = _json.loads(_b64.b64decode(token.split(".")[1] + "=="))
+            user_id = int(_pld.get("sub", 1))
+        except Exception:
+            pass
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
-        # ── API8 / API5: sensitive path enumeration ──
-        # Vulnerable = endpoint returns 200 without any authentication.
-        # 401/403 means the endpoint exists but is correctly protected.
-        # 404/405 means the endpoint is not exposed.
-        for path in _SENSITIVE_PATHS:
-            r = await _async_get(client, base + path)
-            if r is None:
-                continue
-            exposed = r.status_code == 200
-            cat = ("API5:2023 - Broken Function Level Authorization"
-                   if path in _ADMIN_PATHS else "API8:2023 - Security Misconfiguration")
-            results.append({
-                "test": f"Sensitive path accessible: {path}",
-                "request": f"GET {path} (no auth)",
-                "expected": "401, 403, or 404",
-                "actual": str(r.status_code),
-                "severity": "HIGH",
-                "vulnerable": exposed,
-                "category": cat,
-            })
 
-        # ── API8: CORS wildcard ──
-        for probe_path in ["/health", "/"]:
-            r = await _async_get(client, base + probe_path,
-                                 headers={"Origin": "http://evil.example.com"})
-            if r:
-                acao = r.headers.get("access-control-allow-origin", "")
+        # ── API8 / API5: sensitive path enumeration ─────────────────────────────
+        if "api8" in _run or "api5" in _run:
+            for path in _SENSITIVE_PATHS:
+                r = await _async_get(client, base + path)
+                if r is None:
+                    continue
+                exposed = r.status_code == 200
+                cat = ("API5:2023 - Broken Function Level Authorization"
+                       if path in _ADMIN_PATHS else "API8:2023 - Security Misconfiguration")
                 results.append({
-                    "test": "CORS wildcard header",
-                    "request": f"GET {probe_path} (Origin: evil.example.com)",
-                    "expected": "No wildcard ACAO",
-                    "actual": f"ACAO: {acao or '(none)'}",
-                    "severity": "MEDIUM",
-                    "vulnerable": acao == "*",
-                    "category": "API8:2023 - Security Misconfiguration",
+                    "test": f"Sensitive path accessible: {path}",
+                    "request": f"GET {path} (no auth)",
+                    "expected": "401, 403, or 404",
+                    "actual": str(r.status_code),
+                    "severity": "HIGH",
+                    "vulnerable": exposed,
+                    "category": cat,
                 })
-                break
 
-        # ── API4: rate limiting ──
-        if req.auth_body:
+        # ── API8: CORS wildcard ──────────────────────────────────────────────────
+        if "api8" in _run:
+            for probe_path in ["/health", "/"]:
+                r = await _async_get(client, base + probe_path,
+                                     headers={"Origin": "http://evil.example.com"})
+                if r:
+                    acao = r.headers.get("access-control-allow-origin", "")
+                    results.append({
+                        "test": "CORS wildcard header",
+                        "request": f"GET {probe_path} (Origin: evil.example.com)",
+                        "expected": "No wildcard ACAO",
+                        "actual": f"ACAO: {acao or '(none)'}",
+                        "severity": "MEDIUM",
+                        "vulnerable": acao == "*",
+                        "category": "API8:2023 - Security Misconfiguration",
+                    })
+                    break
+
+            # ── API8: Security headers audit ─────────────────────────────────────
+            _SEC_HDRS = [
+                ("x-content-type-options",  "nosniff", "MEDIUM"),
+                ("x-frame-options",          None,      "MEDIUM"),
+                ("content-security-policy",  None,      "MEDIUM"),
+                ("referrer-policy",          None,      "LOW"),
+            ]
+            if base.startswith("https://"):
+                _SEC_HDRS.append(("strict-transport-security", None, "HIGH"))
+            for probe_path in ["/health", "/", "/api"]:
+                r = await _async_get(client, base + probe_path)
+                if r is not None:
+                    for hdr_name, expected_val, sev in _SEC_HDRS:
+                        actual = r.headers.get(hdr_name, "")
+                        present = (actual.lower() == expected_val.lower()
+                                   if expected_val else bool(actual))
+                        results.append({
+                            "test": f"Security header: {hdr_name}",
+                            "request": f"GET {probe_path}",
+                            "expected": f"{hdr_name}: {expected_val or '(any value)'}",
+                            "actual": actual or "(missing)",
+                            "severity": sev,
+                            "vulnerable": not present,
+                            "category": "API8:2023 - Security Misconfiguration",
+                        })
+                    break
+
+            # ── API8: OpenAPI / Swagger schema exposure ──────────────────────────
+            _SCHEMA_PATHS = [
+                "/openapi.json", "/swagger.json", "/api-docs",
+                "/redoc", "/swagger-ui.html", "/v1/openapi.json",
+            ]
+            for sp in _SCHEMA_PATHS:
+                r = await _async_get(client, base + sp)
+                if r and r.status_code == 200:
+                    results.append({
+                        "test": f"API schema publicly exposed: {sp}",
+                        "request": f"GET {sp} (no auth)",
+                        "expected": "404 or 401 — schema not public",
+                        "actual": f"200 — schema accessible ({len(r.content)} bytes)",
+                        "severity": "MEDIUM",
+                        "vulnerable": True,
+                        "category": "API8:2023 - Security Misconfiguration",
+                    })
+
+            # ── API8: Verbose error / stack trace detection ───────────────────────
+            _LEAK_KW = [
+                "traceback", "exception", "stack", "sqlstate",
+                "syntax error", 'file "', "at line", "undefined method", "null pointer",
+            ]
+            _ep = req.auth_endpoint or "/auth/login"
+            for bad_body in [
+                {"username": "' OR '1'='1; --", "password": "x"},
+                {"username": None, "password": None},
+            ]:
+                r2 = await _async_post(client, base + _ep, bad_body)
+                if r2 and r2.status_code >= 400:
+                    body_text = r2.text.lower()
+                    leaks = [kw for kw in _LEAK_KW if kw in body_text]
+                    if leaks:
+                        results.append({
+                            "test": "Verbose error — internal details exposed",
+                            "request": f"POST {_ep} (malformed payload)",
+                            "expected": "Generic error message only",
+                            "actual": f"Response leaks: {', '.join(leaks[:3])}",
+                            "severity": "MEDIUM",
+                            "vulnerable": True,
+                            "category": "API8:2023 - Security Misconfiguration",
+                        })
+                        break
+
+        # ── API4: rate limiting ──────────────────────────────────────────────────
+        if "api4" in _run:
+            _rate_ep = req.auth_endpoint or "/auth/login"
             got_429 = False
             for _ in range(12):
-                r = await _async_post(client, base + req.auth_endpoint,
+                r = await _async_post(client, base + _rate_ep,
                                       {"username": "__probe__", "password": "x"})
                 if r and r.status_code == 429:
                     got_429 = True
                     break
             results.append({
-                "test": f"Rate limiting on {req.auth_endpoint}",
-                "request": f"POST {req.auth_endpoint} x12 rapid",
+                "test": f"Rate limiting on {_rate_ep}",
+                "request": f"POST {_rate_ep} x12 rapid (wrong creds)",
                 "expected": "429 after repeated failures",
                 "actual": "429 received" if got_429 else "No 429 — unlimited attempts",
                 "severity": "MEDIUM",
@@ -392,52 +485,74 @@ async def external_scan(req: ScanRequest):
             })
             await asyncio.sleep(0.3)
 
-            # ── AUTH: obtain token for downstream probes ──
+        # ── Login flow: acquire token if not already provided ────────────────────
+        if not token and req.auth_body and req.auth_endpoint:
             r = await _async_post(client, base + req.auth_endpoint, req.auth_body)
             if r and r.status_code == 200:
                 try:
-                    token = r.json().get(req.token_field, "")
+                    token = r.json().get(req.token_field or "access_token", "")
                 except Exception:
                     pass
             if token:
+                eff_hdrs["Authorization"] = f"Bearer {token}"
                 try:
-                    import base64
-                    payload = _json.loads(base64.b64decode(token.split(".")[1] + "=="))
-                    user_id = int(payload.get("sub", 1))
+                    _pld = _json.loads(_b64.b64decode(token.split(".")[1] + "=="))
+                    user_id = int(_pld.get("sub", 1))
                 except Exception:
                     pass
 
-        # ── API2: JWT weak secret ──
-        # Forge a token for user ID 1 with elevated role using the well-known weak key "secret".
-        # If the API accepts it, the JWT secret is predictable/hardcoded.
-        try:
-            from jose import jwt as jose_jwt
-            forged = jose_jwt.encode(
-                {"sub": "1", "username": "alice", "role": "admin"},
-                "secret", algorithm="HS256",
-            )
-            r = await _async_get(client, base + req.bola_path.replace("{id}", "1"),
-                                 headers={"Authorization": f"Bearer {forged}"})
-            if r is not None:
-                status = r.status_code
-                results.append({
-                    "test": "JWT weak secret — forge token with key 'secret'",
-                    "request": f"GET {req.bola_path.replace('{id}', '1')} (forged JWT, key='secret')",
-                    "expected": "401 or 403 (forged token rejected)",
-                    "actual": str(status),
-                    "severity": "CRITICAL",
-                    "vulnerable": status == 200,
-                    "category": "API2:2023 - Broken Authentication",
-                })
-        except ImportError:
-            pass
+        # ── API2: JWT weak secret ────────────────────────────────────────────────
+        if "api2" in _run:
+            try:
+                from jose import jwt as jose_jwt
+                forged = jose_jwt.encode(
+                    {"sub": "1", "username": "alice", "role": "admin"},
+                    "secret", algorithm="HS256",
+                )
+                r = await _async_get(client, base + req.bola_path.replace("{id}", "1"),
+                                     headers={"Authorization": f"Bearer {forged}"})
+                if r is not None:
+                    results.append({
+                        "test": "JWT weak secret — forge token with key 'secret'",
+                        "request": f"GET {req.bola_path.replace('{id}', '1')} (forged JWT, key='secret')",
+                        "expected": "401 or 403 (forged token rejected)",
+                        "actual": str(r.status_code),
+                        "severity": "CRITICAL",
+                        "vulnerable": r.status_code == 200,
+                        "category": "API2:2023 - Broken Authentication",
+                    })
+            except ImportError:
+                pass
 
-        # ── API1: BOLA ──
-        if token:
+            # ── API2: JWT algorithm confusion — alg:none bypass ──────────────────
+            try:
+                _hdr_b64 = _b64.urlsafe_b64encode(b'{"alg":"none","typ":"JWT"}').rstrip(b'=').decode()
+                _pld_b64 = _b64.urlsafe_b64encode(
+                    b'{"sub":"1","username":"alice","role":"admin"}'
+                ).rstrip(b'=').decode()
+                alg_none_tok = f"{_hdr_b64}.{_pld_b64}."
+                r_alg = await _async_get(
+                    client, base + req.bola_path.replace("{id}", "1"),
+                    headers={"Authorization": f"Bearer {alg_none_tok}"},
+                )
+                if r_alg is not None:
+                    results.append({
+                        "test": "JWT algorithm confusion — alg:none (unsigned token)",
+                        "request": f"GET {req.bola_path.replace('{id}', '1')} (JWT alg=none, no signature)",
+                        "expected": "401 — unsigned tokens must be rejected",
+                        "actual": str(r_alg.status_code),
+                        "severity": "CRITICAL",
+                        "vulnerable": r_alg.status_code == 200,
+                        "category": "API2:2023 - Broken Authentication",
+                    })
+            except Exception:
+                pass
+
+        # ── API1: BOLA — single probe + ID range ────────────────────────────────
+        if "api1" in _run and eff_hdrs.get("Authorization"):
             other_id = 1 if user_id != 1 else 2
-            bola_url = base + req.bola_path.replace("{id}", str(other_id))
-            r = await _async_get(client, bola_url,
-                                 headers={"Authorization": f"Bearer {token}"})
+            r = await _async_get(client, base + req.bola_path.replace("{id}", str(other_id)),
+                                 headers=eff_hdrs)
             status = r.status_code if r else 0
             results.append({
                 "test": "BOLA — access another user's resource",
@@ -448,35 +563,55 @@ async def external_scan(req: ScanRequest):
                 "vulnerable": status == 200,
                 "category": "API1:2023 - Broken Object Level Authorization",
             })
+            # Enumerate IDs 1-5 to check how wide the exposure is
+            bola_hits = []
+            for probe_id in range(1, 6):
+                if probe_id == user_id:
+                    continue
+                r2 = await _async_get(client, base + req.bola_path.replace("{id}", str(probe_id)),
+                                      headers=eff_hdrs)
+                if r2 and r2.status_code == 200:
+                    bola_hits.append(probe_id)
+            results.append({
+                "test": "BOLA — ID enumeration range (IDs 1-5)",
+                "request": f"GET {req.bola_path} for IDs 1-5",
+                "expected": "All non-owned IDs return 403",
+                "actual": (f"IDs {bola_hits} returned 200 (unauthorised access)"
+                           if bola_hits else "All non-owned IDs returned 4xx"),
+                "severity": "HIGH",
+                "vulnerable": bool(bola_hits),
+                "category": "API1:2023 - Broken Object Level Authorization",
+            })
 
-            # ── API5: Function Level Auth — regular user calls admin endpoint ──
-            r = await _async_get(client, base + req.protected_path,
-                                 headers={"Authorization": f"Bearer {token}"})
+        # ── API5: Function Level Auth ────────────────────────────────────────────
+        if "api5" in _run and eff_hdrs.get("Authorization"):
+            r = await _async_get(client, base + req.protected_path, headers=eff_hdrs)
             if r is not None:
-                status = r.status_code
                 results.append({
                     "test": "Function auth — regular user calls admin endpoint",
                     "request": f"GET {req.protected_path} (regular user token)",
                     "expected": "403",
-                    "actual": str(status),
+                    "actual": str(r.status_code),
                     "severity": "HIGH",
-                    "vulnerable": status == 200,
+                    "vulnerable": r.status_code == 200,
                     "category": "API5:2023 - Broken Function Level Authorization",
                 })
 
-            # ── API3: Mass assignment ──
+        # ── API3: Mass assignment ────────────────────────────────────────────────
+        if "api3" in _run and eff_hdrs.get("Authorization"):
             try:
                 r = await client.put(
                     base + req.update_path,
                     json={"role": "admin", "balance": 999999},
-                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    headers={**eff_hdrs, "Content-Type": "application/json"},
                     timeout=8,
                 )
                 if r.status_code in (200, 201):
                     try:
                         body = r.json()
                         user_data = body.get("user", body)
-                        escalated = user_data.get("role") == "admin" or user_data.get("balance") == 999999
+                        escalated = (user_data.get("role") == "admin"
+                                     or user_data.get("balance") == 999999)
                     except Exception:
                         escalated = False
                     results.append({
@@ -491,7 +626,7 @@ async def external_scan(req: ScanRequest):
             except Exception:
                 pass
 
-    # Group by category
+    # Group results by category
     buckets: dict = {}
     for t in results:
         cat = t["category"]
@@ -508,18 +643,436 @@ async def external_scan(req: ScanRequest):
     score   = round((1 - total_v / total_t) * 100) if total_t else 100
 
     return JSONResponse({
-        "target": req.target,
-        "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        "score": score,
-        "total_tests": total_t,
+        "target":          req.target,
+        "timestamp":       datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        "score":           score,
+        "total_tests":     total_t,
         "total_vulnerable": total_v,
-        "categories": grouped,
+        "categories":      grouped,
     })
+
+
+@app.get("/monitor/scan/discover")
+async def discover_schema(target: str):
+    """Try common OpenAPI/Swagger paths on a target and return found endpoints."""
+    base = target.rstrip("/")
+    _SCHEMA_PATHS = [
+        "/openapi.json", "/swagger.json", "/api-docs",
+        "/v1/openapi.json", "/api/openapi.json", "/swagger/v1/swagger.json",
+    ]
+    async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
+        for path in _SCHEMA_PATHS:
+            try:
+                r = await client.get(base + path)
+                if r.status_code == 200:
+                    try:
+                        schema = r.json()
+                        paths  = list(schema.get("paths", {}).keys())
+                        info   = schema.get("info", {})
+                        return {
+                            "found":        True,
+                            "schema_path":  path,
+                            "api_title":    info.get("title", ""),
+                            "api_version":  info.get("version", ""),
+                            "paths":        paths[:60],
+                            "total_paths":  len(paths),
+                        }
+                    except Exception:
+                        return {"found": True, "schema_path": path, "paths": [], "total_paths": 0}
+            except Exception:
+                continue
+    return {"found": False}
+
+
+_SCAN_UI_HTML_V2 = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API Scanner - CY384</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
+nav{background:#161b22;border-bottom:1px solid #30363d;padding:0 24px;display:flex;align-items:center;gap:16px;height:54px}
+nav .logo{color:#58a6ff;font-weight:700;font-size:1.1em}
+nav a{color:#8b949e;font-size:.85em;text-decoration:none}
+nav a:hover{color:#58a6ff}
+.wrap{max-width:1000px;margin:0 auto;padding:32px 20px}
+h1{color:#58a6ff;font-size:1.5em;margin-bottom:6px}
+.sub{color:#8b949e;font-size:.87em;margin-bottom:24px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:22px;margin-bottom:18px}
+.card h2{font-size:.82em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8b949e;margin-bottom:16px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.8em;color:#8b949e;margin-bottom:5px}
+.field input,.field textarea{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:8px 10px;font-size:.87em;font-family:inherit}
+.field input:focus,.field textarea:focus{outline:none;border-color:#58a6ff}
+.hint{font-size:.77em;color:#8b949e;margin-top:4px}
+.auth-tabs{display:flex;gap:2px;border-bottom:1px solid #30363d;margin-bottom:14px}
+.auth-tab{background:none;border:none;border-bottom:2px solid transparent;color:#8b949e;cursor:pointer;padding:7px 14px;font-size:.84em;margin-bottom:-1px;font-family:inherit;transition:color .15s,border-color .15s}
+.auth-tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.auth-tab:hover{color:#c9d1d9}
+.disc-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.btn-disc{background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.4);color:#58a6ff;border-radius:6px;padding:6px 14px;font-size:.82em;cursor:pointer;font-family:inherit}
+.btn-disc:hover{background:rgba(88,166,255,.2)}
+.test-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.test-lbl{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;cursor:pointer;user-select:none}
+.test-lbl:hover{border-color:#30363d}
+.test-lbl input[type=checkbox]{margin-top:3px;flex-shrink:0;accent-color:#58a6ff}
+.cat-name{display:block;font-size:.87em;font-weight:600;color:#e6edf3}
+.cat-desc{display:block;font-size:.77em;color:#8b949e;margin-top:2px;line-height:1.4}
+.link-btn{background:none;border:none;color:#58a6ff;cursor:pointer;font-size:.81em;text-decoration:underline;padding:0;font-family:inherit}
+.btn{padding:10px 26px;border:none;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:700;font-family:inherit}
+.btn-primary{background:#238636;color:#fff}.btn-primary:hover{background:#2ea043}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+#status-bar{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:13px 18px;margin:16px 0;font-size:.87em}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.score-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.scard{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;text-align:center}
+.scard .num{font-size:2em;font-weight:700}.scard .lbl{color:#8b949e;font-size:.81em;margin-top:4px}
+.red{color:#f85149}.green{color:#3fb950}.blue{color:#58a6ff}.yellow{color:#e3b341}
+.cat-block{background:#161b22;border:1px solid #30363d;border-radius:10px;margin-bottom:12px;overflow:hidden}
+.cat-hdr{padding:13px 18px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.cat-hdr h3{font-size:.95em;color:#e6edf3}
+.badge{padding:3px 10px;border-radius:12px;font-size:.78em;font-weight:700}
+.bv{background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149}
+.bs{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid #3fb950}
+.sev-CRITICAL{background:rgba(188,30,30,.2);color:#ff6b6b;border:1px solid #ff6b6b}
+.sev-HIGH{background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149}
+.sev-MEDIUM{background:rgba(227,179,65,.15);color:#e3b341;border:1px solid #e3b341}
+.sev-LOW{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid #58a6ff}
+table{width:100%;border-collapse:collapse}
+th{background:#0d1117;padding:9px 14px;text-align:left;font-size:.75em;color:#8b949e;text-transform:uppercase}
+td{padding:9px 14px;border-top:1px solid #21262d;font-size:.84em;word-break:break-word}
+code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
+.vY{color:#f85149;font-weight:700}.vN{color:#3fb950}
+.cve-panel{padding:14px 18px;border-top:1px solid #21262d;background:#0d1117}
+.cve-panel h4{color:#8b949e;font-size:.76em;text-transform:uppercase;letter-spacing:.07em;margin-bottom:9px}
+.cve-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px;align-items:center}
+.cve-badge{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:3px 9px;font-size:.77em;font-family:monospace;color:#58a6ff;text-decoration:none}
+.cve-badge:hover{border-color:#58a6ff}
+.owasp-link{font-size:.79em;color:#8b949e;text-decoration:none;margin-left:auto}
+.owasp-link:hover{color:#58a6ff}
+.vuln-desc{font-size:.83em;color:#8b949e;margin-bottom:9px;line-height:1.5}
+.fixes ol{padding-left:16px}
+.fixes li{font-size:.82em;color:#c9d1d9;line-height:1.6;padding:2px 0}
+.export-bar{display:flex;align-items:center;gap:10px;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:11px 15px;margin-top:12px;flex-wrap:wrap}
+.btn-save{padding:6px 13px;border:1px solid;border-radius:6px;font-size:.81em;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-save-brief{background:rgba(63,185,80,.1);color:#3fb950;border-color:rgba(63,185,80,.4)}
+.btn-save-brief:hover{background:rgba(63,185,80,.22)}
+.btn-save-detail{background:rgba(88,166,255,.1);color:#58a6ff;border-color:rgba(88,166,255,.4)}
+.btn-save-detail:hover{background:rgba(88,166,255,.22)}
+.presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.preset{background:#21262d;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-family:inherit}
+.preset:hover{border-color:#58a6ff;color:#58a6ff}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">CY384 - External API Scanner</span>
+  <a href="/dashboard">Monitor Dashboard</a>
+  <a href="http://localhost:8000/ui" target="_blank">Shop App</a>
+  <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+</nav>
+<div class="wrap">
+  <h1>Generic OWASP API Security Scanner</h1>
+  <p class="sub">Scan any REST API for OWASP API Top 10:2023 vulnerabilities. No source code required.</p>
+
+  <div class="presets">
+    <span style="font-size:.82em;color:#8b949e">Quick presets:</span>
+    <button class="preset" onclick="loadPreset('vulnerable')">Vulnerable API (lab)</button>
+    <button class="preset" onclick="loadPreset('hardened')">Hardened API (lab)</button>
+    <button class="preset" onclick="loadPreset('external')">External API</button>
+  </div>
+  <p class="hint" style="margin-bottom:20px">Scans run server-side inside the monitoring container. Lab services: use Docker names like <code>http://vulnerable-api:8000</code>. External APIs: enter the full URL directly.</p>
+
+  <div class="card">
+    <h2>Target</h2>
+    <div class="field">
+      <label>Base URL *</label>
+      <input id="f-target" type="text" placeholder="https://api.example.com  or  http://vulnerable-api:8000">
+    </div>
+    <h2 style="margin-top:18px;margin-bottom:12px">Authentication</h2>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="setAuth(this,'login')">Login Flow</button>
+      <button class="auth-tab" onclick="setAuth(this,'bearer')">Bearer Token</button>
+      <button class="auth-tab" onclick="setAuth(this,'apikey')">API Key</button>
+      <button class="auth-tab" onclick="setAuth(this,'none')">None</button>
+    </div>
+    <div id="auth-login">
+      <div class="row">
+        <div class="field"><label>Auth Endpoint</label><input id="f-auth-ep" value="/auth/login"><span class="hint">POST endpoint that returns a token</span></div>
+        <div class="field"><label>Token Field</label><input id="f-token-field" value="access_token"><span class="hint">Key in the JSON response</span></div>
+      </div>
+      <div class="field"><label>Credentials (JSON)</label><textarea id="f-auth-body" rows="2" placeholder='{"username": "alice", "password": "alice123"}'></textarea><span class="hint">Leave blank to skip tests requiring a session</span></div>
+    </div>
+    <div id="auth-bearer" style="display:none">
+      <div class="field"><label>Bearer Token</label><input id="f-direct-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."><span class="hint">Paste an existing JWT. Used for BOLA, mass assignment, and function-auth tests.</span></div>
+    </div>
+    <div id="auth-apikey" style="display:none">
+      <div class="row">
+        <div class="field"><label>Header Name</label><input id="f-api-key-header" placeholder="X-API-Key"><span class="hint">The header that carries the key</span></div>
+        <div class="field"><label>Key Value</label><input id="f-api-key-value" placeholder="sk-..."></div>
+      </div>
+    </div>
+    <div id="auth-none" style="display:none">
+      <p class="hint" style="padding:8px 0">Only unauthenticated tests run: sensitive paths, CORS, security headers, schema exposure, rate-limit probing, and JWT forgery attempts.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Endpoint Configuration</h2>
+    <div class="disc-row">
+      <button class="btn-disc" onclick="discoverSchema()">Discover Schema</button>
+      <span id="discover-msg" class="hint"></span>
+    </div>
+    <div class="row">
+      <div class="field"><label>BOLA Path Template</label><input id="f-bola" value="/users/{id}"><span class="hint">Use {id} as the numeric ID placeholder</span></div>
+      <div class="field"><label>Update Path (mass assignment)</label><input id="f-update" value="/users/1"><span class="hint">PUT endpoint that accepts a user body</span></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Protected / Admin Path</label><input id="f-protected" value="/admin/users"><span class="hint">Endpoint only admins should access</span></div>
+      <div class="field"><label>Rate-limit Probe Endpoint</label><input id="f-rate-ep" value="/auth/login"><span class="hint">Also used for verbose-error detection</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Tests to Run</h2>
+    <div class="test-grid">
+      <label class="test-lbl"><input type="checkbox" id="t-api1" checked><div><span class="cat-name">API1 - BOLA</span><span class="cat-desc">Object-level access control + ID enumeration (IDs 1-5)</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-api2" checked><div><span class="cat-name">API2 - Authentication</span><span class="cat-desc">JWT weak secret + algorithm confusion (alg:none bypass)</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-api3" checked><div><span class="cat-name">API3 - Mass Assignment</span><span class="cat-desc">Privilege escalation via extra JSON fields (role, balance)</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-api4" checked><div><span class="cat-name">API4 - Rate Limiting</span><span class="cat-desc">12 rapid login attempts - expect HTTP 429</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-api5" checked><div><span class="cat-name">API5 - Function Auth</span><span class="cat-desc">Regular user token calling admin-only endpoints</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-api8" checked><div><span class="cat-name">API8 - Misconfiguration</span><span class="cat-desc">CORS, security headers, schema exposure, verbose errors, sensitive paths</span></div></label>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:12px">
+      <button class="link-btn" onclick="toggleAll(true)">Select All</button>
+      <button class="link-btn" onclick="toggleAll(false)">Clear All</button>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="scan-btn" onclick="runScan()">Run Scan</button>
+  <div id="status-bar" style="display:none"></div>
+  <div id="results" style="margin-top:16px"></div>
+</div>
+
+<script>
+const CVE_DB = {
+  "API1:2023 - Broken Object Level Authorization": {
+    cves:["CVE-2019-14234","CVE-2020-7927","CVE-2021-21302"],
+    owasp_ref:"https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/",
+    severity:"HIGH",
+    description:"The API retrieves data based on a client-supplied identifier without verifying that the requesting user is authorised to access that specific object.",
+    fixes:["Verify ownership on every request: current_user.id == resource.owner_id.","Use unpredictable UUIDs instead of sequential integer IDs to reduce guessability.","Apply an authorization middleware that enforces ownership rather than repeating checks per endpoint.","Write integration tests that log in as User A and request User B's resources — expect 403."]
+  },
+  "API2:2023 - Broken Authentication": {
+    cves:["CVE-2018-1000531","CVE-2022-21449","CVE-2021-27958"],
+    owasp_ref:"https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/",
+    severity:"CRITICAL",
+    description:"Authentication mechanisms are implemented incorrectly, allowing attackers to forge tokens or bypass authentication via algorithm confusion (alg:none).",
+    fixes:["Load JWT secrets from environment variables only — never hard-code them.","Always set an exp claim in JWTs; 15-30 minutes is typical.","Explicitly validate the alg header and reject tokens with alg=none or unexpected algorithms.","Rate-limit login endpoints to 5 attempts per minute per IP."]
+  },
+  "API3:2023 - Broken Object Property Level Authorization": {
+    cves:["CVE-2012-2676","CVE-2022-32532","CVE-2021-41079"],
+    owasp_ref:"https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/",
+    severity:"HIGH",
+    description:"The API accepts more fields than intended, allowing clients to modify properties they should never control.",
+    fixes:["Define strict input schemas listing only allowed fields.","Never pass user input directly to ORM update calls — always use an allowlist.","Treat role, is_admin, and balance as server-controlled fields.","Return a response schema that excludes sensitive fields like password hash."]
+  },
+  "API4:2023 - Unrestricted Resource Consumption": {
+    cves:["CVE-2019-11324","CVE-2020-26258","CVE-2021-25742"],
+    owasp_ref:"https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/",
+    severity:"MEDIUM",
+    description:"The API does not limit request rate or volume, enabling brute-force and credential stuffing.",
+    fixes:["Apply per-IP rate limiting on auth endpoints (5/minute).","Apply per-user rate limiting on data endpoints to prevent scraping.","Set maximum request body sizes.","Implement exponential backoff after repeated failures."]
+  },
+  "API5:2023 - Broken Function Level Authorization": {
+    cves:["CVE-2021-41773","CVE-2022-22947","CVE-2020-14882"],
+    owasp_ref:"https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/",
+    severity:"HIGH",
+    description:"Administrative endpoints are accessible to regular users because the API checks authentication but not the user role.",
+    fixes:["Default to deny — every endpoint must declare the required role.","Use a shared authorization dependency that verifies role on every admin route.","Keep admin functionality on a separate service with network-level controls.","Audit all routes regularly."]
+  },
+  "API8:2023 - Security Misconfiguration": {
+    cves:["CVE-2021-44228","CVE-2020-1938","CVE-2019-0232"],
+    owasp_ref:"https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/",
+    severity:"MEDIUM",
+    description:"The API exposes sensitive information through debug endpoints, verbose errors, permissive CORS, missing security headers, or public API documentation.",
+    fixes:["Remove debug endpoints before deploying to production.","Configure CORS to allow only known origins; never use wildcard with credentialed requests.","Return generic error messages — never reveal internal details.","Disable interactive API docs in production and add all recommended security headers."]
+  }
+};
+
+const PRESETS = {
+  vulnerable:{target:'http://vulnerable-api:8000',auth:'{"username":"alice","password":"alice123"}'},
+  hardened:  {target:'http://hardened-api:8001',  auth:'{"username":"alice","password":"alice123"}'},
+  external:  {target:'',auth:''},
+};
+function loadPreset(name) {
+  const p = PRESETS[name];
+  if (name==='external') {
+    document.getElementById('f-target').value = '';
+    document.getElementById('f-auth-body').value = '';
+    document.getElementById('discover-msg').textContent = 'Enter the target URL then click Discover Schema.';
+    return;
+  }
+  document.getElementById('f-target').value = p.target;
+  document.getElementById('f-auth-body').value = p.auth;
+}
+
+let _authMode = 'login';
+function setAuth(tab, mode) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  ['login','bearer','apikey','none'].forEach(m =>
+    document.getElementById('auth-'+m).style.display = m===mode ? 'block' : 'none'
+  );
+  _authMode = mode;
+}
+
+async function discoverSchema() {
+  const target = document.getElementById('f-target').value.trim();
+  if (!target) return alert('Enter a target URL first');
+  const msg = document.getElementById('discover-msg');
+  msg.textContent = 'Discovering...'; msg.style.color = '#8b949e';
+  try {
+    const r = await fetch('/monitor/scan/discover?target='+encodeURIComponent(target));
+    const data = await r.json();
+    if (data.found) {
+      const paths = data.paths||[];
+      const up = paths.find(p=>/\{[^}]+\}/.test(p)&&/user/i.test(p))||paths.find(p=>/\{[^}]+\}/.test(p));
+      if (up) document.getElementById('f-bola').value = up.replace(/\{[^}]+\}/g,'{id}');
+      const ap = paths.find(p=>/admin/i.test(p));
+      if (ap) document.getElementById('f-protected').value = ap.replace(/\{[^}]+\}/g,'1');
+      if (up) document.getElementById('f-update').value = up.replace(/\{[^}]+\}/g,'1');
+      msg.textContent = 'Found '+data.schema_path+' ('+data.total_paths+' paths'+(data.api_title?' - '+data.api_title:'')+')';
+      msg.style.color = '#3fb950';
+    } else {
+      msg.textContent = 'No OpenAPI schema found at common paths.'; msg.style.color = '#e3b341';
+    }
+  } catch(e) { msg.textContent = 'Error: '+e.message; msg.style.color='#f85149'; }
+}
+
+function toggleAll(checked) {
+  ['api1','api2','api3','api4','api5','api8'].forEach(id => document.getElementById('t-'+id).checked = checked);
+}
+
+let _lastScan = null;
+
+async function runScan() {
+  const target = document.getElementById('f-target').value.trim();
+  if (!target) return alert('Enter a target URL');
+  const tests = ['api1','api2','api3','api4','api5','api8'].filter(id=>document.getElementById('t-'+id).checked);
+  if (!tests.length) return alert('Select at least one test category');
+
+  let authBody=null, directToken=null, apiKeyHeader=null, apiKeyValue=null;
+  let authEndpoint=document.getElementById('f-rate-ep').value||'/auth/login', tokenField='access_token';
+  if (_authMode==='login') {
+    authEndpoint = document.getElementById('f-auth-ep').value||'/auth/login';
+    tokenField   = document.getElementById('f-token-field').value||'access_token';
+    const raw = (document.getElementById('f-auth-body').value||'').trim();
+    if (raw) { try { authBody=JSON.parse(raw); } catch(e) { return alert('Credentials must be valid JSON'); } }
+  } else if (_authMode==='bearer') {
+    directToken = (document.getElementById('f-direct-token').value||'').trim()||null;
+  } else if (_authMode==='apikey') {
+    apiKeyHeader = (document.getElementById('f-api-key-header').value||'').trim()||null;
+    apiKeyValue  = (document.getElementById('f-api-key-value').value||'').trim()||null;
+  }
+
+  const payload = {
+    target, auth_endpoint:authEndpoint, auth_body:authBody, token_field:tokenField,
+    direct_token:directToken, api_key_header:apiKeyHeader, api_key_value:apiKeyValue,
+    bola_path:document.getElementById('f-bola').value,
+    update_path:document.getElementById('f-update').value,
+    protected_path:document.getElementById('f-protected').value,
+    tests,
+  };
+
+  document.getElementById('scan-btn').disabled = true;
+  const bar = document.getElementById('status-bar');
+  bar.style.display = 'block';
+  bar.innerHTML = '<span class="spinner"></span>Scanning <strong>'+target+'</strong> - may take 20-40s...';
+  document.getElementById('results').innerHTML = '';
+
+  try {
+    const r = await fetch('/monitor/scan', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    _lastScan = data;
+    renderResults(data);
+    bar.style.display = 'none';
+  } catch(e) {
+    bar.innerHTML = '<span style="color:#f85149">Error: '+e.message+'</span>';
+  } finally {
+    document.getElementById('scan-btn').disabled = false;
+  }
+}
+
+function renderResults(data) {
+  const el = document.getElementById('results');
+  const sc = data.score>=80?'green':data.score>=50?'yellow':'red';
+  let html = '<div class="score-row">'
+    +'<div class="scard"><div class="num '+sc+'">'+data.score+'%</div><div class="lbl">Security Score</div></div>'
+    +'<div class="scard"><div class="num blue">'+data.total_tests+'</div><div class="lbl">Tests Run</div></div>'
+    +'<div class="scard"><div class="num red">'+data.total_vulnerable+'</div><div class="lbl">Vulnerable</div></div>'
+    +'<div class="scard"><div class="num green">'+(data.total_tests-data.total_vulnerable)+'</div><div class="lbl">Passed</div></div>'
+    +'</div>'
+    +'<p style="color:#8b949e;font-size:.83em;margin-bottom:16px">Target: <code>'+data.target+'</code> &nbsp;|&nbsp; '+data.timestamp+'</p>';
+  for (const cat of data.categories) {
+    const cve = CVE_DB[cat.category]||null;
+    const vuln = cat.vulnerable_count>0;
+    html += '<div class="cat-block"><div class="cat-hdr"><h3>'+cat.category+'</h3>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +(cve?'<span class="badge sev-'+cve.severity+'">'+cve.severity+'</span>':'')
+      +'<span class="badge '+(vuln?'bv':'bs')+'">'+cat.vulnerable_count+'/'+cat.total+' Vulnerable</span>'
+      +'</div></div>'
+      +'<table><tr><th>Test</th><th>Request</th><th>Expected</th><th>Actual</th><th>Result</th></tr>';
+    for (const t of cat.tests) {
+      html += '<tr><td>'+t.test+'</td><td><code>'+t.request+'</code></td><td>'+t.expected+'</td><td>'+t.actual+'</td>'
+        +'<td class="'+(t.vulnerable?'vY':'vN')+'">'+(t.vulnerable?'VULNERABLE':'SECURE')+'</td></tr>';
+    }
+    html += '</table>';
+    if (cve) {
+      html += '<div class="cve-panel"><h4>CVE References &amp; Remediation</h4>'
+        +'<div class="cve-row">'
+        +cve.cves.map(id=>'<a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/'+id+'" target="_blank">'+id+'</a>').join('')
+        +'<a class="owasp-link" href="'+cve.owasp_ref+'" target="_blank">OWASP Reference &#x2192;</a>'
+        +'</div><p class="vuln-desc">'+cve.description+'</p>'
+        +'<div class="fixes"><ol>'+cve.fixes.map(f=>'<li>'+f+'</li>').join('')+'</ol></div></div>';
+    }
+    html += '</div>';
+  }
+  html += '<div class="export-bar">'
+    +'<span style="font-size:.82em;color:#8b949e">Save as report:</span>'
+    +'<button class="btn-save btn-save-brief" onclick="saveReport(\'brief\')">Brief Report</button>'
+    +'<button class="btn-save btn-save-detail" onclick="saveReport(\'detailed\')">Detailed Report</button>'
+    +'<span id="save-msg" style="font-size:.82em;margin-left:4px"></span></div>';
+  el.innerHTML = html;
+}
+
+async function saveReport(detail) {
+  if (!_lastScan) return;
+  const msg = document.getElementById('save-msg');
+  msg.style.color='#8b949e'; msg.textContent='Saving...';
+  try {
+    const r = await fetch('/monitor/save-report',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target:_lastScan.target,timestamp:_lastScan.timestamp,score:_lastScan.score,
+        total_tests:_lastScan.total_tests,total_vulnerable:_lastScan.total_vulnerable,
+        categories:_lastScan.categories,detail})});
+    if (!r.ok) throw new Error(await r.text());
+    const res = await r.json();
+    msg.innerHTML = 'Saved! <a href="/monitor/reports/'+res.html_file+'" target="_blank" style="color:#58a6ff;font-weight:600">View Report &#x2192;</a>';
+  } catch(e) { msg.style.color='#f85149'; msg.textContent='Error: '+e.message; }
+}
+</script>
+</body>
+</html>"""
 
 
 @app.get("/scan-ui", response_class=HTMLResponse, include_in_schema=False)
 async def scan_ui():
-    return _SCAN_UI_HTML
+    return _SCAN_UI_HTML_V2
 
 
 # ── report browser ─────────────────────────────────────────────────────────────
