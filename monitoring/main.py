@@ -708,20 +708,21 @@ h1{color:#58a6ff;font-size:1.5em;margin-bottom:6px}
 .field input,.field textarea{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:8px 10px;font-size:.87em;font-family:inherit}
 .field input:focus,.field textarea:focus{outline:none;border-color:#58a6ff}
 .hint{font-size:.77em;color:#8b949e;margin-top:4px}
-.auth-tabs{display:flex;gap:2px;border-bottom:1px solid #30363d;margin-bottom:14px}
-.auth-tab{background:none;border:none;border-bottom:2px solid transparent;color:#8b949e;cursor:pointer;padding:7px 14px;font-size:.84em;margin-bottom:-1px;font-family:inherit;transition:color .15s,border-color .15s}
-.auth-tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
-.auth-tab:hover{color:#c9d1d9}
+.auth-tabs{display:flex;gap:0;border-bottom:2px solid #30363d;margin-bottom:14px}
+.auth-tab{background:none;border:none;border-bottom:3px solid transparent;color:#8b949e;cursor:pointer;padding:8px 16px;font-size:.84em;margin-bottom:-2px;font-family:inherit}
+.auth-tab:hover{color:#c9d1d9;background:rgba(255,255,255,.04)}
+.auth-tab.active{color:#58a6ff;border-bottom-color:#58a6ff;font-weight:600}
 .disc-row{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 .btn-disc{background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.4);color:#58a6ff;border-radius:6px;padding:6px 14px;font-size:.82em;cursor:pointer;font-family:inherit}
 .btn-disc:hover{background:rgba(88,166,255,.2)}
 .test-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.test-lbl{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;cursor:pointer;user-select:none}
-.test-lbl:hover{border-color:#30363d}
-.test-lbl input[type=checkbox]{margin-top:3px;flex-shrink:0;accent-color:#58a6ff}
+.test-lbl{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;cursor:pointer}
+.test-lbl:hover{border-color:#30363d;background:#0d1117}
+.test-lbl input[type=checkbox]{margin-top:3px;flex-shrink:0;accent-color:#58a6ff;cursor:pointer;width:15px;height:15px}
 .cat-name{display:block;font-size:.87em;font-weight:600;color:#e6edf3}
 .cat-desc{display:block;font-size:.77em;color:#8b949e;margin-top:2px;line-height:1.4}
-.link-btn{background:none;border:none;color:#58a6ff;cursor:pointer;font-size:.81em;text-decoration:underline;padding:0;font-family:inherit}
+.link-btn{background:none;border:none;color:#58a6ff;cursor:pointer;font-size:.81em;text-decoration:underline;padding:2px 4px;font-family:inherit}
+.link-btn:hover{color:#79b8ff}
 .btn{padding:10px 26px;border:none;border-radius:6px;cursor:pointer;font-size:.92em;font-weight:700;font-family:inherit}
 .btn-primary{background:#238636;color:#fff}.btn-primary:hover{background:#2ea043}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed}
@@ -781,39 +782,39 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
 
   <div class="presets">
     <span style="font-size:.82em;color:#8b949e">Quick presets:</span>
-    <button class="preset" onclick="loadPreset('vulnerable')">Vulnerable API (lab)</button>
-    <button class="preset" onclick="loadPreset('hardened')">Hardened API (lab)</button>
-    <button class="preset" onclick="loadPreset('external')">External API</button>
+    <button type="button" class="preset" id="preset-vulnerable">Vulnerable API (lab)</button>
+    <button type="button" class="preset" id="preset-hardened">Hardened API (lab)</button>
+    <button type="button" class="preset" id="preset-external">External API</button>
   </div>
   <p class="hint" style="margin-bottom:20px">Scans run server-side inside the monitoring container. Lab services: use Docker names like <code>http://vulnerable-api:8000</code>. External APIs: enter the full URL directly.</p>
 
   <div class="card">
     <h2>Target</h2>
     <div class="field">
-      <label>Base URL *</label>
+      <label for="f-target">Base URL *</label>
       <input id="f-target" type="text" placeholder="https://api.example.com  or  http://vulnerable-api:8000">
     </div>
     <h2 style="margin-top:18px;margin-bottom:12px">Authentication</h2>
     <div class="auth-tabs">
-      <button class="auth-tab active" onclick="setAuth(this,'login')">Login Flow</button>
-      <button class="auth-tab" onclick="setAuth(this,'bearer')">Bearer Token</button>
-      <button class="auth-tab" onclick="setAuth(this,'apikey')">API Key</button>
-      <button class="auth-tab" onclick="setAuth(this,'none')">None</button>
+      <button type="button" class="auth-tab active" data-auth="login">Login Flow</button>
+      <button type="button" class="auth-tab" data-auth="bearer">Bearer Token</button>
+      <button type="button" class="auth-tab" data-auth="apikey">API Key</button>
+      <button type="button" class="auth-tab" data-auth="none">None</button>
     </div>
     <div id="auth-login">
       <div class="row">
-        <div class="field"><label>Auth Endpoint</label><input id="f-auth-ep" value="/auth/login"><span class="hint">POST endpoint that returns a token</span></div>
-        <div class="field"><label>Token Field</label><input id="f-token-field" value="access_token"><span class="hint">Key in the JSON response</span></div>
+        <div class="field"><label for="f-auth-ep">Auth Endpoint</label><input id="f-auth-ep" value="/auth/login"><span class="hint">POST endpoint that returns a token</span></div>
+        <div class="field"><label for="f-token-field">Token Field</label><input id="f-token-field" value="access_token"><span class="hint">Key in the JSON response</span></div>
       </div>
-      <div class="field"><label>Credentials (JSON)</label><textarea id="f-auth-body" rows="2" placeholder='{"username": "alice", "password": "alice123"}'></textarea><span class="hint">Leave blank to skip tests requiring a session</span></div>
+      <div class="field"><label for="f-auth-body">Credentials (JSON)</label><textarea id="f-auth-body" rows="2" placeholder='{"username": "alice", "password": "alice123"}'></textarea><span class="hint">Leave blank to skip tests requiring a session</span></div>
     </div>
     <div id="auth-bearer" style="display:none">
-      <div class="field"><label>Bearer Token</label><input id="f-direct-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."><span class="hint">Paste an existing JWT. Used for BOLA, mass assignment, and function-auth tests.</span></div>
+      <div class="field"><label for="f-direct-token">Bearer Token</label><input id="f-direct-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."><span class="hint">Paste an existing JWT. Used for BOLA, mass assignment, and function-auth tests.</span></div>
     </div>
     <div id="auth-apikey" style="display:none">
       <div class="row">
-        <div class="field"><label>Header Name</label><input id="f-api-key-header" placeholder="X-API-Key"><span class="hint">The header that carries the key</span></div>
-        <div class="field"><label>Key Value</label><input id="f-api-key-value" placeholder="sk-..."></div>
+        <div class="field"><label for="f-api-key-header">Header Name</label><input id="f-api-key-header" placeholder="X-API-Key"><span class="hint">The header that carries the key</span></div>
+        <div class="field"><label for="f-api-key-value">Key Value</label><input id="f-api-key-value" placeholder="sk-..."></div>
       </div>
     </div>
     <div id="auth-none" style="display:none">
@@ -824,16 +825,16 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
   <div class="card">
     <h2>Endpoint Configuration</h2>
     <div class="disc-row">
-      <button class="btn-disc" onclick="discoverSchema()">Discover Schema</button>
+      <button type="button" class="btn-disc" id="btn-discover">Discover Schema</button>
       <span id="discover-msg" class="hint"></span>
     </div>
     <div class="row">
-      <div class="field"><label>BOLA Path Template</label><input id="f-bola" value="/users/{id}"><span class="hint">Use {id} as the numeric ID placeholder</span></div>
-      <div class="field"><label>Update Path (mass assignment)</label><input id="f-update" value="/users/1"><span class="hint">PUT endpoint that accepts a user body</span></div>
+      <div class="field"><label for="f-bola">BOLA Path Template</label><input id="f-bola" value="/users/{id}"><span class="hint">Use {id} as the numeric ID placeholder</span></div>
+      <div class="field"><label for="f-update">Update Path (mass assignment)</label><input id="f-update" value="/users/1"><span class="hint">PUT endpoint that accepts a user body</span></div>
     </div>
     <div class="row">
-      <div class="field"><label>Protected / Admin Path</label><input id="f-protected" value="/admin/users"><span class="hint">Endpoint only admins should access</span></div>
-      <div class="field"><label>Rate-limit Probe Endpoint</label><input id="f-rate-ep" value="/auth/login"><span class="hint">Also used for verbose-error detection</span></div>
+      <div class="field"><label for="f-protected">Protected / Admin Path</label><input id="f-protected" value="/admin/users"><span class="hint">Endpoint only admins should access</span></div>
+      <div class="field"><label for="f-rate-ep">Rate-limit Probe Endpoint</label><input id="f-rate-ep" value="/auth/login"><span class="hint">Also used for verbose-error detection</span></div>
     </div>
   </div>
 
@@ -848,18 +849,18 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
       <label class="test-lbl"><input type="checkbox" id="t-api8" checked><div><span class="cat-name">API8 - Misconfiguration</span><span class="cat-desc">CORS, security headers, schema exposure, verbose errors, sensitive paths</span></div></label>
     </div>
     <div style="margin-top:10px;display:flex;gap:12px">
-      <button class="link-btn" onclick="toggleAll(true)">Select All</button>
-      <button class="link-btn" onclick="toggleAll(false)">Clear All</button>
+      <button type="button" class="link-btn" id="btn-select-all">Select All</button>
+      <button type="button" class="link-btn" id="btn-clear-all">Clear All</button>
     </div>
   </div>
 
-  <button class="btn btn-primary" id="scan-btn" onclick="runScan()">Run Scan</button>
+  <button type="button" class="btn btn-primary" id="scan-btn">Run Scan</button>
   <div id="status-bar" style="display:none"></div>
   <div id="results" style="margin-top:16px"></div>
 </div>
 
 <script>
-const CVE_DB = {
+var CVE_DB = {
   "API1:2023 - Broken Object Level Authorization": {
     cves:["CVE-2019-14234","CVE-2020-7927","CVE-2021-21302"],
     owasp_ref:"https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/",
@@ -904,167 +905,326 @@ const CVE_DB = {
   }
 };
 
-const PRESETS = {
-  vulnerable:{target:'http://vulnerable-api:8000',auth:'{"username":"alice","password":"alice123"}'},
-  hardened:  {target:'http://hardened-api:8001',  auth:'{"username":"alice","password":"alice123"}'},
-  external:  {target:'',auth:''},
-};
-function loadPreset(name) {
-  const p = PRESETS[name];
-  if (name==='external') {
-    document.getElementById('f-target').value = '';
-    document.getElementById('f-auth-body').value = '';
-    document.getElementById('discover-msg').textContent = 'Enter the target URL then click Discover Schema.';
-    return;
+var PRESETS = {
+  vulnerable: {
+    target: "http://vulnerable-api:8000",
+    authMode: "login",
+    authEndpoint: "/auth/login",
+    tokenField: "access_token",
+    credentials: '{"username": "alice", "password": "alice123"}',
+    bolaPath: "/users/{id}",
+    updatePath: "/users/1",
+    protectedPath: "/admin/users",
+    rateEp: "/auth/login"
+  },
+  hardened: {
+    target: "http://hardened-api:8001",
+    authMode: "login",
+    authEndpoint: "/auth/login",
+    tokenField: "access_token",
+    credentials: '{"username": "alice", "password": "alice123"}',
+    bolaPath: "/users/{id}",
+    updatePath: "/users/1",
+    protectedPath: "/admin/users",
+    rateEp: "/auth/login"
+  },
+  external: {
+    target: "",
+    authMode: "login",
+    authEndpoint: "/auth/login",
+    tokenField: "access_token",
+    credentials: "",
+    bolaPath: "/users/{id}",
+    updatePath: "/users/1",
+    protectedPath: "/admin/users",
+    rateEp: "/auth/login"
   }
-  document.getElementById('f-target').value = p.target;
-  document.getElementById('f-auth-body').value = p.auth;
-}
+};
 
-let _authMode = 'login';
-function setAuth(tab, mode) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  tab.classList.add('active');
-  ['login','bearer','apikey','none'].forEach(m =>
-    document.getElementById('auth-'+m).style.display = m===mode ? 'block' : 'none'
-  );
+var _authMode = "login";
+var _lastScan = null;
+
+function setAuthTab(mode) {
+  var panels = ["login", "bearer", "apikey", "none"];
+  var tabs = document.querySelectorAll(".auth-tab");
+  for (var i = 0; i < tabs.length; i++) {
+    var t = tabs[i];
+    if (t.getAttribute("data-auth") === mode) {
+      t.classList.add("active");
+    } else {
+      t.classList.remove("active");
+    }
+  }
+  for (var j = 0; j < panels.length; j++) {
+    var el = document.getElementById("auth-" + panels[j]);
+    if (el) el.style.display = panels[j] === mode ? "block" : "none";
+  }
   _authMode = mode;
 }
 
-async function discoverSchema() {
-  const target = document.getElementById('f-target').value.trim();
-  if (!target) return alert('Enter a target URL first');
-  const msg = document.getElementById('discover-msg');
-  msg.textContent = 'Discovering...'; msg.style.color = '#8b949e';
-  try {
-    const r = await fetch('/monitor/scan/discover?target='+encodeURIComponent(target));
-    const data = await r.json();
-    if (data.found) {
-      const paths = data.paths||[];
-      const up = paths.find(p=>/\{[^}]+\}/.test(p)&&/user/i.test(p))||paths.find(p=>/\{[^}]+\}/.test(p));
-      if (up) document.getElementById('f-bola').value = up.replace(/\{[^}]+\}/g,'{id}');
-      const ap = paths.find(p=>/admin/i.test(p));
-      if (ap) document.getElementById('f-protected').value = ap.replace(/\{[^}]+\}/g,'1');
-      if (up) document.getElementById('f-update').value = up.replace(/\{[^}]+\}/g,'1');
-      msg.textContent = 'Found '+data.schema_path+' ('+data.total_paths+' paths'+(data.api_title?' - '+data.api_title:'')+')';
-      msg.style.color = '#3fb950';
-    } else {
-      msg.textContent = 'No OpenAPI schema found at common paths.'; msg.style.color = '#e3b341';
-    }
-  } catch(e) { msg.textContent = 'Error: '+e.message; msg.style.color='#f85149'; }
+function loadPreset(name) {
+  var p = PRESETS[name];
+  if (!p) return;
+  document.getElementById("f-target").value = p.target;
+  document.getElementById("f-auth-ep").value = p.authEndpoint;
+  document.getElementById("f-token-field").value = p.tokenField;
+  document.getElementById("f-auth-body").value = p.credentials;
+  document.getElementById("f-bola").value = p.bolaPath;
+  document.getElementById("f-update").value = p.updatePath;
+  document.getElementById("f-protected").value = p.protectedPath;
+  document.getElementById("f-rate-ep").value = p.rateEp;
+  setAuthTab(p.authMode);
+  if (name === "external") {
+    document.getElementById("discover-msg").textContent = "Enter the target URL then click Discover Schema.";
+    document.getElementById("discover-msg").style.color = "#8b949e";
+  } else {
+    document.getElementById("discover-msg").textContent = "";
+  }
 }
 
 function toggleAll(checked) {
-  ['api1','api2','api3','api4','api5','api8'].forEach(id => document.getElementById('t-'+id).checked = checked);
+  var ids = ["api1", "api2", "api3", "api4", "api5", "api8"];
+  for (var i = 0; i < ids.length; i++) {
+    var cb = document.getElementById("t-" + ids[i]);
+    if (cb) cb.checked = checked;
+  }
 }
 
-let _lastScan = null;
+function discoverSchema() {
+  var target = document.getElementById("f-target").value.trim();
+  if (!target) {
+    alert("Enter a target URL first");
+    return;
+  }
+  var msg = document.getElementById("discover-msg");
+  msg.textContent = "Discovering...";
+  msg.style.color = "#8b949e";
+  fetch("/monitor/scan/discover?target=" + encodeURIComponent(target))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.found) {
+        var paths = data.paths || [];
+        var up = null;
+        for (var i = 0; i < paths.length; i++) {
+          if (/\{[^}]+\}/.test(paths[i]) && /user/i.test(paths[i])) { up = paths[i]; break; }
+        }
+        if (!up) {
+          for (var j = 0; j < paths.length; j++) {
+            if (/\{[^}]+\}/.test(paths[j])) { up = paths[j]; break; }
+          }
+        }
+        if (up) {
+          document.getElementById("f-bola").value = up.replace(/\{[^}]+\}/g, "{id}");
+          document.getElementById("f-update").value = up.replace(/\{[^}]+\}/g, "1");
+        }
+        for (var k = 0; k < paths.length; k++) {
+          if (/admin/i.test(paths[k])) {
+            document.getElementById("f-protected").value = paths[k].replace(/\{[^}]+\}/g, "1");
+            break;
+          }
+        }
+        var label = "Found " + data.schema_path + " (" + data.total_paths + " paths";
+        if (data.api_title) label += " - " + data.api_title;
+        label += ")";
+        msg.textContent = label;
+        msg.style.color = "#3fb950";
+      } else {
+        msg.textContent = "No OpenAPI schema found at common paths.";
+        msg.style.color = "#e3b341";
+      }
+    })
+    .catch(function(e) {
+      msg.textContent = "Error: " + e.message;
+      msg.style.color = "#f85149";
+    });
+}
 
-async function runScan() {
-  const target = document.getElementById('f-target').value.trim();
-  if (!target) return alert('Enter a target URL');
-  const tests = ['api1','api2','api3','api4','api5','api8'].filter(id=>document.getElementById('t-'+id).checked);
-  if (!tests.length) return alert('Select at least one test category');
+function runScan() {
+  var target = document.getElementById("f-target").value.trim();
+  if (!target) { alert("Enter a target URL"); return; }
 
-  let authBody=null, directToken=null, apiKeyHeader=null, apiKeyValue=null;
-  let authEndpoint=document.getElementById('f-rate-ep').value||'/auth/login', tokenField='access_token';
-  if (_authMode==='login') {
-    authEndpoint = document.getElementById('f-auth-ep').value||'/auth/login';
-    tokenField   = document.getElementById('f-token-field').value||'access_token';
-    const raw = (document.getElementById('f-auth-body').value||'').trim();
-    if (raw) { try { authBody=JSON.parse(raw); } catch(e) { return alert('Credentials must be valid JSON'); } }
-  } else if (_authMode==='bearer') {
-    directToken = (document.getElementById('f-direct-token').value||'').trim()||null;
-  } else if (_authMode==='apikey') {
-    apiKeyHeader = (document.getElementById('f-api-key-header').value||'').trim()||null;
-    apiKeyValue  = (document.getElementById('f-api-key-value').value||'').trim()||null;
+  var testIds = ["api1", "api2", "api3", "api4", "api5", "api8"];
+  var tests = [];
+  for (var i = 0; i < testIds.length; i++) {
+    var cb = document.getElementById("t-" + testIds[i]);
+    if (cb && cb.checked) tests.push(testIds[i]);
+  }
+  if (tests.length === 0) { alert("Select at least one test category"); return; }
+
+  var authBody = null, directToken = null, apiKeyHeader = null, apiKeyValue = null;
+  var authEndpoint = document.getElementById("f-rate-ep").value || "/auth/login";
+  var tokenField = "access_token";
+
+  if (_authMode === "login") {
+    authEndpoint = document.getElementById("f-auth-ep").value || "/auth/login";
+    tokenField = document.getElementById("f-token-field").value || "access_token";
+    var raw = (document.getElementById("f-auth-body").value || "").trim();
+    if (raw) {
+      try { authBody = JSON.parse(raw); }
+      catch (e) { alert("Credentials must be valid JSON"); return; }
+    }
+  } else if (_authMode === "bearer") {
+    directToken = (document.getElementById("f-direct-token").value || "").trim() || null;
+  } else if (_authMode === "apikey") {
+    apiKeyHeader = (document.getElementById("f-api-key-header").value || "").trim() || null;
+    apiKeyValue = (document.getElementById("f-api-key-value").value || "").trim() || null;
   }
 
-  const payload = {
-    target, auth_endpoint:authEndpoint, auth_body:authBody, token_field:tokenField,
-    direct_token:directToken, api_key_header:apiKeyHeader, api_key_value:apiKeyValue,
-    bola_path:document.getElementById('f-bola').value,
-    update_path:document.getElementById('f-update').value,
-    protected_path:document.getElementById('f-protected').value,
-    tests,
+  var payload = {
+    target: target,
+    auth_endpoint: authEndpoint,
+    auth_body: authBody,
+    token_field: tokenField,
+    direct_token: directToken,
+    api_key_header: apiKeyHeader,
+    api_key_value: apiKeyValue,
+    bola_path: document.getElementById("f-bola").value,
+    update_path: document.getElementById("f-update").value,
+    protected_path: document.getElementById("f-protected").value,
+    tests: tests
   };
 
-  document.getElementById('scan-btn').disabled = true;
-  const bar = document.getElementById('status-bar');
-  bar.style.display = 'block';
-  bar.innerHTML = '<span class="spinner"></span>Scanning <strong>'+target+'</strong> - may take 20-40s...';
-  document.getElementById('results').innerHTML = '';
+  document.getElementById("scan-btn").disabled = true;
+  var bar = document.getElementById("status-bar");
+  bar.style.display = "block";
+  bar.innerHTML = '<span class="spinner"></span>Scanning <strong>' + target + '</strong> &mdash; may take 20-40 s&hellip;';
+  document.getElementById("results").innerHTML = "";
 
-  try {
-    const r = await fetch('/monitor/scan', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    if (!r.ok) throw new Error(await r.text());
-    const data = await r.json();
-    _lastScan = data;
-    renderResults(data);
-    bar.style.display = 'none';
-  } catch(e) {
-    bar.innerHTML = '<span style="color:#f85149">Error: '+e.message+'</span>';
-  } finally {
-    document.getElementById('scan-btn').disabled = false;
-  }
+  fetch("/monitor/scan", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  })
+    .then(function(r) {
+      if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+      return r.json();
+    })
+    .then(function(data) {
+      _lastScan = data;
+      renderResults(data);
+      bar.style.display = "none";
+    })
+    .catch(function(e) {
+      bar.innerHTML = '<span style="color:#f85149">Error: ' + e.message + '</span>';
+    })
+    .finally(function() {
+      document.getElementById("scan-btn").disabled = false;
+    });
 }
 
 function renderResults(data) {
-  const el = document.getElementById('results');
-  const sc = data.score>=80?'green':data.score>=50?'yellow':'red';
-  let html = '<div class="score-row">'
-    +'<div class="scard"><div class="num '+sc+'">'+data.score+'%</div><div class="lbl">Security Score</div></div>'
-    +'<div class="scard"><div class="num blue">'+data.total_tests+'</div><div class="lbl">Tests Run</div></div>'
-    +'<div class="scard"><div class="num red">'+data.total_vulnerable+'</div><div class="lbl">Vulnerable</div></div>'
-    +'<div class="scard"><div class="num green">'+(data.total_tests-data.total_vulnerable)+'</div><div class="lbl">Passed</div></div>'
-    +'</div>'
-    +'<p style="color:#8b949e;font-size:.83em;margin-bottom:16px">Target: <code>'+data.target+'</code> &nbsp;|&nbsp; '+data.timestamp+'</p>';
-  for (const cat of data.categories) {
-    const cve = CVE_DB[cat.category]||null;
-    const vuln = cat.vulnerable_count>0;
-    html += '<div class="cat-block"><div class="cat-hdr"><h3>'+cat.category+'</h3>'
-      +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +(cve?'<span class="badge sev-'+cve.severity+'">'+cve.severity+'</span>':'')
-      +'<span class="badge '+(vuln?'bv':'bs')+'">'+cat.vulnerable_count+'/'+cat.total+' Vulnerable</span>'
-      +'</div></div>'
-      +'<table><tr><th>Test</th><th>Request</th><th>Expected</th><th>Actual</th><th>Result</th></tr>';
-    for (const t of cat.tests) {
-      html += '<tr><td>'+t.test+'</td><td><code>'+t.request+'</code></td><td>'+t.expected+'</td><td>'+t.actual+'</td>'
-        +'<td class="'+(t.vulnerable?'vY':'vN')+'">'+(t.vulnerable?'VULNERABLE':'SECURE')+'</td></tr>';
+  var el = document.getElementById("results");
+  var sc = data.score >= 80 ? "green" : data.score >= 50 ? "yellow" : "red";
+  var html = '<div class="score-row">'
+    + '<div class="scard"><div class="num ' + sc + '">' + data.score + '%</div><div class="lbl">Security Score</div></div>'
+    + '<div class="scard"><div class="num blue">' + data.total_tests + '</div><div class="lbl">Tests Run</div></div>'
+    + '<div class="scard"><div class="num red">' + data.total_vulnerable + '</div><div class="lbl">Vulnerable</div></div>'
+    + '<div class="scard"><div class="num green">' + (data.total_tests - data.total_vulnerable) + '</div><div class="lbl">Passed</div></div>'
+    + '</div>'
+    + '<p style="color:#8b949e;font-size:.83em;margin-bottom:16px">Target: <code>' + data.target + '</code> &nbsp;|&nbsp; ' + data.timestamp + '</p>';
+
+  for (var ci = 0; ci < data.categories.length; ci++) {
+    var cat = data.categories[ci];
+    var cve = CVE_DB[cat.category] || null;
+    var vuln = cat.vulnerable_count > 0;
+    html += '<div class="cat-block"><div class="cat-hdr"><h3>' + cat.category + '</h3>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + (cve ? '<span class="badge sev-' + cve.severity + '">' + cve.severity + '</span>' : '')
+      + '<span class="badge ' + (vuln ? 'bv' : 'bs') + '">' + cat.vulnerable_count + '/' + cat.total + ' Vulnerable</span>'
+      + '</div></div>'
+      + '<table><tr><th>Test</th><th>Request</th><th>Expected</th><th>Actual</th><th>Result</th></tr>';
+    for (var ti = 0; ti < cat.tests.length; ti++) {
+      var t = cat.tests[ti];
+      html += '<tr><td>' + t.test + '</td><td><code>' + t.request + '</code></td><td>' + t.expected + '</td><td>' + t.actual + '</td>'
+        + '<td class="' + (t.vulnerable ? 'vY' : 'vN') + '">' + (t.vulnerable ? 'VULNERABLE' : 'SECURE') + '</td></tr>';
     }
     html += '</table>';
     if (cve) {
+      var badges = '';
+      for (var bi = 0; bi < cve.cves.length; bi++) {
+        badges += '<a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/' + cve.cves[bi] + '" target="_blank">' + cve.cves[bi] + '</a>';
+      }
+      var fixItems = '';
+      for (var fi = 0; fi < cve.fixes.length; fi++) {
+        fixItems += '<li>' + cve.fixes[fi] + '</li>';
+      }
       html += '<div class="cve-panel"><h4>CVE References &amp; Remediation</h4>'
-        +'<div class="cve-row">'
-        +cve.cves.map(id=>'<a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/'+id+'" target="_blank">'+id+'</a>').join('')
-        +'<a class="owasp-link" href="'+cve.owasp_ref+'" target="_blank">OWASP Reference &#x2192;</a>'
-        +'</div><p class="vuln-desc">'+cve.description+'</p>'
-        +'<div class="fixes"><ol>'+cve.fixes.map(f=>'<li>'+f+'</li>').join('')+'</ol></div></div>';
+        + '<div class="cve-row">' + badges
+        + '<a class="owasp-link" href="' + cve.owasp_ref + '" target="_blank">OWASP Reference &#x2192;</a>'
+        + '</div><p class="vuln-desc">' + cve.description + '</p>'
+        + '<div class="fixes"><ol>' + fixItems + '</ol></div></div>';
     }
     html += '</div>';
   }
+
   html += '<div class="export-bar">'
-    +'<span style="font-size:.82em;color:#8b949e">Save as report:</span>'
-    +'<button class="btn-save btn-save-brief" onclick="saveReport(\'brief\')">Brief Report</button>'
-    +'<button class="btn-save btn-save-detail" onclick="saveReport(\'detailed\')">Detailed Report</button>'
-    +'<span id="save-msg" style="font-size:.82em;margin-left:4px"></span></div>';
+    + '<span style="font-size:.82em;color:#8b949e">Save as report:</span>'
+    + '<button type="button" class="btn-save btn-save-brief js-save" data-detail="brief">Brief Report</button>'
+    + '<button type="button" class="btn-save btn-save-detail js-save" data-detail="detailed">Detailed Report</button>'
+    + '<span id="save-msg" style="font-size:.82em;margin-left:4px"></span></div>';
   el.innerHTML = html;
 }
 
-async function saveReport(detail) {
+function saveReport(detail) {
   if (!_lastScan) return;
-  const msg = document.getElementById('save-msg');
-  msg.style.color='#8b949e'; msg.textContent='Saving...';
-  try {
-    const r = await fetch('/monitor/save-report',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({target:_lastScan.target,timestamp:_lastScan.timestamp,score:_lastScan.score,
-        total_tests:_lastScan.total_tests,total_vulnerable:_lastScan.total_vulnerable,
-        categories:_lastScan.categories,detail})});
-    if (!r.ok) throw new Error(await r.text());
-    const res = await r.json();
-    msg.innerHTML = 'Saved! <a href="/monitor/reports/'+res.html_file+'" target="_blank" style="color:#58a6ff;font-weight:600">View Report &#x2192;</a>';
-  } catch(e) { msg.style.color='#f85149'; msg.textContent='Error: '+e.message; }
+  var msg = document.getElementById("save-msg");
+  if (!msg) return;
+  msg.style.color = "#8b949e";
+  msg.textContent = "Saving...";
+  fetch("/monitor/save-report", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      target: _lastScan.target,
+      timestamp: _lastScan.timestamp,
+      score: _lastScan.score,
+      total_tests: _lastScan.total_tests,
+      total_vulnerable: _lastScan.total_vulnerable,
+      categories: _lastScan.categories,
+      detail: detail
+    })
+  })
+    .then(function(r) {
+      if (!r.ok) return r.text().then(function(t) { throw new Error(t); });
+      return r.json();
+    })
+    .then(function(res) {
+      msg.innerHTML = 'Saved! <a href="/monitor/reports/' + res.html_file + '" target="_blank" style="color:#58a6ff;font-weight:600">View Report &#x2192;</a>';
+    })
+    .catch(function(e) {
+      msg.style.color = "#f85149";
+      msg.textContent = "Error: " + e.message;
+    });
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+  document.getElementById("preset-vulnerable").addEventListener("click", function() { loadPreset("vulnerable"); });
+  document.getElementById("preset-hardened").addEventListener("click", function() { loadPreset("hardened"); });
+  document.getElementById("preset-external").addEventListener("click", function() { loadPreset("external"); });
+
+  var tabs = document.querySelectorAll(".auth-tab");
+  for (var i = 0; i < tabs.length; i++) {
+    (function(tab) {
+      tab.addEventListener("click", function() { setAuthTab(tab.getAttribute("data-auth")); });
+    })(tabs[i]);
+  }
+
+  document.getElementById("btn-discover").addEventListener("click", discoverSchema);
+  document.getElementById("btn-select-all").addEventListener("click", function() { toggleAll(true); });
+  document.getElementById("btn-clear-all").addEventListener("click", function() { toggleAll(false); });
+  document.getElementById("scan-btn").addEventListener("click", runScan);
+
+  document.getElementById("results").addEventListener("click", function(e) {
+    var btn = e.target;
+    while (btn && btn !== this) {
+      if (btn.classList && btn.classList.contains("js-save")) {
+        saveReport(btn.getAttribute("data-detail"));
+        return;
+      }
+      btn = btn.parentNode;
+    }
+  });
+});
 </script>
 </body>
 </html>"""
