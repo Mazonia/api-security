@@ -1139,7 +1139,7 @@ function renderResults(data) {
         + '<td class="' + (t.vulnerable ? 'vY' : 'vN') + '">' + (t.vulnerable ? 'VULNERABLE' : 'SECURE') + '</td></tr>';
     }
     html += '</table>';
-    if (cve) {
+    if (cve && vuln) {
       var badges = '';
       for (var bi = 0; bi < cve.cves.length; bi++) {
         badges += '<a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/' + cve.cves[bi] + '" target="_blank">' + cve.cves[bi] + '</a>';
@@ -1330,7 +1330,7 @@ def _build_report_html(req: "SaveReportRequest") -> str:
             )
 
         cve_html = ""
-        if cve:
+        if cve and vc > 0:
             badges = "".join(
                 f'<a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/{c}" target="_blank">{c}</a>'
                 for c in cve.get("cves", [])
