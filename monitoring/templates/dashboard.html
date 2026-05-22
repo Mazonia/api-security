@@ -5,37 +5,58 @@
 <title>API Security Monitor</title>
 <script src="/static/chart.min.js"></script>
 <style>
-:root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2128;--border:#30363d;--text:#c9d1d9;--muted:#8b949e;--red:#f85149;--green:#3fb950;--blue:#58a6ff;--yellow:#e3b341;--purple:#bc8cff;--orange:#ffa657;--sidebar:240px}
+:root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2128;--border:#30363d;--text:#c9d1d9;--muted:#8b949e;--red:#f85149;--green:#3fb950;--blue:#58a6ff;--yellow:#e3b341;--purple:#bc8cff;--orange:#ffa657;--sidebar:240px;--sidebar-collapsed:60px}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px}
 
 /* ─── Sidebar ─────────────────────────────────────────────────────── */
-#sidebar{width:var(--sidebar);background:var(--surf);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;top:0;left:0;z-index:100}
-.brand{padding:20px 16px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
-.brand-icon{font-size:1.6em}
+#sidebar{width:var(--sidebar);background:var(--surf);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;top:0;left:0;z-index:100;transition:width .22s ease;overflow:hidden}
+.brand{padding:20px 16px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);min-width:var(--sidebar);white-space:nowrap}
+.brand-icon{font-size:1.6em;flex-shrink:0}
 .brand-name{font-weight:700;font-size:1em;color:var(--blue)}
 .brand-sub{font-size:.72em;color:var(--muted)}
-nav{flex:1;padding:12px 8px;overflow-y:auto}
-.nav-section{font-size:.7em;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:10px 14px 4px;margin-top:6px}
-.nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.88em;font-weight:500;transition:all .15s;cursor:pointer;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+.brand-text{overflow:hidden;transition:opacity .15s ease}
+#sidebar-toggle{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85em;margin-left:auto;padding:4px 6px;border-radius:5px;line-height:1;flex-shrink:0;transition:color .15s}
+#sidebar-toggle:hover{color:var(--text);background:var(--surf2)}
+nav{flex:1;padding:12px 8px;overflow-y:auto;overflow-x:hidden}
+.nav-section{font-size:.7em;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:10px 14px 4px;margin-top:6px;white-space:nowrap;transition:opacity .15s}
+.nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.88em;font-weight:500;transition:all .15s;cursor:pointer;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;white-space:nowrap;position:relative}
 .nav-link:hover{background:var(--surf2);color:var(--text)}
 .nav-link.active{background:rgba(88,166,255,.12);color:var(--blue)}
 .nav-link.ext{color:var(--muted)}
 .nav-link.ext:hover{color:var(--text)}
-.nav-icon{font-size:1.1em;width:20px;text-align:center}
-.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:.72em;padding:2px 7px;border-radius:10px;font-weight:700;min-width:20px;text-align:center}
-.nav-ext-arrow{margin-left:auto;font-size:.75em;color:var(--border)}
-.sidebar-bottom{padding:12px 8px;border-top:1px solid var(--border)}
-.refresh-row{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px}
-.refresh-row label{color:var(--muted);font-size:.8em}
+.nav-icon{font-size:1.1em;width:20px;text-align:center;flex-shrink:0}
+.nav-label{flex:1;overflow:hidden;transition:opacity .15s ease}
+.nav-badge{background:var(--red);color:#fff;font-size:.72em;padding:2px 7px;border-radius:10px;font-weight:700;min-width:20px;text-align:center;transition:all .15s}
+.nav-ext-arrow{font-size:.75em;color:var(--border);transition:opacity .15s}
+.sidebar-bottom{padding:12px 8px;border-top:1px solid var(--border);overflow:hidden}
+.refresh-row{display:flex;align-items:center;gap:8px;padding:8px 12px;margin-bottom:6px;white-space:nowrap}
+.refresh-label{color:var(--muted);font-size:.8em;transition:opacity .15s}
 select{background:var(--surf2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:.82em;cursor:pointer}
-.countdown-row{padding:4px 12px 8px;font-size:.78em;color:var(--muted)}
-.live-dot{display:flex;align-items:center;gap:6px;padding:8px 12px;color:var(--green);font-size:.8em}
-.dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite}
+.countdown-row{padding:4px 12px 8px;font-size:.78em;color:var(--muted);white-space:nowrap;transition:opacity .15s}
+.live-dot{display:flex;align-items:center;gap:6px;padding:8px 12px;color:var(--green);font-size:.8em;white-space:nowrap}
+.live-label{transition:opacity .15s}
+.dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
+/* ─── Sidebar collapsed state ──────────────────────────────────────── */
+#sidebar.collapsed{width:var(--sidebar-collapsed)}
+#sidebar.collapsed .brand-text,
+#sidebar.collapsed .nav-section,
+#sidebar.collapsed .nav-label,
+#sidebar.collapsed .nav-ext-arrow,
+#sidebar.collapsed .refresh-label,
+#sidebar.collapsed .countdown-row,
+#sidebar.collapsed .live-label{opacity:0;pointer-events:none;width:0;overflow:hidden}
+#sidebar.collapsed .nav-link{justify-content:center;padding:10px 0}
+#sidebar.collapsed .nav-badge{position:absolute;top:4px;right:4px;padding:1px 4px;min-width:14px;font-size:.62em}
+#sidebar.collapsed .refresh-row{justify-content:center;padding:8px 4px}
+#sidebar.collapsed .live-dot{justify-content:center;padding:8px 4px}
+#sidebar.collapsed select{width:42px;font-size:.7em;padding:4px 2px;text-align:center}
+#sidebar.collapsed #sidebar-toggle{margin-left:0}
+
 /* ─── Main ─────────────────────────────────────────────────────────── */
-#main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh}
+#main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .22s ease}
 header{background:var(--surf);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 #page-title{font-size:1.1em;font-weight:700;color:var(--text)}
 .header-right{display:flex;align-items:center;gap:12px}
@@ -189,55 +210,56 @@ tr:hover td{background:var(--surf2);cursor:pointer}
 <aside id="sidebar">
   <div class="brand">
     <div class="brand-icon">🔒</div>
-    <div><div class="brand-name">API Monitor</div><div class="brand-sub">CY384 Security Lab</div></div>
+    <div class="brand-text"><div class="brand-name">API Monitor</div><div class="brand-sub">CY384 Security Lab</div></div>
+    <button id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">&#9664;</button>
   </div>
   <nav>
     <div class="nav-section">Monitor</div>
-    <button class="nav-link active" data-tab="overview" onclick="switchTab('overview',this)">
-      <span class="nav-icon">📊</span> Overview
+    <button class="nav-link active" data-tab="overview" onclick="switchTab('overview',this)" title="Overview">
+      <span class="nav-icon">📊</span><span class="nav-label">Overview</span>
     </button>
-    <button class="nav-link" data-tab="feed" onclick="switchTab('feed',this)">
-      <span class="nav-icon">📡</span> Live Feed
+    <button class="nav-link" data-tab="feed" onclick="switchTab('feed',this)" title="Live Feed">
+      <span class="nav-icon">📡</span><span class="nav-label">Live Feed</span>
     </button>
-    <button class="nav-link" data-tab="anomalies" onclick="switchTab('anomalies',this)">
-      <span class="nav-icon">⚠️</span> Anomalies
+    <button class="nav-link" data-tab="anomalies" onclick="switchTab('anomalies',this)" title="Anomalies">
+      <span class="nav-icon">⚠️</span><span class="nav-label">Anomalies</span>
       <span class="nav-badge hidden" id="anomaly-badge">0</span>
     </button>
-    <button class="nav-link" data-tab="endpoints" onclick="switchTab('endpoints',this)">
-      <span class="nav-icon">🗂️</span> Endpoints
+    <button class="nav-link" data-tab="endpoints" onclick="switchTab('endpoints',this)" title="Endpoints">
+      <span class="nav-icon">🗂️</span><span class="nav-label">Endpoints</span>
     </button>
-    <button class="nav-link" data-tab="reports" onclick="switchTab('reports',this)">
-      <span class="nav-icon">📋</span> Reports
+    <button class="nav-link" data-tab="reports" onclick="switchTab('reports',this)" title="Reports">
+      <span class="nav-icon">📋</span><span class="nav-label">Reports</span>
       <span class="nav-badge hidden" id="reports-badge">0</span>
     </button>
 
     <div class="nav-section">Tools</div>
-    <a class="nav-link ext" href="/scan-ui">
-      <span class="nav-icon">🔍</span> Scanner
+    <a class="nav-link ext" href="/scan-ui" title="Scanner">
+      <span class="nav-icon">🔍</span><span class="nav-label">Scanner</span>
       <span class="nav-ext-arrow">↗</span>
     </a>
-    <a class="nav-link ext" href="http://localhost:8000/ui" target="_blank">
-      <span class="nav-icon">🛒</span> ShopApp Demo
+    <a class="nav-link ext" href="http://localhost:8000/ui" target="_blank" title="ShopApp Demo">
+      <span class="nav-icon">🛒</span><span class="nav-label">ShopApp Demo</span>
       <span class="nav-ext-arrow">↗</span>
     </a>
-    <a class="nav-link ext" href="http://localhost:8000/docs" target="_blank">
-      <span class="nav-icon">📄</span> API Docs (Vuln)
+    <a class="nav-link ext" href="http://localhost:8000/docs" target="_blank" title="API Docs (Vuln)">
+      <span class="nav-icon">📄</span><span class="nav-label">API Docs (Vuln)</span>
       <span class="nav-ext-arrow">↗</span>
     </a>
   </nav>
   <div class="sidebar-bottom">
     <div class="refresh-row">
-      <label>Refresh every</label>
-      <select id="refresh-select" onchange="setRefreshInterval(+this.value)">
+      <span class="refresh-label">Refresh every</span>
+      <select id="refresh-select" onchange="setRefreshInterval(+this.value)" title="Refresh interval">
         <option value="5">5 s</option>
         <option value="10" selected>10 s</option>
         <option value="30">30 s</option>
         <option value="60">60 s</option>
-        <option value="0">Paused</option>
+        <option value="0">Off</option>
       </select>
     </div>
     <div class="countdown-row" id="countdown-row">Next refresh in <span id="countdown">10</span>s</div>
-    <div class="live-dot"><div class="dot"></div> LIVE</div>
+    <div class="live-dot"><div class="dot"></div><span class="live-label">LIVE</span></div>
   </div>
 </aside>
 
@@ -1217,6 +1239,31 @@ function openModal(jsonStr) {
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR COLLAPSE
+═══════════════════════════════════════════════════════════════════════════ */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main    = document.getElementById('main');
+  const btn     = document.getElementById('sidebar-toggle');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.style.marginLeft = collapsed ? 'var(--sidebar-collapsed)' : 'var(--sidebar)';
+  btn.innerHTML = collapsed ? '&#9654;' : '&#9664;';
+  btn.title     = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+  localStorage.setItem('sb-collapsed', collapsed ? '1' : '0');
+}
+
+(function() {
+  if (localStorage.getItem('sb-collapsed') === '1') {
+    const sidebar = document.getElementById('sidebar');
+    const main    = document.getElementById('main');
+    const btn     = document.getElementById('sidebar-toggle');
+    sidebar.classList.add('collapsed');
+    main.style.marginLeft = 'var(--sidebar-collapsed)';
+    if (btn) { btn.innerHTML = '&#9654;'; btn.title = 'Expand sidebar'; }
+  }
+})();
 
 /* ═══════════════════════════════════════════════════════════════════════════
    TABS
