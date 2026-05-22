@@ -342,7 +342,15 @@ async def external_scan(req: ScanRequest):
     user_id = 1
     _run    = set(req.tests) if req.tests else {"api1","api2","api3","api4","api5","api8"}
 
-    # Build effective auth headers from whichever method was provided
+    pre_scan = {
+        "target_reachable": False,
+        "reachable_status": None,
+        "auth_provided": bool(req.direct_token or req.api_key_header or req.auth_body),
+        "auth_valid": None,   # True | False | None (unknown)
+        "auth_message": "No credentials provided — only unauthenticated tests will run.",
+    }
+
+    # Build auth headers from direct_token or API key (login-flow token added below)
     eff_hdrs: dict = {}
     if req.api_key_header and req.api_key_value:
         eff_hdrs[req.api_key_header] = req.api_key_value
@@ -355,6 +363,107 @@ async def external_scan(req: ScanRequest):
             pass
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
+
+        # ── Phase 1: Target reachability ────────────────────────────────────────
+        for _rp in ["/", ""]:
+            _rr = await _async_get(client, base + _rp)
+            if _rr is not None:
+                pre_scan["target_reachable"] = True
+                pre_scan["reachable_status"] = _rr.status_code
+                break
+        if not pre_scan["target_reachable"]:
+            return JSONResponse({
+                "target": req.target,
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+                "score": 0, "total_tests": 0, "total_vulnerable": 0,
+                "categories": [],
+                "pre_scan": {**pre_scan,
+                             "auth_message": "Scan aborted — target unreachable. "
+                                             "Check the URL and confirm the service is running."},
+            })
+
+        # ── Phase 2: Auth acquisition + validation ───────────────────────────────
+        if not token and req.auth_body and req.auth_endpoint:
+            # Login flow: POST credentials → get token
+            r_login = await _async_post(client, base + req.auth_endpoint, req.auth_body)
+            if r_login and r_login.status_code == 200:
+                try:
+                    token = r_login.json().get(req.token_field or "access_token", "")
+                except Exception:
+                    pass
+            if token:
+                eff_hdrs["Authorization"] = f"Bearer {token}"
+                try:
+                    _pld = _json.loads(_b64.b64decode(token.split(".")[1] + "=="))
+                    user_id = int(_pld.get("sub", 1))
+                except Exception:
+                    pass
+                pre_scan["auth_valid"] = True
+                pre_scan["auth_message"] = "Login flow: token acquired successfully."
+            else:
+                _sc = r_login.status_code if r_login else "no response"
+                pre_scan["auth_valid"] = False
+                pre_scan["auth_message"] = (
+                    f"Login flow failed (HTTP {_sc}) — wrong credentials or wrong auth endpoint. "
+                    "Auth-dependent tests (BOLA, mass assignment, function auth) will be skipped."
+                )
+
+        elif eff_hdrs:
+            # Token / API-key mode: validate by probing endpoints.
+            # Strategy: find an endpoint that returns 401 without auth (auth-gated),
+            # then check if OUR credentials get through it.
+            _probe_paths = []
+            if req.bola_path:
+                _probe_paths.append(req.bola_path.replace("{id}", "1"))
+            _probe_paths += ["/user", "/me", "/profile", "/api/v1/user",
+                             req.auth_endpoint or "", "/health", "/"]
+            _probe_paths = [p for p in _probe_paths if p]
+
+            _auth_probed = False
+            for _pp in _probe_paths:
+                # Step A: probe WITHOUT auth — skip public endpoints
+                _r_open = await _async_get(client, base + _pp)
+                if _r_open is None or _r_open.status_code == 404:
+                    continue  # endpoint doesn't exist, try next
+                if _r_open.status_code == 200:
+                    continue  # endpoint is public — can't distinguish valid from invalid creds here
+
+                # Step B: this endpoint requires auth — probe WITH our credentials
+                _r_auth = await _async_get(client, base + _pp, headers=eff_hdrs)
+                if _r_auth is None:
+                    continue
+                _sc2 = _r_auth.status_code
+                if _sc2 == 401:
+                    pre_scan["auth_valid"] = False
+                    pre_scan["auth_message"] = (
+                        f"Credentials rejected (401 on {_pp}). "
+                        "Token is invalid, expired, or does not belong to this API. "
+                        "Auth-dependent tests will be skipped."
+                    )
+                elif _sc2 in (200, 204, 206):
+                    pre_scan["auth_valid"] = True
+                    pre_scan["auth_message"] = f"Credentials valid (HTTP {_sc2} on {_pp})."
+                elif _sc2 == 403:
+                    pre_scan["auth_valid"] = True
+                    pre_scan["auth_message"] = (
+                        f"Credentials accepted (403 on {_pp}) — "
+                        "authenticated but this scope/path is restricted."
+                    )
+                else:
+                    continue  # inconclusive status, try next path
+                _auth_probed = True
+                break
+
+            if not _auth_probed:
+                pre_scan["auth_valid"] = None
+                pre_scan["auth_message"] = (
+                    "Could not find an auth-gated endpoint to validate credentials against "
+                    "(all probed paths returned 404 or are publicly accessible). "
+                    "Tests will run but results may be unreliable."
+                )
+
+        # Gate auth-dependent tests: skip entirely if auth is definitively invalid
+        _auth_hdrs = eff_hdrs if pre_scan["auth_valid"] is not False else {}
 
         # ── API8 / API5: sensitive path enumeration ─────────────────────────────
         if "api8" in _run or "api5" in _run:
@@ -485,125 +594,156 @@ async def external_scan(req: ScanRequest):
             })
             await asyncio.sleep(0.3)
 
-        # ── Login flow: acquire token if not already provided ────────────────────
-        if not token and req.auth_body and req.auth_endpoint:
-            r = await _async_post(client, base + req.auth_endpoint, req.auth_body)
-            if r and r.status_code == 200:
-                try:
-                    token = r.json().get(req.token_field or "access_token", "")
-                except Exception:
-                    pass
-            if token:
-                eff_hdrs["Authorization"] = f"Bearer {token}"
-                try:
-                    _pld = _json.loads(_b64.b64decode(token.split(".")[1] + "=="))
-                    user_id = int(_pld.get("sub", 1))
-                except Exception:
-                    pass
-
-        # ── API2: JWT weak secret ────────────────────────────────────────────────
+        # ── API2: JWT weak secret + alg:none bypass ──────────────────────────────
         if "api2" in _run:
+            _jwt_probe = base + req.bola_path.replace("{id}", "1")
+            # Check if this endpoint actually requires auth first
+            _r_open = await _async_get(client, _jwt_probe)
+            _jwt_endpoint_gated = _r_open is not None and _r_open.status_code in (401, 403)
+
             try:
                 from jose import jwt as jose_jwt
                 forged = jose_jwt.encode(
                     {"sub": "1", "username": "alice", "role": "admin"},
                     "secret", algorithm="HS256",
                 )
-                r = await _async_get(client, base + req.bola_path.replace("{id}", "1"),
+                r = await _async_get(client, _jwt_probe,
                                      headers={"Authorization": f"Bearer {forged}"})
                 if r is not None:
+                    _vuln = r.status_code == 200 and _jwt_endpoint_gated
                     results.append({
                         "test": "JWT weak secret — forge token with key 'secret'",
                         "request": f"GET {req.bola_path.replace('{id}', '1')} (forged JWT, key='secret')",
                         "expected": "401 or 403 (forged token rejected)",
-                        "actual": str(r.status_code),
+                        "actual": (str(r.status_code) if _jwt_endpoint_gated
+                                   else f"{r.status_code} (endpoint is public — result not meaningful)"),
                         "severity": "CRITICAL",
-                        "vulnerable": r.status_code == 200,
+                        "vulnerable": _vuln,
                         "category": "API2:2023 - Broken Authentication",
                     })
             except ImportError:
                 pass
 
-            # ── API2: JWT algorithm confusion — alg:none bypass ──────────────────
             try:
                 _hdr_b64 = _b64.urlsafe_b64encode(b'{"alg":"none","typ":"JWT"}').rstrip(b'=').decode()
                 _pld_b64 = _b64.urlsafe_b64encode(
                     b'{"sub":"1","username":"alice","role":"admin"}'
                 ).rstrip(b'=').decode()
                 alg_none_tok = f"{_hdr_b64}.{_pld_b64}."
-                r_alg = await _async_get(
-                    client, base + req.bola_path.replace("{id}", "1"),
-                    headers={"Authorization": f"Bearer {alg_none_tok}"},
-                )
+                r_alg = await _async_get(client, _jwt_probe,
+                                         headers={"Authorization": f"Bearer {alg_none_tok}"})
                 if r_alg is not None:
+                    _vuln_alg = r_alg.status_code == 200 and _jwt_endpoint_gated
                     results.append({
                         "test": "JWT algorithm confusion — alg:none (unsigned token)",
                         "request": f"GET {req.bola_path.replace('{id}', '1')} (JWT alg=none, no signature)",
                         "expected": "401 — unsigned tokens must be rejected",
-                        "actual": str(r_alg.status_code),
+                        "actual": (str(r_alg.status_code) if _jwt_endpoint_gated
+                                   else f"{r_alg.status_code} (endpoint is public — result not meaningful)"),
                         "severity": "CRITICAL",
-                        "vulnerable": r_alg.status_code == 200,
+                        "vulnerable": _vuln_alg,
                         "category": "API2:2023 - Broken Authentication",
                     })
             except Exception:
                 pass
 
-        # ── API1: BOLA — single probe + ID range ────────────────────────────────
-        if "api1" in _run and eff_hdrs.get("Authorization"):
+        # ── API1: BOLA — only meaningful when auth works + endpoint is auth-gated ─
+        if "api1" in _run and _auth_hdrs.get("Authorization"):
             other_id = 1 if user_id != 1 else 2
-            r = await _async_get(client, base + req.bola_path.replace("{id}", str(other_id)),
-                                 headers=eff_hdrs)
-            status = r.status_code if r else 0
-            results.append({
-                "test": "BOLA — access another user's resource",
-                "request": f"GET {req.bola_path.replace('{id}', str(other_id))} (as user #{user_id})",
-                "expected": "403",
-                "actual": str(status),
-                "severity": "HIGH",
-                "vulnerable": status == 200,
-                "category": "API1:2023 - Broken Object Level Authorization",
-            })
-            # Enumerate IDs 1-5 to check how wide the exposure is
-            bola_hits = []
-            for probe_id in range(1, 6):
-                if probe_id == user_id:
-                    continue
-                r2 = await _async_get(client, base + req.bola_path.replace("{id}", str(probe_id)),
-                                      headers=eff_hdrs)
-                if r2 and r2.status_code == 200:
-                    bola_hits.append(probe_id)
-            results.append({
-                "test": "BOLA — ID enumeration range (IDs 1-5)",
-                "request": f"GET {req.bola_path} for IDs 1-5",
-                "expected": "All non-owned IDs return 403",
-                "actual": (f"IDs {bola_hits} returned 200 (unauthorised access)"
-                           if bola_hits else "All non-owned IDs returned 4xx"),
-                "severity": "HIGH",
-                "vulnerable": bool(bola_hits),
-                "category": "API1:2023 - Broken Object Level Authorization",
-            })
+            _bola_url = base + req.bola_path.replace("{id}", str(other_id))
 
-        # ── API5: Function Level Auth ────────────────────────────────────────────
-        if "api5" in _run and eff_hdrs.get("Authorization"):
-            r = await _async_get(client, base + req.protected_path, headers=eff_hdrs)
-            if r is not None:
+            # Check if the endpoint is auth-gated at all
+            _r_open = await _async_get(client, _bola_url)
+            _bola_endpoint_public = _r_open is not None and _r_open.status_code == 200
+            _bola_endpoint_missing = _r_open is not None and _r_open.status_code == 404
+
+            if _bola_endpoint_missing:
                 results.append({
-                    "test": "Function auth — regular user calls admin endpoint",
-                    "request": f"GET {req.protected_path} (regular user token)",
+                    "test": "BOLA — access another user's resource",
+                    "request": f"GET {req.bola_path.replace('{id}', str(other_id))}",
                     "expected": "403",
-                    "actual": str(r.status_code),
+                    "actual": "404 — path does not exist on this API",
                     "severity": "HIGH",
-                    "vulnerable": r.status_code == 200,
-                    "category": "API5:2023 - Broken Function Level Authorization",
+                    "vulnerable": False,
+                    "category": "API1:2023 - Broken Object Level Authorization",
+                })
+            elif _bola_endpoint_public:
+                results.append({
+                    "test": "BOLA — access another user's resource",
+                    "request": f"GET {req.bola_path.replace('{id}', str(other_id))} (no auth)",
+                    "expected": "401 or 403 (resource is private)",
+                    "actual": "200 without any credentials — endpoint is publicly accessible",
+                    "severity": "HIGH",
+                    "vulnerable": False,
+                    "category": "API1:2023 - Broken Object Level Authorization",
+                })
+            else:
+                r = await _async_get(client, _bola_url, headers=_auth_hdrs)
+                status = r.status_code if r else 0
+                results.append({
+                    "test": "BOLA — access another user's resource",
+                    "request": f"GET {req.bola_path.replace('{id}', str(other_id))} (as user #{user_id})",
+                    "expected": "403",
+                    "actual": str(status),
+                    "severity": "HIGH",
+                    "vulnerable": status == 200,
+                    "category": "API1:2023 - Broken Object Level Authorization",
                 })
 
+            # ID enumeration — skip if endpoint is public or missing
+            if not _bola_endpoint_missing and not _bola_endpoint_public:
+                bola_hits = []
+                for probe_id in range(1, 6):
+                    if probe_id == user_id:
+                        continue
+                    r2 = await _async_get(client, base + req.bola_path.replace("{id}", str(probe_id)),
+                                          headers=_auth_hdrs)
+                    if r2 and r2.status_code == 200:
+                        bola_hits.append(probe_id)
+                results.append({
+                    "test": "BOLA — ID enumeration range (IDs 1-5)",
+                    "request": f"GET {req.bola_path} for IDs 1-5",
+                    "expected": "All non-owned IDs return 403",
+                    "actual": (f"IDs {bola_hits} returned 200 (unauthorised access)"
+                               if bola_hits else "All non-owned IDs returned 4xx"),
+                    "severity": "HIGH",
+                    "vulnerable": bool(bola_hits),
+                    "category": "API1:2023 - Broken Object Level Authorization",
+                })
+
+        # ── API5: Function Level Auth ────────────────────────────────────────────
+        if "api5" in _run and _auth_hdrs.get("Authorization"):
+            _r_open5 = await _async_get(client, base + req.protected_path)
+            if _r_open5 is not None and _r_open5.status_code == 404:
+                results.append({
+                    "test": "Function auth — regular user calls admin endpoint",
+                    "request": f"GET {req.protected_path}",
+                    "expected": "403",
+                    "actual": "404 — path does not exist on this API",
+                    "severity": "HIGH",
+                    "vulnerable": False,
+                    "category": "API5:2023 - Broken Function Level Authorization",
+                })
+            elif _r_open5 is not None:
+                r = await _async_get(client, base + req.protected_path, headers=_auth_hdrs)
+                if r is not None:
+                    results.append({
+                        "test": "Function auth — regular user calls admin endpoint",
+                        "request": f"GET {req.protected_path} (regular user token)",
+                        "expected": "403",
+                        "actual": str(r.status_code),
+                        "severity": "HIGH",
+                        "vulnerable": r.status_code == 200,
+                        "category": "API5:2023 - Broken Function Level Authorization",
+                    })
+
         # ── API3: Mass assignment ────────────────────────────────────────────────
-        if "api3" in _run and eff_hdrs.get("Authorization"):
+        if "api3" in _run and _auth_hdrs.get("Authorization"):
             try:
                 r = await client.put(
                     base + req.update_path,
                     json={"role": "admin", "balance": 999999},
-                    headers={**eff_hdrs, "Content-Type": "application/json"},
+                    headers={**_auth_hdrs, "Content-Type": "application/json"},
                     timeout=8,
                 )
                 if r.status_code in (200, 201):
@@ -643,12 +783,13 @@ async def external_scan(req: ScanRequest):
     score   = round((1 - total_v / total_t) * 100) if total_t else 100
 
     return JSONResponse({
-        "target":          req.target,
-        "timestamp":       datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        "score":           score,
-        "total_tests":     total_t,
+        "target":           req.target,
+        "timestamp":        datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        "score":            score,
+        "total_tests":      total_t,
         "total_vulnerable": total_v,
-        "categories":      grouped,
+        "categories":       grouped,
+        "pre_scan":         pre_scan,
     })
 
 
@@ -1114,8 +1255,39 @@ function runScan() {
 
 function renderResults(data) {
   var el = document.getElementById("results");
+
+  var html = "";
+
+  // ── Pre-scan status banner ─────────────────────────────────────────────────
+  var ps = data.pre_scan || {};
+  var psColor = "#8b949e";
+  var psIcon  = "?";
+  if (ps.auth_valid === true)  { psColor = "#3fb950"; psIcon = "&#10003;"; }
+  if (ps.auth_valid === false) { psColor = "#f85149"; psIcon = "&#10007;"; }
+
+  var reachColor = ps.target_reachable ? "#3fb950" : "#f85149";
+  var reachIcon  = ps.target_reachable ? "&#10003;" : "&#10007;";
+  var reachLabel = ps.target_reachable
+    ? ("Reachable" + (ps.reachable_status ? " (HTTP " + ps.reachable_status + ")" : ""))
+    : "Unreachable";
+
+  var authLabel = "Auth: ";
+  if (!ps.auth_provided) { authLabel += "None"; psColor = "#8b949e"; psIcon = ""; }
+  else if (ps.auth_valid === true)  authLabel += "Valid";
+  else if (ps.auth_valid === false) authLabel += "Invalid";
+  else                              authLabel += "Unknown";
+
+  html += '<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:.84em">'
+    + '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">'
+    + '<div><span style="color:' + reachColor + ';font-weight:700">' + reachIcon + ' Target: ' + reachLabel + '</span></div>'
+    + (ps.auth_provided
+        ? '<div><span style="color:' + psColor + ';font-weight:700">' + psIcon + ' ' + authLabel + '</span>'
+          + '<div style="color:#8b949e;font-size:.9em;margin-top:3px">' + (ps.auth_message || "") + '</div></div>'
+        : '<div style="color:#8b949e">' + (ps.auth_message || "") + '</div>')
+    + '</div></div>';
+
   var sc = data.score >= 80 ? "green" : data.score >= 50 ? "yellow" : "red";
-  var html = '<div class="score-row">'
+  html += '<div class="score-row">'
     + '<div class="scard"><div class="num ' + sc + '">' + data.score + '%</div><div class="lbl">Security Score</div></div>'
     + '<div class="scard"><div class="num blue">' + data.total_tests + '</div><div class="lbl">Tests Run</div></div>'
     + '<div class="scard"><div class="num red">' + data.total_vulnerable + '</div><div class="lbl">Vulnerable</div></div>'
