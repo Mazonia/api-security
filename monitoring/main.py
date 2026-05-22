@@ -1373,7 +1373,7 @@ function runScan() {
   var ehRaw = (document.getElementById("f-extra-headers").value || "").trim();
   if (ehRaw) {
     try { extraHeaders = JSON.parse(ehRaw); }
-    catch (e) { alert("Extra Headers must be valid JSON — e.g. {\"X-Tenant-ID\": \"acme\"}"); return; }
+    catch (e) { alert('Extra Headers must be valid JSON — e.g. {"X-Tenant-ID": "acme"}'); return; }
   }
 
   var payload = {
