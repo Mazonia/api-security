@@ -219,10 +219,21 @@ class ScanRequest(BaseModel):
     auth_endpoint: Optional[str] = "/auth/login"
     auth_body: Optional[dict] = None
     token_field: Optional[str] = "access_token"
-    # auth: direct token / API key
+    # auth: direct Bearer token
     direct_token: Optional[str] = None
+    # auth: API key in request header
     api_key_header: Optional[str] = None
     api_key_value: Optional[str] = None
+    # auth: API key in query parameter (e.g. ?key=… for Google APIs)
+    api_key_query_param: Optional[str] = None
+    api_key_query_value: Optional[str] = None
+    # auth: HTTP Basic Auth
+    basic_auth_user: Optional[str] = None
+    basic_auth_pass: Optional[str] = None
+    # extra headers sent with every request (X-Tenant-ID, X-Api-Version, etc.)
+    extra_headers: Optional[dict] = None
+    # api_type: "rest" (default) or "graphql"
+    api_type: Optional[str] = "rest"
     # endpoint config
     bola_path: Optional[str] = "/users/{id}"
     update_path: Optional[str] = "/users/1"
@@ -241,16 +252,16 @@ class SaveReportRequest(BaseModel):
     detail: str = "brief"
 
 
-async def _async_get(client: httpx.AsyncClient, url: str, headers: dict = None):
+async def _async_get(client: httpx.AsyncClient, url: str, headers: dict = None, params: dict = None):
     try:
-        return await client.get(url, headers=headers or {}, timeout=8)
+        return await client.get(url, headers=headers or {}, params=params or {}, timeout=8)
     except Exception:
         return None
 
 
-async def _async_post(client: httpx.AsyncClient, url: str, body: dict, headers: dict = None):
+async def _async_post(client: httpx.AsyncClient, url: str, body: dict, headers: dict = None, params: dict = None):
     try:
-        return await client.post(url, json=body, headers=headers or {}, timeout=8)
+        return await client.post(url, json=body, headers=headers or {}, params=params or {}, timeout=8)
     except Exception:
         return None
 
@@ -342,16 +353,22 @@ async def external_scan(req: ScanRequest):
     user_id = 1
     _run    = set(req.tests) if req.tests else {"api1","api2","api3","api4","api5","api8"}
 
-    pre_scan = {
-        "target_reachable": False,
-        "reachable_status": None,
-        "auth_provided": bool(req.direct_token or req.api_key_header or req.auth_body),
-        "auth_valid": None,   # True | False | None (unknown)
-        "auth_message": "No credentials provided — only unauthenticated tests will run.",
-    }
+    # ── Build auth parameters ────────────────────────────────────────────────────
+    # Query params appended to every authenticated request (e.g. ?key=… for Google)
+    _q_params: dict = {}
+    if req.api_key_query_param and req.api_key_query_value:
+        _q_params[req.api_key_query_param] = req.api_key_query_value
 
-    # Build auth headers from direct_token or API key (login-flow token added below)
-    eff_hdrs: dict = {}
+    # Base headers included in every authenticated request (extra_headers + basic auth)
+    _base_hdrs: dict = dict(req.extra_headers or {})
+    if req.basic_auth_user is not None and req.basic_auth_pass is not None:
+        _cred = _b64.b64encode(
+            f"{req.basic_auth_user}:{req.basic_auth_pass}".encode()
+        ).decode()
+        _base_hdrs["Authorization"] = f"Basic {_cred}"
+
+    # eff_hdrs: full authenticated headers (base + api-key header + bearer token)
+    eff_hdrs: dict = dict(_base_hdrs)
     if req.api_key_header and req.api_key_value:
         eff_hdrs[req.api_key_header] = req.api_key_value
     if token:
@@ -362,7 +379,28 @@ async def external_scan(req: ScanRequest):
         except Exception:
             pass
 
+    pre_scan = {
+        "target_reachable": False,
+        "reachable_status": None,
+        "auth_provided": bool(
+            req.direct_token or req.api_key_header or req.auth_body
+            or req.api_key_query_param or req.basic_auth_user
+        ),
+        "auth_valid": None,   # True | False | None (unknown)
+        "auth_message": "No credentials provided — only unauthenticated tests will run.",
+        "api_type": req.api_type or "rest",
+    }
+
     async with httpx.AsyncClient(follow_redirects=True) as client:
+
+        # Closures: authenticated GET/POST (includes _q_params + _base_hdrs)
+        async def _aget(path, *, hdrs=None):
+            merged = {**_base_hdrs, **(hdrs or {})}
+            return await _async_get(client, base + path, headers=merged, params=_q_params)
+
+        async def _apost(path, body, *, hdrs=None):
+            merged = {**_base_hdrs, **(hdrs or {})}
+            return await _async_post(client, base + path, body, headers=merged, params=_q_params)
 
         # ── Phase 1: Target reachability ────────────────────────────────────────
         for _rp in ["/", ""]:
@@ -429,7 +467,7 @@ async def external_scan(req: ScanRequest):
                     continue  # endpoint is public — can't distinguish valid from invalid creds here
 
                 # Step B: this endpoint requires auth — probe WITH our credentials
-                _r_auth = await _async_get(client, base + _pp, headers=eff_hdrs)
+                _r_auth = await _aget(_pp, hdrs=eff_hdrs)
                 if _r_auth is None:
                     continue
                 _sc2 = _r_auth.status_code
@@ -607,8 +645,8 @@ async def external_scan(req: ScanRequest):
                     {"sub": "1", "username": "alice", "role": "admin"},
                     "secret", algorithm="HS256",
                 )
-                r = await _async_get(client, _jwt_probe,
-                                     headers={"Authorization": f"Bearer {forged}"})
+                r = await _aget(req.bola_path.replace("{id}", "1"),
+                                hdrs={"Authorization": f"Bearer {forged}"})
                 if r is not None:
                     _vuln = r.status_code == 200 and _jwt_endpoint_gated
                     results.append({
@@ -630,8 +668,8 @@ async def external_scan(req: ScanRequest):
                     b'{"sub":"1","username":"alice","role":"admin"}'
                 ).rstrip(b'=').decode()
                 alg_none_tok = f"{_hdr_b64}.{_pld_b64}."
-                r_alg = await _async_get(client, _jwt_probe,
-                                         headers={"Authorization": f"Bearer {alg_none_tok}"})
+                r_alg = await _aget(req.bola_path.replace("{id}", "1"),
+                                    hdrs={"Authorization": f"Bearer {alg_none_tok}"})
                 if r_alg is not None:
                     _vuln_alg = r_alg.status_code == 200 and _jwt_endpoint_gated
                     results.append({
@@ -678,7 +716,7 @@ async def external_scan(req: ScanRequest):
                     "category": "API1:2023 - Broken Object Level Authorization",
                 })
             else:
-                r = await _async_get(client, _bola_url, headers=_auth_hdrs)
+                r = await _aget(req.bola_path.replace("{id}", str(other_id)), hdrs=_auth_hdrs)
                 status = r.status_code if r else 0
                 results.append({
                     "test": "BOLA — access another user's resource",
@@ -696,8 +734,7 @@ async def external_scan(req: ScanRequest):
                 for probe_id in range(1, 6):
                     if probe_id == user_id:
                         continue
-                    r2 = await _async_get(client, base + req.bola_path.replace("{id}", str(probe_id)),
-                                          headers=_auth_hdrs)
+                    r2 = await _aget(req.bola_path.replace("{id}", str(probe_id)), hdrs=_auth_hdrs)
                     if r2 and r2.status_code == 200:
                         bola_hits.append(probe_id)
                 results.append({
@@ -725,7 +762,7 @@ async def external_scan(req: ScanRequest):
                     "category": "API5:2023 - Broken Function Level Authorization",
                 })
             elif _r_open5 is not None:
-                r = await _async_get(client, base + req.protected_path, headers=_auth_hdrs)
+                r = await _aget(req.protected_path, hdrs=_auth_hdrs)
                 if r is not None:
                     results.append({
                         "test": "Function auth — regular user calls admin endpoint",
@@ -743,7 +780,8 @@ async def external_scan(req: ScanRequest):
                 r = await client.put(
                     base + req.update_path,
                     json={"role": "admin", "balance": 999999},
-                    headers={**_auth_hdrs, "Content-Type": "application/json"},
+                    headers={**_base_hdrs, **_auth_hdrs, "Content-Type": "application/json"},
+                    params=_q_params,
                     timeout=8,
                 )
                 if r.status_code in (200, 201):
@@ -765,6 +803,76 @@ async def external_scan(req: ScanRequest):
                     })
             except Exception:
                 pass
+
+        # ── GraphQL-specific tests ───────────────────────────────────────────────
+        if (req.api_type or "rest") == "graphql" and "api8" in _run:
+            _gql_ep = req.bola_path if req.bola_path and not "{id}" in req.bola_path else "/graphql"
+
+            # Introspection enabled (security misconfiguration)
+            _intro_q = {"query": "{__schema{queryType{name}}}"}
+            _ri = await _apost(_gql_ep, _intro_q)
+            if _ri is not None:
+                _intro_on = (_ri.status_code == 200 and
+                             "queryType" in _ri.text and "__schema" in _ri.text)
+                results.append({
+                    "test": "GraphQL introspection enabled",
+                    "request": f"POST {_gql_ep} {{__schema{{queryType{{name}}}}}}",
+                    "expected": "400 or disabled in production",
+                    "actual": f"{_ri.status_code} — {'schema exposed' if _intro_on else 'not exposed'}",
+                    "severity": "MEDIUM",
+                    "vulnerable": _intro_on,
+                    "category": "API8:2023 - Security Misconfiguration",
+                })
+
+            # Batch query attack — can bypass per-operation rate limits
+            _batch_q = [{"query": "{__typename}"}, {"query": "{__typename}"}]
+            _rb = await _apost(_gql_ep, _batch_q)  # type: ignore
+            if _rb is not None:
+                _batch_ok = _rb.status_code == 200 and isinstance(_rb.json() if _rb.content else None, list)
+                try:
+                    _batch_ok = isinstance(_rb.json(), list)
+                except Exception:
+                    _batch_ok = False
+                results.append({
+                    "test": "GraphQL batch query accepted",
+                    "request": f"POST {_gql_ep} [array of queries]",
+                    "expected": "400 — batching disabled or limited",
+                    "actual": f"{_rb.status_code} — {'batching accepted' if _batch_ok else 'not accepted'}",
+                    "severity": "MEDIUM",
+                    "vulnerable": _batch_ok,
+                    "category": "API8:2023 - Security Misconfiguration",
+                })
+
+            # Field suggestion info disclosure — error messages reveal schema
+            _bad_q = {"query": "{user{doesNotExistField}}"}
+            _rfs = await _apost(_gql_ep, _bad_q)
+            if _rfs is not None and _rfs.status_code in (200, 400):
+                _suggests = "did you mean" in _rfs.text.lower()
+                results.append({
+                    "test": "GraphQL field suggestion disclosure",
+                    "request": f"POST {_gql_ep} (invalid field name)",
+                    "expected": "No schema hints in error messages",
+                    "actual": f"{_rfs.status_code} — {'suggestions exposed' if _suggests else 'no suggestions'}",
+                    "severity": "LOW",
+                    "vulnerable": _suggests,
+                    "category": "API8:2023 - Security Misconfiguration",
+                })
+
+            # Depth limit — deeply nested query (resource consumption)
+            if "api4" in _run:
+                _depth = "a{" * 10 + "__typename" + "}" * 10
+                _rdepth = await _apost(_gql_ep, {"query": "{" + _depth + "}"})
+                if _rdepth is not None:
+                    _depth_ok = _rdepth.status_code == 200 and "data" in _rdepth.text
+                    results.append({
+                        "test": "GraphQL query depth limit",
+                        "request": f"POST {_gql_ep} (10-level nested query)",
+                        "expected": "400 — depth limit enforced",
+                        "actual": f"{_rdepth.status_code} — {'executed (no depth limit)' if _depth_ok else 'rejected'}",
+                        "severity": "MEDIUM",
+                        "vulnerable": _depth_ok,
+                        "category": "API4:2023 - Unrestricted Resource Consumption",
+                    })
 
     # Group results by category
     buckets: dict = {}
@@ -908,6 +1016,9 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
 .presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
 .preset{background:#21262d;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-family:inherit}
 .preset:hover{border-color:#58a6ff;color:#58a6ff}
+.api-type-btn{background:#21262d;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:5px 16px;cursor:pointer;font-size:.83em;font-family:inherit}
+.api-type-btn:hover{color:#c9d1d9}
+.api-type-btn.active{background:rgba(88,166,255,.12);border-color:#58a6ff;color:#58a6ff;font-weight:600}
 </style>
 </head>
 <body>
@@ -925,7 +1036,9 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
     <span style="font-size:.82em;color:#8b949e">Quick presets:</span>
     <button type="button" class="preset" id="preset-vulnerable">Vulnerable API (lab)</button>
     <button type="button" class="preset" id="preset-hardened">Hardened API (lab)</button>
-    <button type="button" class="preset" id="preset-external">External API</button>
+    <button type="button" class="preset" id="preset-gemini">Google Gemini API</button>
+    <button type="button" class="preset" id="preset-graphql">GraphQL API</button>
+    <button type="button" class="preset" id="preset-external">External REST API</button>
   </div>
   <p class="hint" style="margin-bottom:20px">Scans run server-side inside the monitoring container. Lab services: use Docker names like <code>http://vulnerable-api:8000</code>. External APIs: enter the full URL directly.</p>
 
@@ -935,11 +1048,18 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
       <label for="f-target">Base URL *</label>
       <input id="f-target" type="text" placeholder="https://api.example.com  or  http://vulnerable-api:8000">
     </div>
-    <h2 style="margin-top:18px;margin-bottom:12px">Authentication</h2>
+    <h2 style="margin-top:18px;margin-bottom:4px">API Type</h2>
+    <div style="display:flex;gap:8px;margin-bottom:16px;margin-top:8px">
+      <button type="button" class="api-type-btn active" id="aptype-rest" data-aptype="rest">REST / JSON</button>
+      <button type="button" class="api-type-btn" id="aptype-graphql" data-aptype="graphql">GraphQL</button>
+    </div>
+    <h2 style="margin-bottom:12px">Authentication</h2>
     <div class="auth-tabs">
       <button type="button" class="auth-tab active" data-auth="login">Login Flow</button>
       <button type="button" class="auth-tab" data-auth="bearer">Bearer Token</button>
-      <button type="button" class="auth-tab" data-auth="apikey">API Key</button>
+      <button type="button" class="auth-tab" data-auth="apikey">API Key Header</button>
+      <button type="button" class="auth-tab" data-auth="queryparam">Query Param</button>
+      <button type="button" class="auth-tab" data-auth="basicauth">Basic Auth</button>
       <button type="button" class="auth-tab" data-auth="none">None</button>
     </div>
     <div id="auth-login">
@@ -950,16 +1070,33 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
       <div class="field"><label for="f-auth-body">Credentials (JSON)</label><textarea id="f-auth-body" rows="2" placeholder='{"username": "alice", "password": "alice123"}'></textarea><span class="hint">Leave blank to skip tests requiring a session</span></div>
     </div>
     <div id="auth-bearer" style="display:none">
-      <div class="field"><label for="f-direct-token">Bearer Token</label><input id="f-direct-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."><span class="hint">Paste an existing JWT. Used for BOLA, mass assignment, and function-auth tests.</span></div>
+      <div class="field"><label for="f-direct-token">Bearer Token</label><input id="f-direct-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."><span class="hint">Paste an existing JWT — used for BOLA, mass assignment, and function-auth tests.</span></div>
     </div>
     <div id="auth-apikey" style="display:none">
       <div class="row">
-        <div class="field"><label for="f-api-key-header">Header Name</label><input id="f-api-key-header" placeholder="X-API-Key"><span class="hint">The header that carries the key</span></div>
-        <div class="field"><label for="f-api-key-value">Key Value</label><input id="f-api-key-value" placeholder="sk-..."></div>
+        <div class="field"><label for="f-api-key-header">Header Name</label><input id="f-api-key-header" placeholder="X-API-Key"><span class="hint">e.g. X-API-Key, Authorization</span></div>
+        <div class="field"><label for="f-api-key-value">Key Value</label><input id="f-api-key-value" placeholder="sk-..."><span class="hint">Sent as the header value</span></div>
+      </div>
+    </div>
+    <div id="auth-queryparam" style="display:none">
+      <div class="row">
+        <div class="field"><label for="f-qp-name">Parameter Name</label><input id="f-qp-name" value="key" placeholder="key"><span class="hint">e.g. key, api_key, token</span></div>
+        <div class="field"><label for="f-qp-value">Parameter Value</label><input id="f-qp-value" placeholder="AIzaSy..."><span class="hint">Appended to every request as ?name=value</span></div>
+      </div>
+    </div>
+    <div id="auth-basicauth" style="display:none">
+      <div class="row">
+        <div class="field"><label for="f-basic-user">Username</label><input id="f-basic-user" placeholder="admin"><span class="hint">Encoded as Authorization: Basic base64(user:pass)</span></div>
+        <div class="field"><label for="f-basic-pass">Password</label><input id="f-basic-pass" type="password" placeholder="password"></div>
       </div>
     </div>
     <div id="auth-none" style="display:none">
       <p class="hint" style="padding:8px 0">Only unauthenticated tests run: sensitive paths, CORS, security headers, schema exposure, rate-limit probing, and JWT forgery attempts.</p>
+    </div>
+    <div class="field" style="margin-top:14px">
+      <label for="f-extra-headers">Extra Headers (JSON) <span style="font-weight:400;text-transform:none;letter-spacing:0">— optional</span></label>
+      <textarea id="f-extra-headers" rows="2" placeholder='{"X-Tenant-ID": "acme", "X-Api-Version": "2024-01"}'></textarea>
+      <span class="hint">Sent with every request — use for multi-tenant APIs, versioning headers, or any required custom header.</span>
     </div>
   </div>
 
@@ -1048,53 +1185,47 @@ var CVE_DB = {
 
 var PRESETS = {
   vulnerable: {
-    target: "http://vulnerable-api:8000",
-    authMode: "login",
-    authEndpoint: "/auth/login",
-    tokenField: "access_token",
+    target: "http://vulnerable-api:8000", apiType: "rest",
+    authMode: "login", authEndpoint: "/auth/login", tokenField: "access_token",
     credentials: '{"username": "alice", "password": "alice123"}',
-    bolaPath: "/users/{id}",
-    updatePath: "/users/1",
-    protectedPath: "/admin/users",
-    rateEp: "/auth/login"
+    bolaPath: "/users/{id}", updatePath: "/users/1", protectedPath: "/admin/users", rateEp: "/auth/login"
   },
   hardened: {
-    target: "http://hardened-api:8001",
-    authMode: "login",
-    authEndpoint: "/auth/login",
-    tokenField: "access_token",
+    target: "http://hardened-api:8001", apiType: "rest",
+    authMode: "login", authEndpoint: "/auth/login", tokenField: "access_token",
     credentials: '{"username": "alice", "password": "alice123"}',
-    bolaPath: "/users/{id}",
-    updatePath: "/users/1",
-    protectedPath: "/admin/users",
-    rateEp: "/auth/login"
+    bolaPath: "/users/{id}", updatePath: "/users/1", protectedPath: "/admin/users", rateEp: "/auth/login"
+  },
+  gemini: {
+    target: "https://generativelanguage.googleapis.com", apiType: "rest",
+    authMode: "queryparam", queryParamName: "key", queryParamValue: "",
+    authEndpoint: "/v1beta/models", tokenField: "access_token", credentials: "",
+    bolaPath: "/v1beta/models/{id}", updatePath: "/v1beta/models/gemini-pro",
+    protectedPath: "/v1beta/models", rateEp: "/v1beta/models"
+  },
+  graphql: {
+    target: "", apiType: "graphql",
+    authMode: "bearer", authEndpoint: "/graphql", tokenField: "access_token", credentials: "",
+    bolaPath: "/graphql", updatePath: "/graphql", protectedPath: "/graphql", rateEp: "/graphql"
   },
   external: {
-    target: "",
-    authMode: "login",
-    authEndpoint: "/auth/login",
-    tokenField: "access_token",
-    credentials: "",
-    bolaPath: "/users/{id}",
-    updatePath: "/users/1",
-    protectedPath: "/admin/users",
-    rateEp: "/auth/login"
+    target: "", apiType: "rest",
+    authMode: "login", authEndpoint: "/auth/login", tokenField: "access_token", credentials: "",
+    bolaPath: "/users/{id}", updatePath: "/users/1", protectedPath: "/admin/users", rateEp: "/auth/login"
   }
 };
 
 var _authMode = "login";
+var _apiType  = "rest";
 var _lastScan = null;
 
 function setAuthTab(mode) {
-  var panels = ["login", "bearer", "apikey", "none"];
+  var panels = ["login", "bearer", "apikey", "queryparam", "basicauth", "none"];
   var tabs = document.querySelectorAll(".auth-tab");
   for (var i = 0; i < tabs.length; i++) {
     var t = tabs[i];
-    if (t.getAttribute("data-auth") === mode) {
-      t.classList.add("active");
-    } else {
-      t.classList.remove("active");
-    }
+    if (t.getAttribute("data-auth") === mode) { t.classList.add("active"); }
+    else { t.classList.remove("active"); }
   }
   for (var j = 0; j < panels.length; j++) {
     var el = document.getElementById("auth-" + panels[j]);
@@ -1103,23 +1234,41 @@ function setAuthTab(mode) {
   _authMode = mode;
 }
 
+function setApiType(type) {
+  _apiType = type;
+  var btns = document.querySelectorAll(".api-type-btn");
+  for (var i = 0; i < btns.length; i++) {
+    if (btns[i].getAttribute("data-aptype") === type) { btns[i].classList.add("active"); }
+    else { btns[i].classList.remove("active"); }
+  }
+}
+
 function loadPreset(name) {
   var p = PRESETS[name];
   if (!p) return;
-  document.getElementById("f-target").value = p.target;
-  document.getElementById("f-auth-ep").value = p.authEndpoint;
-  document.getElementById("f-token-field").value = p.tokenField;
-  document.getElementById("f-auth-body").value = p.credentials;
-  document.getElementById("f-bola").value = p.bolaPath;
-  document.getElementById("f-update").value = p.updatePath;
-  document.getElementById("f-protected").value = p.protectedPath;
-  document.getElementById("f-rate-ep").value = p.rateEp;
-  setAuthTab(p.authMode);
-  if (name === "external") {
-    document.getElementById("discover-msg").textContent = "Enter the target URL then click Discover Schema.";
-    document.getElementById("discover-msg").style.color = "#8b949e";
+  document.getElementById("f-target").value = p.target || "";
+  document.getElementById("f-auth-ep").value = p.authEndpoint || "/auth/login";
+  document.getElementById("f-token-field").value = p.tokenField || "access_token";
+  document.getElementById("f-auth-body").value = p.credentials || "";
+  document.getElementById("f-bola").value = p.bolaPath || "/users/{id}";
+  document.getElementById("f-update").value = p.updatePath || "/users/1";
+  document.getElementById("f-protected").value = p.protectedPath || "/admin/users";
+  document.getElementById("f-rate-ep").value = p.rateEp || "/auth/login";
+  document.getElementById("f-extra-headers").value = "";
+  // Query param preset fields
+  if (p.queryParamName) document.getElementById("f-qp-name").value = p.queryParamName;
+  if (p.queryParamValue !== undefined) document.getElementById("f-qp-value").value = p.queryParamValue;
+  setAuthTab(p.authMode || "login");
+  setApiType(p.apiType || "rest");
+  var discMsg = document.getElementById("discover-msg");
+  if (!p.target) {
+    discMsg.textContent = "Enter the target URL then click Discover Schema.";
+    discMsg.style.color = "#8b949e";
+  } else if (name === "gemini") {
+    discMsg.textContent = "Paste your Google AI Studio API key into the Query Param value field.";
+    discMsg.style.color = "#e3b341";
   } else {
-    document.getElementById("discover-msg").textContent = "";
+    discMsg.textContent = "";
   }
 }
 
@@ -1192,7 +1341,10 @@ function runScan() {
   }
   if (tests.length === 0) { alert("Select at least one test category"); return; }
 
-  var authBody = null, directToken = null, apiKeyHeader = null, apiKeyValue = null;
+  var authBody = null, directToken = null;
+  var apiKeyHeader = null, apiKeyValue = null;
+  var apiKeyQueryParam = null, apiKeyQueryValue = null;
+  var basicAuthUser = null, basicAuthPass = null;
   var authEndpoint = document.getElementById("f-rate-ep").value || "/auth/login";
   var tokenField = "access_token";
 
@@ -1208,7 +1360,20 @@ function runScan() {
     directToken = (document.getElementById("f-direct-token").value || "").trim() || null;
   } else if (_authMode === "apikey") {
     apiKeyHeader = (document.getElementById("f-api-key-header").value || "").trim() || null;
-    apiKeyValue = (document.getElementById("f-api-key-value").value || "").trim() || null;
+    apiKeyValue  = (document.getElementById("f-api-key-value").value || "").trim() || null;
+  } else if (_authMode === "queryparam") {
+    apiKeyQueryParam = (document.getElementById("f-qp-name").value || "").trim() || null;
+    apiKeyQueryValue = (document.getElementById("f-qp-value").value || "").trim() || null;
+  } else if (_authMode === "basicauth") {
+    basicAuthUser = (document.getElementById("f-basic-user").value || "").trim() || null;
+    basicAuthPass = (document.getElementById("f-basic-pass").value || "") || null;
+  }
+
+  var extraHeaders = null;
+  var ehRaw = (document.getElementById("f-extra-headers").value || "").trim();
+  if (ehRaw) {
+    try { extraHeaders = JSON.parse(ehRaw); }
+    catch (e) { alert("Extra Headers must be valid JSON — e.g. {\"X-Tenant-ID\": \"acme\"}"); return; }
   }
 
   var payload = {
@@ -1219,6 +1384,12 @@ function runScan() {
     direct_token: directToken,
     api_key_header: apiKeyHeader,
     api_key_value: apiKeyValue,
+    api_key_query_param: apiKeyQueryParam,
+    api_key_query_value: apiKeyQueryValue,
+    basic_auth_user: basicAuthUser,
+    basic_auth_pass: basicAuthPass,
+    extra_headers: extraHeaders,
+    api_type: _apiType,
     bola_path: document.getElementById("f-bola").value,
     update_path: document.getElementById("f-update").value,
     protected_path: document.getElementById("f-protected").value,
@@ -1372,7 +1543,16 @@ function saveReport(detail) {
 document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("preset-vulnerable").addEventListener("click", function() { loadPreset("vulnerable"); });
   document.getElementById("preset-hardened").addEventListener("click", function() { loadPreset("hardened"); });
+  document.getElementById("preset-gemini").addEventListener("click", function() { loadPreset("gemini"); });
+  document.getElementById("preset-graphql").addEventListener("click", function() { loadPreset("graphql"); });
   document.getElementById("preset-external").addEventListener("click", function() { loadPreset("external"); });
+
+  var aptBtns = document.querySelectorAll(".api-type-btn");
+  for (var i = 0; i < aptBtns.length; i++) {
+    (function(btn) {
+      btn.addEventListener("click", function() { setApiType(btn.getAttribute("data-aptype")); });
+    })(aptBtns[i]);
+  }
 
   var tabs = document.querySelectorAll(".auth-tab");
   for (var i = 0; i < tabs.length; i++) {
