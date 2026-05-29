@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
         """)
         await db.commit()
     import os
-    if not os.path.exists("/data/model.joblib"):
+    if not os.path.exists("/data/model.joblib") or not os.path.exists("/data/rf_model.joblib"):
         subprocess.run(["python", "train_model.py"], check=False)
         detector.reload()
     yield
@@ -351,7 +351,10 @@ async def external_scan(req: ScanRequest):
     results: list = []
     token   = req.direct_token or ""
     user_id = 1
-    _run    = set(req.tests) if req.tests else {"api1","api2","api3","api4","api5","api8"}
+    _run    = set(req.tests) if req.tests else {
+        "api1","api2","api3","api4","api5","api8",
+        "ext_verb","ext_traversal","ext_injection","ext_redirect",
+    }
 
     # ── Build auth parameters ────────────────────────────────────────────────────
     # Query params appended to every authenticated request (e.g. ?key=… for Google)
@@ -874,6 +877,131 @@ async def external_scan(req: ScanRequest):
                         "category": "API4:2023 - Unrestricted Resource Consumption",
                     })
 
+        # ── Beyond-OWASP: HTTP Verb Tampering ────────────────────────────────
+        if "ext_verb" in _run:
+            for method_name, endpoint in [("DELETE", "/health"), ("TRACE", "/"), ("PATCH", "/users/1")]:
+                try:
+                    r = await client.request(method_name, base + endpoint, timeout=6)
+                    status = r.status_code
+                except Exception:
+                    continue
+                results.append({
+                    "test": f"HTTP verb tampering: {method_name} {endpoint}",
+                    "request": f"{method_name} {endpoint}",
+                    "expected": "405 Method Not Allowed",
+                    "actual": str(status),
+                    "severity": "MEDIUM",
+                    "vulnerable": status not in (405, 404, 501, 403),
+                    "category": "Beyond OWASP — HTTP Verb Tampering",
+                })
+
+        # ── Beyond-OWASP: Path Traversal ──────────────────────────────────────
+        if "ext_traversal" in _run:
+            _trav_payloads = [
+                "/../../../etc/passwd",
+                "/%2F..%2F..%2Fetc%2Fpasswd",
+                "/static/..%2F..%2F..%2Fetc%2Fshadow",
+            ]
+            _trav_hit = False
+            for payload in _trav_payloads:
+                try:
+                    r = await _async_get(client, base + payload)
+                    if r and r.status_code == 200 and ("root:" in r.text or "daemon:" in r.text):
+                        results.append({
+                            "test": "Path traversal — system file exposed",
+                            "request": f"GET {payload}",
+                            "expected": "404 or 400",
+                            "actual": "200 — /etc/passwd content in response",
+                            "severity": "CRITICAL",
+                            "vulnerable": True,
+                            "category": "Beyond OWASP — Path Traversal",
+                        })
+                        _trav_hit = True
+                        break
+                except Exception:
+                    continue
+            if not _trav_hit:
+                results.append({
+                    "test": "Path traversal — system file exposure",
+                    "request": "GET /../../../etc/passwd (encoded variants)",
+                    "expected": "404 or 400",
+                    "actual": "Not vulnerable — traversal payloads rejected",
+                    "severity": "CRITICAL",
+                    "vulnerable": False,
+                    "category": "Beyond OWASP — Path Traversal",
+                })
+
+        # ── Beyond-OWASP: SQL Injection ────────────────────────────────────────
+        if "ext_injection" in _run:
+            _SQL_ERRORS = ["sql", "syntax error", "mysql", "sqlite", "postgres", "ora-", "sqlstate"]
+            import urllib.parse as _urlparse
+            _sqli_hit = False
+            for _sqli_payload in ["' OR '1'='1", "1 OR 1=1--", "' UNION SELECT 1,2,3--"]:
+                _enc = _urlparse.quote(_sqli_payload, safe="")
+                try:
+                    r = await _async_get(client, base + "/users/" + _enc,
+                                         headers=_auth_hdrs)
+                    if r and r.status_code == 500:
+                        _leaks = [kw for kw in _SQL_ERRORS if kw in r.text.lower()]
+                        if _leaks:
+                            results.append({
+                                "test": "SQL injection (error-based detection)",
+                                "request": f"GET /users/{_sqli_payload}",
+                                "expected": "400 or 422 (input sanitised)",
+                                "actual": f"500 — SQL keywords in response: {', '.join(_leaks[:3])}",
+                                "severity": "CRITICAL",
+                                "vulnerable": True,
+                                "category": "Beyond OWASP — Injection",
+                            })
+                            _sqli_hit = True
+                            break
+                except Exception:
+                    continue
+            if not _sqli_hit:
+                results.append({
+                    "test": "SQL injection (error-based detection)",
+                    "request": "GET /users/' OR '1'='1 (and variants)",
+                    "expected": "400 or 422",
+                    "actual": "No SQL error detected",
+                    "severity": "CRITICAL",
+                    "vulnerable": False,
+                    "category": "Beyond OWASP — Injection",
+                })
+
+        # ── Beyond-OWASP: Open Redirect ────────────────────────────────────────
+        if "ext_redirect" in _run:
+            _evil_url = "http://evil.attacker.example.com"
+            _redir_hit = False
+            for _rp in ["redirect", "url", "next", "return", "goto", "redir"]:
+                try:
+                    r = await client.get(base + f"/?{_rp}={_evil_url}",
+                                         follow_redirects=False, timeout=6)
+                    _loc = r.headers.get("location", "")
+                    if "evil.attacker.example.com" in _loc:
+                        results.append({
+                            "test": f"Open redirect via ?{_rp}= parameter",
+                            "request": f"GET /?{_rp}={_evil_url}",
+                            "expected": "No external redirect",
+                            "actual": f"302 → {_loc}",
+                            "severity": "MEDIUM",
+                            "vulnerable": True,
+                            "category": "Beyond OWASP — Open Redirect",
+                        })
+                        _redir_hit = True
+                        break
+                except Exception:
+                    continue
+            if not _redir_hit:
+                results.append({
+                    "test": "Open redirect via redirect/url/next parameters",
+                    "request": f"GET /?redirect={_evil_url} (and variants)",
+                    "expected": "No external redirect",
+                    "actual": "No open redirect detected",
+                    "severity": "MEDIUM",
+                    "vulnerable": False,
+                    "category": "Beyond OWASP — Open Redirect",
+                })
+
     # Group results by category
     buckets: dict = {}
     for t in results:
@@ -903,14 +1031,24 @@ async def external_scan(req: ScanRequest):
 
 @app.get("/monitor/scan/discover")
 async def discover_schema(target: str):
-    """Try common OpenAPI/Swagger paths on a target and return found endpoints."""
+    """
+    Discover API endpoints from a website URL using three strategies:
+      1. OpenAPI / Swagger documentation (most accurate)
+      2. HTML + JS file crawling — regex-scan fetch/axios/XHR calls in JS bundles
+      3. Common path probing — /api, /api/v1, /api/v2, /graphql, etc.
+    """
     base = target.rstrip("/")
-    _SCHEMA_PATHS = [
-        "/openapi.json", "/swagger.json", "/api-docs",
-        "/v1/openapi.json", "/api/openapi.json", "/swagger/v1/swagger.json",
-    ]
-    async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
-        for path in _SCHEMA_PATHS:
+    discovered: set  = set()
+    schema_info: dict = {"found": False, "schema_path": None,
+                         "api_title": "", "api_version": ""}
+    sources: dict = {"openapi": False, "js_crawl": False, "path_probe": False}
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=8) as client:
+
+        # ── Strategy 1: OpenAPI / Swagger documentation ───────────────────────
+        for path in ["/openapi.json", "/swagger.json", "/api-docs",
+                     "/v1/openapi.json", "/api/openapi.json",
+                     "/swagger/v1/swagger.json", "/api/swagger.json"]:
             try:
                 r = await client.get(base + path)
                 if r.status_code == 200:
@@ -918,19 +1056,92 @@ async def discover_schema(target: str):
                         schema = r.json()
                         paths  = list(schema.get("paths", {}).keys())
                         info   = schema.get("info", {})
-                        return {
-                            "found":        True,
-                            "schema_path":  path,
-                            "api_title":    info.get("title", ""),
-                            "api_version":  info.get("version", ""),
-                            "paths":        paths[:60],
-                            "total_paths":  len(paths),
+                        schema_info = {
+                            "found":       True,
+                            "schema_path": path,
+                            "api_title":   info.get("title", ""),
+                            "api_version": info.get("version", ""),
                         }
+                        for p in paths[:80]:
+                            discovered.add(p)
+                        sources["openapi"] = True
                     except Exception:
-                        return {"found": True, "schema_path": path, "paths": [], "total_paths": 0}
+                        schema_info = {"found": True, "schema_path": path,
+                                       "api_title": "", "api_version": ""}
+                        sources["openapi"] = True
+                    break
             except Exception:
                 continue
-    return {"found": False}
+
+        # ── Strategy 2: HTML fetch + linked JS crawl ──────────────────────────
+        js_urls: set = set()
+        try:
+            r = await client.get(base + "/", timeout=6)
+            if r.status_code == 200 and "html" in r.headers.get("content-type", ""):
+                html = r.text
+                # Collect <script src="..."> URLs
+                for m in _re.finditer(r'<script[^>]+src=["\']([^"\']+)["\']', html):
+                    src = m.group(1)
+                    if src.startswith("//"):
+                        src = "https:" + src
+                    elif not src.startswith("http"):
+                        src = base + ("" if src.startswith("/") else "/") + src
+                    if any(ext in src for ext in [".js", ".mjs", ".bundle", ".chunk"]):
+                        js_urls.add(src)
+                # Also scan inline scripts for API patterns
+                for m in _re.finditer(r'["\`](/(?:api|v\d+|graphql|rest|service)[^\s"\'`?#]{1,80})',
+                                       html):
+                    discovered.add(m.group(1))
+        except Exception:
+            pass
+
+        # Scan each JS file for fetch/axios/XHR patterns
+        _API_PATS = [
+            r'fetch\s*\(\s*["\`]([/][^\s"\'`?#]{3,80})',
+            r'axios\s*\.\s*(?:get|post|put|delete|patch)\s*\(\s*["\`]([/][^\s"\'`?#]{3,80})',
+            r'\.open\s*\(\s*["\']\w+["\'][,\s]+["\`]([/][^\s"\'`?#]{3,80})',
+            r'(?:url|endpoint|path|route)\s*[:=]\s*["\`]([/][^\s"\'`?#]{3,80})',
+            r'["\`](/(?:api|v\d+|graphql|rest|service)[^\s"\'`?#]{1,80})',
+        ]
+        for js_url in list(js_urls)[:12]:
+            try:
+                jr = await client.get(js_url, timeout=5)
+                if jr.status_code == 200:
+                    js_text = jr.text
+                    for pat in _API_PATS:
+                        for m in _re.finditer(pat, js_text):
+                            p = m.group(1).rstrip("\"'`")
+                            if 3 < len(p) < 100 and not p.startswith("//"):
+                                discovered.add(p)
+                    if len(discovered) > 5:
+                        sources["js_crawl"] = True
+            except Exception:
+                continue
+
+        # ── Strategy 3: Common path probing ──────────────────────────────────
+        _PROBE_PATHS = [
+            "/api", "/api/v1", "/api/v2", "/api/v3",
+            "/graphql", "/rest", "/service",
+            "/api/users", "/api/products", "/api/orders", "/api/auth",
+            "/v1/users", "/v2/users",
+            "/api/health", "/api/status",
+        ]
+        for probe in _PROBE_PATHS:
+            try:
+                r = await client.get(base + probe, timeout=4)
+                if r.status_code not in (404, 502, 503, 504):
+                    discovered.add(probe)
+                    sources["path_probe"] = True
+            except Exception:
+                continue
+
+    path_list = sorted(discovered)
+    return {
+        **schema_info,
+        "paths":       path_list[:80],
+        "total_paths": len(path_list),
+        "sources":     sources,
+    }
 
 
 _SCAN_UI_HTML_V2 = """<!DOCTYPE html>
@@ -1019,18 +1230,246 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
 .api-type-btn{background:#21262d;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:5px 16px;cursor:pointer;font-size:.83em;font-family:inherit}
 .api-type-btn:hover{color:#c9d1d9}
 .api-type-btn.active{background:rgba(88,166,255,.12);border-color:#58a6ff;color:#58a6ff;font-weight:600}
+/* ── FAQ help panel ───────────────────────────────────── */
+#help-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:998;display:none;cursor:pointer}
+#help-overlay.open{display:block}
+#help-panel{position:fixed;top:0;right:-460px;width:440px;max-width:96vw;height:100vh;background:#161b22;border-left:1px solid #30363d;z-index:999;overflow:hidden;transition:right .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.5)}
+#help-panel.open{right:0}
+.hp-hdr{padding:16px 20px 13px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;position:sticky;top:0;background:#161b22;z-index:1;flex-shrink:0}
+.hp-hdr h2{flex:1;font-size:.97em;color:#e6edf3;font-weight:700}
+.hp-hdr-icon{font-size:1.25em}
+.hp-close{background:none;border:none;color:#8b949e;cursor:pointer;font-size:1.2em;padding:4px 8px;border-radius:4px;font-family:inherit;line-height:1}
+.hp-close:hover{color:#e6edf3;background:#21262d}
+.hp-search{padding:12px 20px 10px;border-bottom:1px solid #21262d;flex-shrink:0}
+.hp-search input{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:7px 10px;font-size:.85em;font-family:inherit}
+.hp-search input:focus{outline:none;border-color:#58a6ff}
+.hp-body{padding:14px 20px 24px;flex:1;overflow-y:auto}
+.faq-section{border:1px solid #21262d;border-radius:8px;margin-bottom:7px;overflow:hidden;transition:border-color .15s}
+.faq-section:hover{border-color:#30363d}
+.faq-q{width:100%;background:none;border:none;padding:11px 14px;text-align:left;cursor:pointer;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;color:#c9d1d9;font-size:.87em;font-weight:600;font-family:inherit;line-height:1.4}
+.faq-q:hover{background:rgba(255,255,255,.03)}
+.faq-q.open{color:#58a6ff}
+.faq-icon{color:#8b949e;font-size:.78em;flex-shrink:0;margin-top:3px;transition:transform .2s ease}
+.faq-q.open .faq-icon{transform:rotate(180deg);color:#58a6ff}
+.faq-a{display:none;padding:0 14px 13px;font-size:.83em;color:#8b949e;line-height:1.65}
+.faq-a.open{display:block}
+.faq-a p{margin-bottom:7px}
+.faq-a p:last-child{margin-bottom:0}
+.faq-step{background:#0d1117;border-radius:5px;padding:7px 11px;margin:6px 0;font-family:monospace;font-size:.84em;color:#c9d1d9;border-left:3px solid #58a6ff}
+.faq-tag{display:inline-block;background:#21262d;border:1px solid #30363d;border-radius:4px;padding:1px 6px;font-family:monospace;font-size:.81em;color:#58a6ff;margin:0 2px}
+.faq-warn{background:rgba(227,179,65,.08);border-left:3px solid #e3b341;border-radius:5px;padding:7px 11px;margin:6px 0;font-size:.83em;color:#e3b341}
+.faq-tip{background:rgba(63,185,80,.08);border-left:3px solid #3fb950;border-radius:5px;padding:7px 11px;margin:6px 0;font-size:.83em;color:#3fb950}
+.faq-divider{font-size:.73em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#30363d;margin:14px 0 8px;padding-bottom:6px;border-bottom:1px solid #21262d}
+/* help button in nav */
+#help-btn{margin-left:auto;background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.3);color:#58a6ff;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:.95em;font-weight:700;font-family:inherit;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+#help-btn:hover{background:rgba(88,166,255,.2)}
+/* field info icon */
+.info-icon{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;background:#21262d;border:1px solid #30363d;border-radius:50%;font-size:.7em;color:#8b949e;cursor:pointer;margin-left:5px;vertical-align:middle;flex-shrink:0}
+.info-icon:hover{border-color:#58a6ff;color:#58a6ff}
+/* card section number accent */
+.card-num{display:inline-block;background:rgba(88,166,255,.12);color:#58a6ff;border-radius:4px;font-size:.72em;font-weight:700;padding:1px 7px;margin-right:8px;vertical-align:middle}
+/* prescan badge */
+.prescan-ok{color:#3fb950;font-weight:600}
+.prescan-warn{color:#e3b341;font-weight:600}
+.prescan-err{color:#f85149;font-weight:600}
 </style>
 </head>
 <body>
+<div id="help-overlay"></div>
+<div id="help-panel">
+  <div class="hp-hdr">
+    <span class="hp-hdr-icon">❓</span>
+    <h2>Help &amp; FAQ</h2>
+    <button class="hp-close" id="help-close">&#10005;</button>
+  </div>
+  <div class="hp-search">
+    <input type="text" id="faq-search" placeholder="Search questions…">
+  </div>
+  <div class="hp-body" id="faq-body">
+
+    <div class="faq-divider">Getting Started</div>
+
+    <div class="faq-section" data-keywords="credentials json login auth body browser devtools network">
+      <button class="faq-q" id="fq-1">How do I find the login credentials (JSON) in my browser? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-1">
+        <p>You need to capture what the app sends when you log in:</p>
+        <div class="faq-step">1. Open your web app in Chrome / Edge / Firefox</div>
+        <div class="faq-step">2. Press <b>F12</b> to open Developer Tools</div>
+        <div class="faq-step">3. Click the <b>Network</b> tab</div>
+        <div class="faq-step">4. Log in to the app normally</div>
+        <div class="faq-step">5. Find the request called <b>login</b>, <b>token</b>, or <b>auth</b></div>
+        <div class="faq-step">6. Click it → open the <b>Payload</b> or <b>Request Body</b> tab</div>
+        <div class="faq-step">7. You will see JSON like:<br><span class="faq-tag">{"username":"alice","password":"alice123"}</span></div>
+        <div class="faq-tip">Copy that JSON exactly into the <b>Auth Body (JSON)</b> field and set the <b>Auth Endpoint</b> to the path (e.g. /auth/login).</div>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="token bearer jwt get copy response">
+      <button class="faq-q" id="fq-2">How do I get a Bearer token from my browser? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-2">
+        <p>After logging in, the API responds with a token:</p>
+        <div class="faq-step">1. Open DevTools → Network tab → log in</div>
+        <div class="faq-step">2. Click the login request → open <b>Response</b> tab</div>
+        <div class="faq-step">3. Look for a field called <b>access_token</b>, <b>token</b>, or <b>jwt</b></div>
+        <div class="faq-step">4. Copy the value — it starts with <span class="faq-tag">eyJ</span></div>
+        <div class="faq-step">5. Switch to <b>Bearer Token</b> auth mode and paste it</div>
+        <div class="faq-warn">Tokens expire. If you get 401 errors, get a fresh token.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="auth endpoint login path url where">
+      <button class="faq-q" id="fq-3">How do I find the auth endpoint? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-3">
+        <p>Common patterns for the login endpoint:</p>
+        <div class="faq-step">/auth/login &nbsp; /login &nbsp; /api/token</div>
+        <div class="faq-step">/users/login &nbsp; /auth/token &nbsp; /signin</div>
+        <p>To find the exact path: DevTools → Network → log in → right-click the request → Copy → Copy URL. Or use <b>Discover APIs</b> to auto-detect it.</p>
+        <div class="faq-tip">For the lab APIs, the endpoint is <span class="faq-tag">/auth/login</span> — this is already the default.</div>
+      </div>
+    </div>
+
+    <div class="faq-divider">Auth Modes</div>
+
+    <div class="faq-section" data-keywords="auth mode login flow bearer api key query param basic which choose">
+      <button class="faq-q" id="fq-4">Which auth mode should I choose? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-4">
+        <p><b>Login Flow</b> — you have a username and password. The scanner logs in first, then uses the token it gets. Best choice if you have credentials.</p>
+        <p><b>Bearer Token</b> — you already have a JWT / token. Paste it directly. Use when you grabbed the token from DevTools.</p>
+        <p><b>API Key Header</b> — the API uses a custom header like <span class="faq-tag">X-API-Key: abc123</span>. Enter the header name and value.</p>
+        <p><b>Query Param</b> — the key is in the URL: <span class="faq-tag">?key=abc123</span>. Used by Google, OpenWeather, etc.</p>
+        <p><b>HTTP Basic Auth</b> — legacy APIs that use username:password as a base64 header. Enter username and password separately.</p>
+        <p><b>None</b> — public APIs with no authentication. Only unauthenticated tests will run.</p>
+        <div class="faq-tip">For Google Gemini: use <b>Query Param</b> mode, param name = <span class="faq-tag">key</span>.</div>
+      </div>
+    </div>
+
+    <div class="faq-divider">Running Scans</div>
+
+    <div class="faq-section" data-keywords="discover schema api find detect crawl js javascript">
+      <button class="faq-q" id="fq-5">How does Discover APIs work? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-5">
+        <p>Click <b>Discover APIs</b> after entering the target URL. The scanner tries three strategies:</p>
+        <div class="faq-step"><b>1. OpenAPI / Swagger docs</b> — checks /openapi.json, /swagger.json, /api-docs, etc.</div>
+        <div class="faq-step"><b>2. JavaScript analysis</b> — fetches the page HTML, finds linked .js files, scans them for fetch() / axios / XHR calls</div>
+        <div class="faq-step"><b>3. Path probing</b> — tries /api, /api/v1, /api/v2, /graphql, /rest, and 10+ common paths</div>
+        <p>Found endpoints are shown below the button and automatically fill the BOLA Path, Update Path, and Protected Path fields.</p>
+        <div class="faq-warn">For lab APIs, enter the Docker name like <span class="faq-tag">http://vulnerable-api:8000</span>, not localhost.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="tests skipped skip why auth dependent">
+      <button class="faq-q" id="fq-6">Why are some tests being skipped? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-6">
+        <p>Tests marked <b>auth-dependent</b> — BOLA, Mass Assignment, and Function Level Auth — need a valid token to run.</p>
+        <p>They are skipped when:</p>
+        <div class="faq-step">&#x2022; You chose <b>None</b> auth mode</div>
+        <div class="faq-step">&#x2022; Your credentials were rejected (401 from the login endpoint)</div>
+        <div class="faq-step">&#x2022; The login endpoint path is wrong</div>
+        <p>Check the <b>Pre-Scan Validation</b> section at the top of the results for the exact reason.</p>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="bola path template id what">
+      <button class="faq-q" id="fq-7">What is the BOLA Path / {id} template? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-7">
+        <p>BOLA (Broken Object Level Authorization) tests whether you can access another user's resource.</p>
+        <p>The <b>BOLA Path</b> field takes a path template with <span class="faq-tag">{id}</span> as a placeholder:</p>
+        <div class="faq-step">/users/{id} &nbsp; → &nbsp; scanner tries /users/1, /users/2, /users/3…</div>
+        <div class="faq-step">/orders/{id} &nbsp; → &nbsp; tries order IDs belonging to other users</div>
+        <p>A secure API returns <b>403 Forbidden</b> when you access another user's resource. A vulnerable API returns 200 with the data.</p>
+      </div>
+    </div>
+
+    <div class="faq-divider">Understanding Results</div>
+
+    <div class="faq-section" data-keywords="score result pass fail percentage mean">
+      <button class="faq-q" id="fq-8">What does the security score mean? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-8">
+        <p>Score = (Secure tests ÷ Total tests) × 100%</p>
+        <div class="faq-step">100% — All tested categories are secure &#x2705;</div>
+        <div class="faq-step">0% — Every tested category is vulnerable &#x274C;</div>
+        <p><b>SECURE (green)</b> = The API correctly blocked the attack<br>
+           <b>VULNERABLE (red)</b> = The API has this flaw — it needs to be fixed</p>
+        <div class="faq-warn">A score below 100% means there are real security issues. Each red result is a vulnerability an attacker could exploit.</div>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="bola what is broken object level authorization">
+      <button class="faq-q" id="fq-9">What is BOLA? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-9">
+        <p><b>Broken Object Level Authorization</b> — the #1 API vulnerability (OWASP 2023).</p>
+        <p>Example: You are logged in as User 1. Can you do <span class="faq-tag">GET /users/2</span> and see User 2's data? You should get 403. If you get 200, the API is vulnerable.</p>
+        <p>The scanner logs in as a real user, then requests another user's resource using their token. A 200 response means BOLA is present.</p>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="mass assignment role admin what is">
+      <button class="faq-q" id="fq-10">What is mass assignment? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-10">
+        <p>When an API accepts more fields in a request than it should, allowing an attacker to overwrite protected properties.</p>
+        <div class="faq-step">Scanner sends: PUT /users/1 {"role":"admin","balance":999999}</div>
+        <p>A secure API ignores unknown fields (allowlist validation). A vulnerable API writes them to the database, making the attacker an admin.</p>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="beyond owasp extra verb tampering traversal injection redirect">
+      <button class="faq-q" id="fq-11">What are the Beyond OWASP tests? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-11">
+        <p>These are common vulnerabilities outside the OWASP API Top 10 but still important:</p>
+        <div class="faq-step"><b>Verb Tampering</b> — tries DELETE/TRACE on GET-only endpoints. Expect 405.</div>
+        <div class="faq-step"><b>Path Traversal</b> — tries /../../../etc/passwd and encoded variants. Expect 404.</div>
+        <div class="faq-step"><b>SQL Injection</b> — sends SQL chars in URL params. Looks for SQL error keywords in 500 responses.</div>
+        <div class="faq-step"><b>Open Redirect</b> — tests ?redirect= and ?url= params for external 3xx redirects.</div>
+      </div>
+    </div>
+
+    <div class="faq-divider">Reports &amp; Export</div>
+
+    <div class="faq-section" data-keywords="report save export download brief detailed">
+      <button class="faq-q" id="fq-12">How do I save a scan report? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-12">
+        <p>After the scan completes, scroll to the bottom of the results and click:</p>
+        <div class="faq-step"><b>Save Brief Report</b> — summary table with pass/fail per test</div>
+        <div class="faq-step"><b>Save Detailed Report</b> — includes CVE IDs, OWASP links, fix guidance</div>
+        <p>Reports are saved to the monitoring service at <span class="faq-tag">/reports</span> and appear in the <b>Monitor Dashboard → Reports</b> tab.</p>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="google gemini api key external real">
+      <button class="faq-q" id="fq-13">How do I scan the Google Gemini API? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-13">
+        <p>Click the <b>Google Gemini API</b> preset — it fills in everything automatically.</p>
+        <div class="faq-step">1. Go to <b>aistudio.google.com/app/apikey</b> and create a free key</div>
+        <div class="faq-step">2. Paste your key into the <b>API Key Value</b> field</div>
+        <div class="faq-step">3. Click <b>Run Scan</b></div>
+        <p>The scanner uses Query Param auth (<span class="faq-tag">?key=…</span>). Auth-dependent tests (BOLA, mass assignment) are skipped since Gemini is a public API.</p>
+      </div>
+    </div>
+
+    <div class="faq-section" data-keywords="lab docker vulnerable hardened localhost">
+      <button class="faq-q" id="fq-14">How do I scan the lab APIs? <span class="faq-icon">&#9660;</span></button>
+      <div class="faq-a" id="fa-14">
+        <p>Use the quick preset buttons at the top of the page. They fill all fields automatically:</p>
+        <div class="faq-step"><b>Vulnerable API (lab)</b> — tests the intentionally broken API at port 8000</div>
+        <div class="faq-step"><b>Hardened API (lab)</b> — tests the secured API at port 8001</div>
+        <div class="faq-warn">Use Docker container names (e.g. <span class="faq-tag">http://vulnerable-api:8000</span>), not localhost — scans run inside the container network.</div>
+        <div class="faq-tip">Compare both scores side-by-side to see the impact of each security fix.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <nav>
-  <span class="logo">CY384 - External API Scanner</span>
-  <a href="/dashboard">Monitor Dashboard</a>
-  <a href="http://localhost:8000/ui" target="_blank">Shop App</a>
-  <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+  <span class="logo">CY384 &#183; API Scanner</span>
+  <a href="/dashboard">&#128200; Monitor</a>
+  <a href="http://localhost:8000/ui" target="_blank">&#128722; Shop App</a>
+  <a href="http://localhost:8000/docs" target="_blank">&#128196; API Docs</a>
+  <button type="button" id="help-btn" title="Help &amp; FAQ">?</button>
 </nav>
 <div class="wrap">
   <h1>Generic OWASP API Security Scanner</h1>
-  <p class="sub">Scan any REST API for OWASP API Top 10:2023 vulnerabilities. No source code required.</p>
+  <p class="sub">Scan any REST or GraphQL API for vulnerabilities. No source code or internal access needed. Supports 5 auth modes and 10+ test categories.</p>
 
   <div class="presets">
     <span style="font-size:.82em;color:#8b949e">Quick presets:</span>
@@ -1043,17 +1482,22 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
   <p class="hint" style="margin-bottom:20px">Scans run server-side inside the monitoring container. Lab services: use Docker names like <code>http://vulnerable-api:8000</code>. External APIs: enter the full URL directly.</p>
 
   <div class="card">
-    <h2>Target</h2>
+    <h2><span class="card-num">1</span>Target</h2>
     <div class="field">
-      <label for="f-target">Base URL *</label>
+      <label for="f-target">Base URL *
+        <span class="info-icon" onclick="openHelp('fq-14')" title="Click for help">i</span>
+      </label>
       <input id="f-target" type="text" placeholder="https://api.example.com  or  http://vulnerable-api:8000">
+      <div class="hint">Use Docker service names for lab APIs (e.g. <code>http://vulnerable-api:8000</code>). For external APIs enter the full URL.</div>
     </div>
     <h2 style="margin-top:18px;margin-bottom:4px">API Type</h2>
     <div style="display:flex;gap:8px;margin-bottom:16px;margin-top:8px">
       <button type="button" class="api-type-btn active" id="aptype-rest" data-aptype="rest">REST / JSON</button>
       <button type="button" class="api-type-btn" id="aptype-graphql" data-aptype="graphql">GraphQL</button>
     </div>
-    <h2 style="margin-bottom:12px">Authentication</h2>
+    <h2 style="margin-bottom:12px">Authentication
+      <span class="info-icon" onclick="openHelp('fq-4')" title="Which auth mode should I use?">i</span>
+    </h2>
     <div class="auth-tabs">
       <button type="button" class="auth-tab active" data-auth="login">Login Flow</button>
       <button type="button" class="auth-tab" data-auth="bearer">Bearer Token</button>
@@ -1067,10 +1511,22 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
         <div class="field"><label for="f-auth-ep">Auth Endpoint</label><input id="f-auth-ep" value="/auth/login"><span class="hint">POST endpoint that returns a token</span></div>
         <div class="field"><label for="f-token-field">Token Field</label><input id="f-token-field" value="access_token"><span class="hint">Key in the JSON response</span></div>
       </div>
-      <div class="field"><label for="f-auth-body">Credentials (JSON)</label><textarea id="f-auth-body" rows="2" placeholder='{"username": "alice", "password": "alice123"}'></textarea><span class="hint">Leave blank to skip tests requiring a session</span></div>
+      <div class="field">
+        <label for="f-auth-body">Credentials (JSON)
+          <span class="info-icon" onclick="openHelp('fq-1')" title="How to find credentials in browser">i</span>
+        </label>
+        <textarea id="f-auth-body" rows="2" placeholder='{"username": "alice", "password": "alice123"}'></textarea>
+        <span class="hint">JSON body sent to the auth endpoint. Find it in DevTools → Network → login request → Payload tab.</span>
+      </div>
     </div>
     <div id="auth-bearer" style="display:none">
-      <div class="field"><label for="f-direct-token">Bearer Token</label><input id="f-direct-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."><span class="hint">Paste an existing JWT — used for BOLA, mass assignment, and function-auth tests.</span></div>
+      <div class="field">
+        <label for="f-direct-token">Bearer Token
+          <span class="info-icon" onclick="openHelp('fq-2')" title="How to get a token from your browser">i</span>
+        </label>
+        <input id="f-direct-token" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+        <span class="hint">Paste a JWT from DevTools → Network → login response → access_token field.</span>
+      </div>
     </div>
     <div id="auth-apikey" style="display:none">
       <div class="row">
@@ -1101,23 +1557,33 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
   </div>
 
   <div class="card">
-    <h2>Endpoint Configuration</h2>
+    <h2><span class="card-num">2</span>Endpoint Configuration
+      <span class="info-icon" onclick="openHelp('fq-5')" title="How does Discover APIs work?">i</span>
+    </h2>
     <div class="disc-row">
-      <button type="button" class="btn-disc" id="btn-discover">Discover Schema</button>
+      <button type="button" class="btn-disc" id="btn-discover">&#128269; Discover APIs</button>
       <span id="discover-msg" class="hint"></span>
     </div>
     <div class="row">
-      <div class="field"><label for="f-bola">BOLA Path Template</label><input id="f-bola" value="/users/{id}"><span class="hint">Use {id} as the numeric ID placeholder</span></div>
+      <div class="field">
+        <label for="f-bola">BOLA Path Template
+          <span class="info-icon" onclick="openHelp('fq-7')" title="What is the BOLA path?">i</span>
+        </label>
+        <input id="f-bola" value="/users/{id}">
+        <span class="hint">Use <code>{id}</code> as a placeholder — scanner substitutes other users' IDs</span>
+      </div>
       <div class="field"><label for="f-update">Update Path (mass assignment)</label><input id="f-update" value="/users/1"><span class="hint">PUT endpoint that accepts a user body</span></div>
     </div>
     <div class="row">
       <div class="field"><label for="f-protected">Protected / Admin Path</label><input id="f-protected" value="/admin/users"><span class="hint">Endpoint only admins should access</span></div>
-      <div class="field"><label for="f-rate-ep">Rate-limit Probe Endpoint</label><input id="f-rate-ep" value="/auth/login"><span class="hint">Also used for verbose-error detection</span></div>
+      <div class="field"><label for="f-rate-ep">Rate-limit Probe Endpoint</label><input id="f-rate-ep" value="/auth/login"><span class="hint">Also used for verbose-error and injection tests</span></div>
     </div>
   </div>
 
   <div class="card">
-    <h2>Tests to Run</h2>
+    <h2><span class="card-num">3</span>Tests to Run
+      <span class="info-icon" onclick="openHelp('fq-11')" title="What are the Beyond OWASP tests?">i</span>
+    </h2>
     <div class="test-grid">
       <label class="test-lbl"><input type="checkbox" id="t-api1" checked><div><span class="cat-name">API1 - BOLA</span><span class="cat-desc">Object-level access control + ID enumeration (IDs 1-5)</span></div></label>
       <label class="test-lbl"><input type="checkbox" id="t-api2" checked><div><span class="cat-name">API2 - Authentication</span><span class="cat-desc">JWT weak secret + algorithm confusion (alg:none bypass)</span></div></label>
@@ -1126,13 +1592,21 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
       <label class="test-lbl"><input type="checkbox" id="t-api5" checked><div><span class="cat-name">API5 - Function Auth</span><span class="cat-desc">Regular user token calling admin-only endpoints</span></div></label>
       <label class="test-lbl"><input type="checkbox" id="t-api8" checked><div><span class="cat-name">API8 - Misconfiguration</span><span class="cat-desc">CORS, security headers, schema exposure, verbose errors, sensitive paths</span></div></label>
     </div>
+    <div style="margin-top:16px;margin-bottom:8px;font-size:.75em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#f0883e">Beyond OWASP API Top 10</div>
+    <div class="test-grid">
+      <label class="test-lbl"><input type="checkbox" id="t-ext_verb" checked><div><span class="cat-name" style="color:#f0883e">Verb Tampering</span><span class="cat-desc">DELETE/TRACE/PATCH on endpoints that should only accept GET — expect 405</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-ext_traversal" checked><div><span class="cat-name" style="color:#f0883e">Path Traversal</span><span class="cat-desc">../../etc/passwd and encoded variants — checks if filesystem can be escaped</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-ext_injection" checked><div><span class="cat-name" style="color:#f0883e">SQL Injection</span><span class="cat-desc">Error-based SQLi probes in URL path params — detects unparameterised queries</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-ext_redirect" checked><div><span class="cat-name" style="color:#f0883e">Open Redirect</span><span class="cat-desc">redirect/url/next query params pointing to external domain — expects no 3xx redirect</span></div></label>
+    </div>
     <div style="margin-top:10px;display:flex;gap:12px">
       <button type="button" class="link-btn" id="btn-select-all">Select All</button>
       <button type="button" class="link-btn" id="btn-clear-all">Clear All</button>
     </div>
   </div>
 
-  <button type="button" class="btn btn-primary" id="scan-btn">Run Scan</button>
+  <button type="button" class="btn btn-primary" id="scan-btn">&#9654; Run Scan</button>
+  <span style="font-size:.8em;color:#8b949e;margin-left:14px">Scans run server-side inside the monitoring container and may take 20–60 seconds.</span>
   <div id="status-bar" style="display:none"></div>
   <div id="results" style="margin-top:16px"></div>
 </div>
@@ -1273,7 +1747,8 @@ function loadPreset(name) {
 }
 
 function toggleAll(checked) {
-  var ids = ["api1", "api2", "api3", "api4", "api5", "api8"];
+  var ids = ["api1", "api2", "api3", "api4", "api5", "api8",
+             "ext_verb", "ext_traversal", "ext_injection", "ext_redirect"];
   for (var i = 0; i < ids.length; i++) {
     var cb = document.getElementById("t-" + ids[i]);
     if (cb) cb.checked = checked;
@@ -1292,34 +1767,51 @@ function discoverSchema() {
   fetch("/monitor/scan/discover?target=" + encodeURIComponent(target))
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data.found) {
-        var paths = data.paths || [];
-        var up = null;
-        for (var i = 0; i < paths.length; i++) {
-          if (/\{[^}]+\}/.test(paths[i]) && /user/i.test(paths[i])) { up = paths[i]; break; }
+      var paths = data.paths || [];
+      // Auto-fill form fields from discovered paths
+      var up = null;
+      for (var i = 0; i < paths.length; i++) {
+        if (/\{[^}]+\}/.test(paths[i]) && /user/i.test(paths[i])) { up = paths[i]; break; }
+      }
+      if (!up) {
+        for (var j = 0; j < paths.length; j++) {
+          if (/\{[^}]+\}/.test(paths[j])) { up = paths[j]; break; }
         }
-        if (!up) {
-          for (var j = 0; j < paths.length; j++) {
-            if (/\{[^}]+\}/.test(paths[j])) { up = paths[j]; break; }
-          }
+      }
+      if (up) {
+        document.getElementById("f-bola").value = up.replace(/\{[^}]+\}/g, "{id}");
+        document.getElementById("f-update").value = up.replace(/\{[^}]+\}/g, "1");
+      }
+      for (var k = 0; k < paths.length; k++) {
+        if (/admin/i.test(paths[k])) {
+          document.getElementById("f-protected").value = paths[k].replace(/\{[^}]+\}/g, "1");
+          break;
         }
-        if (up) {
-          document.getElementById("f-bola").value = up.replace(/\{[^}]+\}/g, "{id}");
-          document.getElementById("f-update").value = up.replace(/\{[^}]+\}/g, "1");
-        }
-        for (var k = 0; k < paths.length; k++) {
-          if (/admin/i.test(paths[k])) {
-            document.getElementById("f-protected").value = paths[k].replace(/\{[^}]+\}/g, "1");
-            break;
-          }
-        }
-        var label = "Found " + data.schema_path + " (" + data.total_paths + " paths";
-        if (data.api_title) label += " - " + data.api_title;
-        label += ")";
+      }
+      if (data.total_paths > 0) {
+        var srcs = data.sources || {};
+        var srcList = [];
+        if (srcs.openapi)    srcList.push("OpenAPI docs");
+        if (srcs.js_crawl)   srcList.push("JS analysis");
+        if (srcs.path_probe) srcList.push("path probing");
+        var label = "✓ Discovered " + data.total_paths + " endpoint" +
+                    (data.total_paths !== 1 ? "s" : "");
+        if (data.api_title) label += " — " + data.api_title;
+        if (srcList.length) label += " (via " + srcList.join(", ") + ")";
         msg.textContent = label;
         msg.style.color = "#3fb950";
+        // Show discovered path list as tooltip/detail
+        var discList = document.getElementById("discover-paths");
+        if (!discList) {
+          discList = document.createElement("div");
+          discList.id = "discover-paths";
+          discList.style.cssText = "margin-top:8px;padding:8px 10px;background:#0d1117;border:1px solid #21262d;border-radius:6px;font-size:.76em;color:#8b949e;max-height:110px;overflow-y:auto;font-family:monospace";
+          msg.parentNode.insertBefore(discList, msg.nextSibling);
+        }
+        discList.textContent = paths.slice(0, 30).join("  ·  ") +
+                               (paths.length > 30 ? "  … +" + (paths.length-30) + " more" : "");
       } else {
-        msg.textContent = "No OpenAPI schema found at common paths.";
+        msg.textContent = "No API endpoints discovered. Try entering the API base URL directly.";
         msg.style.color = "#e3b341";
       }
     })
@@ -1333,7 +1825,8 @@ function runScan() {
   var target = document.getElementById("f-target").value.trim();
   if (!target) { alert("Enter a target URL"); return; }
 
-  var testIds = ["api1", "api2", "api3", "api4", "api5", "api8"];
+  var testIds = ["api1", "api2", "api3", "api4", "api5", "api8",
+                 "ext_verb", "ext_traversal", "ext_injection", "ext_redirect"];
   var tests = [];
   for (var i = 0; i < testIds.length; i++) {
     var cb = document.getElementById("t-" + testIds[i]);
@@ -1540,7 +2033,64 @@ function saveReport(detail) {
     });
 }
 
+// ── FAQ Help panel ────────────────────────────────────────────────────────────
+function openHelp(targetId) {
+  document.getElementById("help-overlay").classList.add("open");
+  document.getElementById("help-panel").classList.add("open");
+  if (targetId) {
+    setTimeout(function() {
+      var btn = document.getElementById(targetId);
+      if (btn) {
+        var answerId = targetId.replace("fq-", "fa-");
+        // open this section
+        btn.classList.add("open");
+        var ans = document.getElementById(answerId);
+        if (ans) ans.classList.add("open");
+        btn.scrollIntoView({behavior: "smooth", block: "center"});
+      }
+    }, 250);
+  }
+}
+function closeHelp() {
+  document.getElementById("help-overlay").classList.remove("open");
+  document.getElementById("help-panel").classList.remove("open");
+}
+function toggleFaq(btn) {
+  var answerId = btn.id.replace("fq-", "fa-");
+  var ans = document.getElementById(answerId);
+  var isOpen = btn.classList.contains("open");
+  // close all others
+  var allBtns = document.querySelectorAll(".faq-q");
+  var allAnss = document.querySelectorAll(".faq-a");
+  for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove("open");
+  for (var i = 0; i < allAnss.length; i++) allAnss[i].classList.remove("open");
+  if (!isOpen) {
+    btn.classList.add("open");
+    if (ans) ans.classList.add("open");
+  }
+}
+function faqSearch(val) {
+  var v = val.toLowerCase().trim();
+  var sections = document.querySelectorAll(".faq-section");
+  sections.forEach(function(sec) {
+    if (!v) { sec.style.display = ""; return; }
+    var kw = (sec.getAttribute("data-keywords") || "").toLowerCase();
+    var qText = (sec.querySelector(".faq-q") || {}).textContent || "";
+    var aText = (sec.querySelector(".faq-a") || {}).textContent || "";
+    sec.style.display = (kw.includes(v) || qText.toLowerCase().includes(v) || aText.toLowerCase().includes(v)) ? "" : "none";
+  });
+}
+
 document.addEventListener("DOMContentLoaded", function() {
+  document.getElementById("help-btn").addEventListener("click", function() { openHelp(null); });
+  document.getElementById("help-close").addEventListener("click", closeHelp);
+  document.getElementById("help-overlay").addEventListener("click", closeHelp);
+  document.getElementById("faq-search").addEventListener("input", function() { faqSearch(this.value); });
+  var faqBtns = document.querySelectorAll(".faq-q");
+  for (var i = 0; i < faqBtns.length; i++) {
+    (function(b) { b.addEventListener("click", function() { toggleFaq(b); }); })(faqBtns[i]);
+  }
+
   document.getElementById("preset-vulnerable").addEventListener("click", function() { loadPreset("vulnerable"); });
   document.getElementById("preset-hardened").addEventListener("click", function() { loadPreset("hardened"); });
   document.getElementById("preset-gemini").addEventListener("click", function() { loadPreset("gemini"); });

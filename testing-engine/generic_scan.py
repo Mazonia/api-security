@@ -253,6 +253,143 @@ def probe_mass_assign(client, base, token: str, update_path: str) -> dict:
     }
 
 
+# ── Beyond-OWASP probes ───────────────────────────────────────────────────────
+
+def probe_verb_tampering(client: httpx.Client, base: str) -> list:
+    """Try unsafe HTTP methods on endpoints that should only accept GET."""
+    results = []
+    for method_name, method_fn, endpoint in [
+        ("DELETE", client.delete, "/health"),
+        ("TRACE",  client.request, "/"),
+        ("PATCH",  client.patch,  "/users/1"),
+    ]:
+        try:
+            if method_name == "TRACE":
+                r = client.request("TRACE", base.rstrip("/") + endpoint, timeout=6)
+            else:
+                r = method_fn(base.rstrip("/") + endpoint, timeout=6)
+            status = r.status_code
+        except Exception:
+            continue
+        results.append({
+            "test": f"HTTP verb tampering: {method_name} {endpoint}",
+            "request": f"{method_name} {endpoint}",
+            "expected": "405 Method Not Allowed",
+            "actual": str(status),
+            "severity": "MEDIUM",
+            "vulnerable": status not in (405, 404, 501, 403),
+            "category": "Beyond OWASP — HTTP Verb Tampering",
+        })
+    return results
+
+
+def probe_path_traversal(client: httpx.Client, base: str) -> list:
+    """Test common path traversal payloads."""
+    payloads = [
+        "/../../../etc/passwd",
+        "/files/../../../etc/passwd",
+        "/%2F..%2F..%2Fetc%2Fpasswd",
+        "/static/..%2F..%2F..%2Fetc%2Fshadow",
+    ]
+    for payload in payloads:
+        try:
+            r = client.get(base.rstrip("/") + payload, timeout=6)
+            exposed = r.status_code == 200 and ("root:" in r.text or "daemon:" in r.text)
+        except Exception:
+            continue
+        if exposed:
+            return [{
+                "test": "Path traversal — system file exposed",
+                "request": f"GET {payload}",
+                "expected": "404 or 400",
+                "actual": "200 — /etc/passwd content in response",
+                "severity": "CRITICAL",
+                "vulnerable": True,
+                "category": "Beyond OWASP — Path Traversal",
+            }]
+    return [{
+        "test": "Path traversal — system file exposure",
+        "request": "GET /../../../etc/passwd (and encoded variants)",
+        "expected": "404 or 400",
+        "actual": "Not vulnerable — traversal payloads correctly rejected",
+        "severity": "CRITICAL",
+        "vulnerable": False,
+        "category": "Beyond OWASP — Path Traversal",
+    }]
+
+
+def probe_sql_injection(client: httpx.Client, base: str, token: str) -> list:
+    """Basic error-based and boolean SQL injection detection."""
+    _SQL_ERRORS = ["sql", "syntax error", "mysql", "sqlite", "postgres", "ora-", "sqlstate"]
+    results = []
+    payloads = [
+        ("' OR '1'='1", "/users/"),
+        ("1 OR 1=1--",  "/users/"),
+        ("' UNION SELECT 1,2,3--", "/users/"),
+    ]
+    for payload, path_prefix in payloads:
+        import urllib.parse
+        encoded = urllib.parse.quote(payload, safe="")
+        r = _get(client, base, path_prefix + encoded,
+                 headers=_bearer(token) if token else {})
+        if r and r.status_code == 500:
+            body_lower = r.text.lower()
+            leaks = [kw for kw in _SQL_ERRORS if kw in body_lower]
+            if leaks:
+                results.append({
+                    "test": "SQL injection (error-based)",
+                    "request": f"GET {path_prefix}{payload}",
+                    "expected": "400 or 422 (input sanitised)",
+                    "actual": f"500 — SQL error keywords exposed: {', '.join(leaks[:3])}",
+                    "severity": "CRITICAL",
+                    "vulnerable": True,
+                    "category": "Beyond OWASP — Injection",
+                })
+                return results
+    results.append({
+        "test": "SQL injection (error-based)",
+        "request": "GET /users/' OR '1'='1 (and variants)",
+        "expected": "400 or 422",
+        "actual": "No SQL error detected in responses",
+        "severity": "CRITICAL",
+        "vulnerable": False,
+        "category": "Beyond OWASP — Injection",
+    })
+    return results
+
+
+def probe_open_redirect(client: httpx.Client, base: str) -> list:
+    """Check if redirect parameters can route to an external domain."""
+    evil = "http://evil.attacker.example.com"
+    params = ["redirect", "url", "next", "return", "returnTo", "redir", "goto"]
+    for param in params:
+        try:
+            r = client.get(base.rstrip("/") + f"/?{param}={evil}",
+                           follow_redirects=False, timeout=6)
+            loc = r.headers.get("location", "")
+            if "evil.attacker.example.com" in loc:
+                return [{
+                    "test": f"Open redirect via ?{param}=",
+                    "request": f"GET /?{param}={evil}",
+                    "expected": "No redirect to external domain",
+                    "actual": f"302 → {loc}",
+                    "severity": "MEDIUM",
+                    "vulnerable": True,
+                    "category": "Beyond OWASP — Open Redirect",
+                }]
+        except Exception:
+            continue
+    return [{
+        "test": "Open redirect via redirect/url/next parameters",
+        "request": f"GET /?redirect={evil} (and common variants)",
+        "expected": "No redirect to external domain",
+        "actual": "No open redirect detected",
+        "severity": "MEDIUM",
+        "vulnerable": False,
+        "category": "Beyond OWASP — Open Redirect",
+    }]
+
+
 # ── aggregator ────────────────────────────────────────────────────────────────
 
 def _group_by_category(flat: list) -> list:
@@ -277,6 +414,7 @@ def run_scan(
     update_path: str = "/users/1",
     protected_path: str = "/admin/users",
     report_dir: str = "./reports",
+    run_extra: bool = True,
 ) -> list:
     auth_body = auth_body or {}
     flat_results = []
@@ -347,6 +485,29 @@ def run_scan(
             flat_results.append(ma)
             print(f"           Mass assign accepted: {'YES (vulnerable)' if ma['vulnerable'] else 'no'}")
 
+        # ── Beyond-OWASP probes ───────────────────────────────────────────────
+        if run_extra:
+            print("  [EXTRA]    HTTP verb tampering ...")
+            vt = probe_verb_tampering(client, target)
+            flat_results.extend(vt)
+            vuln_vt = [t for t in vt if t["vulnerable"]]
+            print(f"           Unsafe methods accepted: {len(vuln_vt)}/{len(vt)}")
+
+            print("  [EXTRA]    Path traversal ...")
+            pt = probe_path_traversal(client, target)
+            flat_results.extend(pt)
+            print(f"           Traversal exposed: {'YES' if any(t['vulnerable'] for t in pt) else 'no'}")
+
+            print("  [EXTRA]    SQL injection ...")
+            sq = probe_sql_injection(client, target, token)
+            flat_results.extend(sq)
+            print(f"           SQL injection: {'YES (vulnerable)' if any(t['vulnerable'] for t in sq) else 'no'}")
+
+            print("  [EXTRA]    Open redirect ...")
+            rd = probe_open_redirect(client, target)
+            flat_results.extend(rd)
+            print(f"           Open redirect: {'YES (vulnerable)' if any(t['vulnerable'] for t in rd) else 'no'}")
+
     grouped = _group_by_category(flat_results)
     total_v = sum(g["vulnerable_count"] for g in grouped)
     total_t = sum(g["total"] for g in grouped)
@@ -375,6 +536,8 @@ def _main():
     p.add_argument("--update-path",   default="/users/1",    help="PUT endpoint for mass-assignment probe")
     p.add_argument("--protected",     default="/admin/users", help="Path that requires auth (for JWT forge test)")
     p.add_argument("--reports",       default="./reports")
+    p.add_argument("--no-extra",      action="store_true",
+                   help="Skip beyond-OWASP probes (verb tampering, traversal, injection, redirect)")
     args = p.parse_args()
 
     auth_body = {}
@@ -393,6 +556,7 @@ def _main():
         update_path=args.update_path,
         protected_path=args.protected,
         report_dir=args.reports,
+        run_extra=not args.no_extra,
     )
 
 
