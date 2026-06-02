@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "MazAPI Scanner",
+  "version": "1.0.0",
+  "description": "Automatic API security scanner. Captures API calls on every page visited and runs OWASP/CWE/MITRE vulnerability tests — no backend required.",
+  "author": "Team One — UMaT Ghana",
+
+  "permissions": [
+    "webRequest",
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": ["<all_urls>"],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "MazAPI Scanner",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "web_accessible_resources": [
+    { "resources": ["popup.html", "popup.js", "popup.css"], "matches": ["<all_urls>"] }
+  ]
+}

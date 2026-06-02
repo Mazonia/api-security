@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Invoke-RestMethod http://localhost:8000/health)",
+      "PowerShell(Invoke-RestMethod http://localhost:8001/health)",
+      "PowerShell(Invoke-RestMethod http://localhost:9000/health)",
+      "PowerShell(Invoke-RestMethod http://localhost:9000/monitor/stats)",
+      "Bash(docker cp *)",
+      "Bash(docker compose *)",
+      "Bash(curl -s http://localhost:9000/scan-ui -o /tmp/scan_ui_dump.html)",
+      "Read(//tmp/**)",
+      "Bash(curl -sI http://localhost:9000/scan-ui)",
+      "Bash(curl -sv http://localhost:9000/scan-ui)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"pass\")",
+      "Read(//usr/**)"
+    ]
+  }
+}

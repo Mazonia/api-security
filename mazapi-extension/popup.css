@@ -1,0 +1,103 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0d1117;
+  color: #c9d1d9;
+  width: 380px;
+  min-height: 200px;
+  font-size: 13px;
+}
+header {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand { font-weight: 700; color: #58a6ff; font-size: 1em; }
+.brand span { font-size: .75em; font-weight: 400; color: #8b949e; margin-left: 6px; }
+.clear-btn {
+  background: none; border: 1px solid #30363d; color: #8b949e;
+  border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: .78em;
+}
+.clear-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+.tabs { display: flex; border-bottom: 1px solid #21262d; }
+.tab {
+  flex: 1; padding: 8px 0; background: none; border: none; border-bottom: 2px solid transparent;
+  color: #8b949e; cursor: pointer; font-size: .82em; font-family: inherit;
+}
+.tab.active { color: #58a6ff; border-bottom-color: #58a6ff; font-weight: 600; }
+.pane { display: none; padding: 12px 14px; }
+.pane.active { display: block; }
+.section-title {
+  font-size: .72em; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: #8b949e; margin-bottom: 8px;
+}
+.endpoint-item {
+  background: #161b22; border: 1px solid #21262d; border-radius: 5px;
+  padding: 6px 10px; margin-bottom: 5px; font-size: .82em;
+}
+.endpoint-path { color: #58a6ff; font-family: monospace; }
+.endpoint-meta { color: #8b949e; font-size: .85em; margin-top: 2px; }
+.badge {
+  display: inline-block; padding: 1px 6px; border-radius: 3px;
+  font-size: .75em; font-weight: 700; margin-right: 3px;
+}
+.badge-get    { background: rgba(63,185,80,.15);  color: #3fb950; }
+.badge-post   { background: rgba(88,166,255,.15); color: #58a6ff; }
+.badge-delete { background: rgba(248,81,73,.15);  color: #f85149; }
+.badge-put    { background: rgba(227,179,65,.15); color: #e3b341; }
+.token-box {
+  background: #161b22; border: 1px solid #30363d; border-radius: 5px;
+  padding: 6px 10px; font-family: monospace; font-size: .78em;
+  color: #3fb950; word-break: break-all; margin-bottom: 8px;
+}
+.token-label { font-size: .73em; color: #8b949e; margin-bottom: 3px; }
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: .78em; color: #8b949e; margin-bottom: 4px; }
+.field input {
+  width: 100%; background: #0d1117; border: 1px solid #30363d;
+  border-radius: 5px; color: #c9d1d9; padding: 6px 8px; font-size: .84em; font-family: inherit;
+}
+.field input:focus { outline: none; border-color: #58a6ff; }
+.scan-btn {
+  width: 100%; padding: 9px; background: #238636; color: #fff;
+  border: none; border-radius: 6px; font-size: .9em; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+}
+.scan-btn:hover { background: #2ea043; }
+.scan-btn:disabled { opacity: .5; cursor: not-allowed; }
+.result-item {
+  border-radius: 5px; padding: 7px 10px; margin-bottom: 5px;
+  border-left: 3px solid #30363d;
+}
+.result-vuln  { background: rgba(248,81,73,.08);  border-left-color: #f85149; }
+.result-safe  { background: rgba(63,185,80,.08);  border-left-color: #3fb950; }
+.result-title { font-size: .84em; font-weight: 600; }
+.result-vuln  .result-title { color: #f85149; }
+.result-safe  .result-title { color: #3fb950; }
+.result-cat   { font-size: .74em; color: #8b949e; margin-top: 2px; }
+.result-detail { font-size: .77em; color: #8b949e; margin-top: 3px; }
+.score-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.score-card {
+  flex: 1; background: #161b22; border: 1px solid #30363d;
+  border-radius: 6px; padding: 8px; text-align: center;
+}
+.score-num { font-size: 1.4em; font-weight: 700; }
+.score-lbl { font-size: .72em; color: #8b949e; margin-top: 2px; }
+.empty { text-align: center; color: #8b949e; font-size: .84em; padding: 20px 0; }
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid #30363d; border-top-color: #58a6ff;
+  border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.key-warning {
+  background: rgba(227,179,65,.1); border: 1px solid rgba(227,179,65,.3);
+  border-radius: 5px; padding: 6px 10px; font-size: .78em; color: #e3b341; margin-bottom: 6px;
+}
+footer {
+  border-top: 1px solid #21262d; padding: 7px 14px;
+  font-size: .72em; color: #8b949e; text-align: center;
+}

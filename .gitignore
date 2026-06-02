@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment & secrets
+.env
+.env.*
+*.env
+secrets.json
+credentials.json
+
+# ML models (large binary files — regenerated on container start)
+api-security-project/data/*.joblib
+
+# Training dataset (regenerated — but include if you want to track it)
+# api-security-project/data/training_dataset.csv
+
+# SQLite traffic database (runtime data)
+api-security-project/data/traffic.db
+api-security-project/data/*.db
+
+# Generated reports
+api-security-project/reports/*.json
+api-security-project/reports/*.html
+
+# Generated documents
+*.docx
+*.pptx
+*.pdf
+
+# VS Code extension compiled output
+mazapi-vscode/out/
+mazapi-vscode/node_modules/
+mazapi-vscode/*.vsix
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary probe scripts
+api-security-project/probe_site.py
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.venv/
+env/

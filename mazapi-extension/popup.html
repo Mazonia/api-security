@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MazAPI Scanner</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<header>
+  <div class="brand">MazAPI Scanner <span>v1.0</span></div>
+  <button class="clear-btn" id="btn-clear">Clear Session</button>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="discover">Discovered</button>
+  <button class="tab" data-tab="scan">Scan</button>
+  <button class="tab" data-tab="results">Results</button>
+</div>
+
+<!-- ── Tab 1: Discovered APIs ─────────────────────────────── -->
+<div class="pane active" id="pane-discover">
+  <div id="key-warnings"></div>
+  <div class="section-title">Base URL</div>
+  <div id="base-url" style="font-family:monospace;font-size:.84em;color:#58a6ff;margin-bottom:10px">—</div>
+  <div class="section-title">Auth Token</div>
+  <div id="token-area"></div>
+  <div class="section-title">API Endpoints (<span id="ep-count">0</span>)</div>
+  <div id="endpoints-list"><div class="empty">Browse any website to start capturing API calls.</div></div>
+</div>
+
+<!-- ── Tab 2: Scan ────────────────────────────────────────── -->
+<div class="pane" id="pane-scan">
+  <div class="field">
+    <label>Target URL</label>
+    <input type="text" id="scan-target" placeholder="https://api.example.com">
+  </div>
+  <div class="field">
+    <label>Bearer Token (optional)</label>
+    <input type="text" id="scan-token" placeholder="eyJhbGciOiJIUzI1NiIs…">
+  </div>
+  <div class="field">
+    <label>Auth Endpoint (for rate-limit test)</label>
+    <input type="text" id="scan-auth-ep" value="/auth/login">
+  </div>
+  <div class="field">
+    <label>Protected Path (for JWT test)</label>
+    <input type="text" id="scan-protected" value="/admin/users">
+  </div>
+  <button class="scan-btn" id="btn-scan">▶ Run Scan</button>
+  <div id="scan-status" style="margin-top:8px;font-size:.8em;color:#8b949e;text-align:center"></div>
+</div>
+
+<!-- ── Tab 3: Results ─────────────────────────────────────── -->
+<div class="pane" id="pane-results">
+  <div id="score-area"></div>
+  <div id="results-list"><div class="empty">Run a scan to see results.</div></div>
+</div>
+
+<footer>MazAPI Scanner · OWASP · MITRE · CWE · Works on any website</footer>
+
+<script src="popup.js"></script>
+</body>
+</html>

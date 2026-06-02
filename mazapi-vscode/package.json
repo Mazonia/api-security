@@ -1,0 +1,82 @@
+{
+  "name": "mazapi-scanner",
+  "displayName": "MazAPI Scanner",
+  "description": "Scan APIs for OWASP / MITRE / CWE vulnerabilities directly from VS Code. Detects hardcoded endpoints and API keys in your code.",
+  "version": "1.0.0",
+  "publisher": "MazAPI",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Linters"],
+  "keywords": ["api", "security", "owasp", "scanner", "vulnerability"],
+  "activationEvents": ["onLanguage:javascript", "onLanguage:typescript", "onLanguage:python"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "mazapi.scanFile",
+        "title": "MazAPI: Scan Current File for API Issues"
+      },
+      {
+        "command": "mazapi.scanWorkspace",
+        "title": "MazAPI: Scan Entire Workspace for API Issues"
+      },
+      {
+        "command": "mazapi.scanEndpoint",
+        "title": "MazAPI: Scan This API Endpoint",
+        "category": "MazAPI"
+      },
+      {
+        "command": "mazapi.openPanel",
+        "title": "MazAPI: Open Results Panel"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "mazapi.scanEndpoint",
+          "when": "editorTextFocus",
+          "group": "MazAPI"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MazAPI Scanner",
+      "properties": {
+        "mazapi.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:9000",
+          "description": "URL of your MazAPI backend (optional — used for full OWASP scans)"
+        },
+        "mazapi.autoScanOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically scan for hardcoded API keys when a file is saved"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mazapi",
+          "title": "MazAPI Scanner",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "mazapi": [
+        { "id": "mazapi.findings",  "name": "Findings" },
+        { "id": "mazapi.endpoints", "name": "Detected Endpoints" }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  }
+}
