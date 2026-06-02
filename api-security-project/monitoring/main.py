@@ -3089,7 +3089,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (d.login_steps && d.login_steps.length) {
           var stepsEl = document.getElementById("capture-login-steps");
           stepsEl.style.display = "block";
-          stepsEl.textContent   = d.login_steps.join("\n");
+          stepsEl.textContent   = d.login_steps.join("\\n");
         }
 
         if (d.total_paths > 0 || d.token) {
