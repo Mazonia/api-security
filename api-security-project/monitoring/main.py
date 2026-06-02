@@ -508,20 +508,107 @@ async def external_scan(req: ScanRequest):
         # Gate auth-dependent tests: skip entirely if auth is definitively invalid
         _auth_hdrs = eff_hdrs if pre_scan["auth_valid"] is not False else {}
 
+        # ── SPA detection: probe a guaranteed-nonexistent path ───────────────────
+        # Single-Page Apps serve the same index.html shell (HTTP 200) for EVERY
+        # route, letting client-side JS handle routing + auth. So a 200 on /admin
+        # proves nothing. We detect this by requesting a random path that cannot
+        # exist; if it also returns 200, the site is a SPA and path enumeration
+        # is inconclusive.
+        import hashlib as _hashlib
+        _spa_detected   = False
+        _spa_baseline_len = 0
+        _spa_baseline_sig = ""
+        try:
+            _rnd = "/zz-nonexistent-" + _hashlib.md5(base.encode()).hexdigest()[:10] + "-404probe"
+            _rp  = await _async_get(client, base + _rnd)
+            if _rp is not None and _rp.status_code == 200:
+                _spa_detected     = True
+                _spa_baseline_len = len(_rp.content)
+                # Signature: collapse whitespace, ignore route-specific URLs
+                _norm = _re.sub(r"\s+", " ", (_rp.text or "")).strip()
+                _norm = _re.sub(r"https?://[^\s\"'<>]+", "", _norm)
+                _spa_baseline_sig = _hashlib.md5(_norm.encode()).hexdigest()
+        except Exception:
+            pass
+
+        def _body_sig(r) -> str:
+            _n = _re.sub(r"\s+", " ", (r.text or "")).strip()
+            _n = _re.sub(r"https?://[^\s\"'<>]+", "", _n)
+            return _hashlib.md5(_n.encode()).hexdigest()
+
         # ── API8 / API5: sensitive path enumeration ─────────────────────────────
+        def _sensitive_path_result(r) -> tuple:
+            """
+            Returns (is_vulnerable, actual_description).
+            Only flags a path as exposed when genuine unauthenticated content is
+            served — not a login page, not a SPA shell, not an error page.
+            """
+            if r.status_code != 200:
+                return False, f"{r.status_code} (access denied or not found)"
+
+            body_lower = (r.text or "").lower()
+            ct         = r.headers.get("content-type", "").lower()
+            size       = len(r.content)
+
+            # SPA shell check: identical (or near-identical) to the 404-probe shell
+            if _spa_detected:
+                if _body_sig(r) == _spa_baseline_sig or abs(size - _spa_baseline_len) <= 64:
+                    return False, (f"200 — SPA shell ({size} bytes), identical to the "
+                                   f"nonexistent-path response. Auth is client-side; "
+                                   f"not a real exposure.")
+
+            # Redirected to a login page after following redirects
+            final_path = str(r.url).lower()
+            if any(kw in final_path for kw in ("/login", "/signin", "/auth/login",
+                                                "/sign-in", "/account/login")):
+                return False, "200 — redirected to login page (access is protected)"
+
+            # Body contains login-form indicators
+            _LOGIN_SIGS = [
+                'type="password"', "type='password'",
+                'name="password"', 'id="password"',
+                "forgot password", "remember me",
+                "sign in", "log in", "please login",
+                "you must be logged", "authentication required",
+                "unauthorized", "login required",
+            ]
+            if sum(1 for s in _LOGIN_SIGS if s in body_lower) >= 1:
+                return False, "200 — login form detected (content is gated)"
+
+            # Genuinely exposed — categorise the response
+            if "application/json" in ct:
+                return True, f"200 JSON — {size} bytes served without authentication"
+            elif "text/html" in ct:
+                return True, f"200 HTML — {size} bytes, no login form / SPA shell detected"
+            else:
+                return True, f"200 {ct.split(';')[0]} — {size} bytes without authentication"
+
         if "api8" in _run or "api5" in _run:
+            if _spa_detected:
+                results.append({
+                    "test": "Application type detection",
+                    "request": f"GET {_rnd} (nonexistent path probe)",
+                    "expected": "404 for nonexistent paths",
+                    "actual": (f"200 — Single-Page App detected. Every route returns the "
+                               f"same {_spa_baseline_len}-byte shell. Path-based access "
+                               f"tests are inconclusive; use API discovery (HAR / Capture) "
+                               f"to find the real backend endpoints."),
+                    "severity": "LOW",
+                    "vulnerable": False,
+                    "category": "API8:2023 - Security Misconfiguration",
+                })
             for path in _SENSITIVE_PATHS:
                 r = await _async_get(client, base + path)
                 if r is None:
                     continue
-                exposed = r.status_code == 200
+                exposed, actual_msg = _sensitive_path_result(r)
                 cat = ("API5:2023 - Broken Function Level Authorization"
                        if path in _ADMIN_PATHS else "API8:2023 - Security Misconfiguration")
                 results.append({
-                    "test": f"Sensitive path accessible: {path}",
+                    "test": f"Sensitive path: {path}",
                     "request": f"GET {path} (no auth)",
-                    "expected": "401, 403, or 404",
-                    "actual": str(r.status_code),
+                    "expected": "401, 403, 404, or login redirect",
+                    "actual": actual_msg,
                     "severity": "HIGH",
                     "vulnerable": exposed,
                     "category": cat,
