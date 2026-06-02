@@ -253,6 +253,76 @@ async function runScan(target, token, options = {}) {
     expected: "No internal metadata in response",
   });
 
+  // ── API8: Security hardening headers ────────────────────────────────────────
+  const hdrR = await get("/") || await get("/health");
+  if (hdrR) {
+    const checks = [
+      ["x-content-type-options", "blocks MIME-sniffing"],
+      ["x-frame-options",        "prevents clickjacking"],
+      ["content-security-policy","mitigates XSS"],
+    ];
+    for (const [h, why] of checks) {
+      const present = !!hdrR.headers.get(h);
+      results.push({
+        test: `Hardening header: ${h}`,
+        category: "API8:2023 - Security Misconfiguration (hardening)",
+        severity: "LOW",
+        vulnerable: !present,
+        actual: present ? hdrR.headers.get(h) : `not set — recommended to ${why}`,
+        expected: `present (${why})`,
+      });
+    }
+  }
+
+  // ── SPA-aware sensitive path check (avoids false positives) ─────────────────
+  // Probe a guaranteed-nonexistent path; if it returns 200, the site is a SPA
+  // and path enumeration is meaningless.
+  let spaShellLen = -1;
+  const probe = await get("/zz-nonexistent-mazapi-404probe");
+  if (probe && probe.status === 200) {
+    spaShellLen = (await probe.text().catch(() => "")).length;
+  }
+  for (const p of ["/admin", "/debug/config", "/.env", "/config"]) {
+    const r = await get(p);
+    if (!r) continue;
+    let vuln = false, note;
+    if (r.status !== 200) {
+      note = `${r.status} (protected / not found)`;
+    } else {
+      const body = await r.text().catch(() => "");
+      if (spaShellLen >= 0 && Math.abs(body.length - spaShellLen) <= 64) {
+        note = "200 — SPA shell, not a real exposure";
+      } else if (/type=["']password["']|sign in|log in/i.test(body)) {
+        note = "200 — login page (gated)";
+      } else {
+        vuln = true;
+        note = `200 — ${body.length} bytes served unauthenticated`;
+      }
+    }
+    results.push({
+      test: `Sensitive path: ${p}`,
+      category: p.includes("admin") ? "API5:2023 - Broken Function Level Authorization"
+                                    : "API8:2023 - Security Misconfiguration",
+      severity: "HIGH",
+      vulnerable: vuln,
+      actual: note,
+      expected: "401, 403, 404, or login page",
+    });
+  }
+
+  // ── HTTP verb tampering ─────────────────────────────────────────────────────
+  try {
+    const tr = await fetch(target + "/", { method: "DELETE", signal: AbortSignal.timeout(5000) });
+    results.push({
+      test: "HTTP verb tampering (DELETE on /)",
+      category: "CWE-650 - HTTP Verb Tampering",
+      severity: "MEDIUM",
+      vulnerable: ![405, 404, 501, 403, 400].includes(tr.status),
+      actual: String(tr.status),
+      expected: "405 Method Not Allowed",
+    });
+  } catch { /* method blocked at network layer = good */ }
+
   return results;
 }
 

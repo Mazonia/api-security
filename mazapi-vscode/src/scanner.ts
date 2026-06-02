@@ -57,6 +57,48 @@ const KEY_PATTERNS: { name: string; pattern: RegExp; severity: 'CRITICAL' | 'HIG
         category: 'CVE-2019-9599 class / CWE-321 - Hardcoded Cryptographic Key',
         fix: 'Generate a strong random secret (openssl rand -hex 32) and load from environment',
     },
+    {
+        name: 'Slack Token',
+        pattern: /xox[baprs]-[0-9A-Za-z-]{10,48}/g,
+        severity: 'CRITICAL',
+        category: 'CWE-798 - Hardcoded Credentials',
+        fix: 'Revoke at api.slack.com/apps, store in environment variable',
+    },
+    {
+        name: 'Stripe Live Secret Key',
+        pattern: /sk_live_[0-9a-zA-Z]{24,}/g,
+        severity: 'CRITICAL',
+        category: 'CWE-798 - Hardcoded Credentials',
+        fix: 'Roll the key in the Stripe dashboard immediately; never ship live keys client-side',
+    },
+    {
+        name: 'Twilio API Key',
+        pattern: /SK[0-9a-fA-F]{32}/g,
+        severity: 'CRITICAL',
+        category: 'CWE-798 - Hardcoded Credentials',
+        fix: 'Revoke in Twilio console, load from environment',
+    },
+    {
+        name: 'Private Key block',
+        pattern: /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/g,
+        severity: 'CRITICAL',
+        category: 'CWE-321 - Private Key in Source Code',
+        fix: 'Remove the private key from source; store in a secrets manager or key vault',
+    },
+    {
+        name: 'Hardcoded Bearer token',
+        pattern: /["']Bearer\s+[A-Za-z0-9._\-]{20,}["']/g,
+        severity: 'HIGH',
+        category: 'CWE-798 - Hardcoded Credentials',
+        fix: 'Do not hardcode tokens; fetch them at runtime and store securely',
+    },
+    {
+        name: 'Hardcoded DB connection string',
+        pattern: /(?:mongodb(?:\+srv)?|postgres(?:ql)?|mysql|redis):\/\/[^\s"'`]*:[^\s"'`@]+@[^\s"'`]+/gi,
+        severity: 'CRITICAL',
+        category: 'CWE-798 - Hardcoded DB Credentials',
+        fix: 'Move the connection string (with password) to an environment variable',
+    },
 ];
 
 const URL_PATTERNS: { pattern: RegExp; severity: 'MEDIUM' | 'LOW'; category: string }[] = [
@@ -107,6 +149,34 @@ const WEAK_AUTH_PATTERNS: { name: string; pattern: RegExp; severity: 'HIGH' | 'C
         severity: 'CRITICAL',
         category: 'CVE-2019-14234 class / CWE-89 - SQL Injection',
         fix: 'Use parameterised queries or an ORM. Never concatenate user input into SQL',
+    },
+    {
+        name: 'Command execution with user input',
+        pattern: /(?:exec|execSync|spawn|system|popen|os\.system|child_process)\s*\([^)]*(?:req\.|request\.|params\.|body\.|input)/gi,
+        severity: 'CRITICAL',
+        category: 'CWE-78 - OS Command Injection',
+        fix: 'Avoid shell execution with user input; use execFile with an argument array and validate input',
+    },
+    {
+        name: 'Insecure HTTP URL (cleartext)',
+        pattern: /["']http:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0)[a-z0-9.-]+/gi,
+        severity: 'HIGH',
+        category: 'CWE-319 - Cleartext Transmission',
+        fix: 'Use https:// — cleartext HTTP exposes data and tokens to network interception',
+    },
+    {
+        name: 'TLS certificate verification disabled',
+        pattern: /(?:rejectUnauthorized\s*:\s*false|verify\s*=\s*False|CURLOPT_SSL_VERIFYPEER\s*,\s*(?:0|false)|InsecureSkipVerify\s*:\s*true)/gi,
+        severity: 'HIGH',
+        category: 'CWE-295 - Improper Certificate Validation',
+        fix: 'Never disable TLS verification in production; fix the root certificate issue instead',
+    },
+    {
+        name: 'Eval of dynamic input',
+        pattern: /\beval\s*\([^)]*(?:req\.|request\.|params\.|body\.|input|user)/gi,
+        severity: 'CRITICAL',
+        category: 'CWE-95 - Code Injection via eval()',
+        fix: 'Never eval() user input; use JSON.parse or a safe parser instead',
     },
 ];
 

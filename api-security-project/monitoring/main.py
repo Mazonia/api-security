@@ -633,29 +633,38 @@ async def external_scan(req: ScanRequest):
                     break
 
             # ── API8: Security headers audit ─────────────────────────────────────
+            # These are hardening RECOMMENDATIONS, not exploitable flaws. A missing
+            # header means "best practice not applied", so severity is LOW and the
+            # wording makes clear it is advisory, not a breach.
             _SEC_HDRS = [
-                ("x-content-type-options",  "nosniff", "MEDIUM"),
-                ("x-frame-options",          None,      "MEDIUM"),
-                ("content-security-policy",  None,      "MEDIUM"),
-                ("referrer-policy",          None,      "LOW"),
+                ("x-content-type-options",  "nosniff", "LOW",
+                 "blocks MIME-sniffing attacks"),
+                ("x-frame-options",          None,      "LOW",
+                 "prevents clickjacking via iframes"),
+                ("content-security-policy",  None,      "LOW",
+                 "mitigates XSS / injection"),
+                ("referrer-policy",          None,      "LOW",
+                 "controls referrer leakage"),
             ]
             if base.startswith("https://"):
-                _SEC_HDRS.append(("strict-transport-security", None, "HIGH"))
+                _SEC_HDRS.append(("strict-transport-security", None, "MEDIUM",
+                                  "enforces HTTPS-only connections"))
             for probe_path in ["/health", "/", "/api"]:
                 r = await _async_get(client, base + probe_path)
                 if r is not None:
-                    for hdr_name, expected_val, sev in _SEC_HDRS:
+                    for hdr_name, expected_val, sev, why in _SEC_HDRS:
                         actual = r.headers.get(hdr_name, "")
                         present = (actual.lower() == expected_val.lower()
                                    if expected_val else bool(actual))
                         results.append({
-                            "test": f"Security header: {hdr_name}",
+                            "test": f"Hardening header: {hdr_name}",
                             "request": f"GET {probe_path}",
-                            "expected": f"{hdr_name}: {expected_val or '(any value)'}",
-                            "actual": actual or "(missing)",
+                            "expected": f"present ({why})",
+                            "actual": (actual if present else
+                                       f"not set — recommended: add this header to {why}"),
                             "severity": sev,
                             "vulnerable": not present,
-                            "category": "API8:2023 - Security Misconfiguration",
+                            "category": "API8:2023 - Security Misconfiguration (hardening)",
                         })
                     break
 

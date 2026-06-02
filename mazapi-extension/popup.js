@@ -130,12 +130,30 @@ function renderResults(results) {
       <div class="score-card"><div class="score-num" style="color:#3fb950">${totalCount - vulnCount}</div><div class="score-lbl">Secure</div></div>
     </div>`;
 
-  document.getElementById("results-list").innerHTML = results.map(r => `
+  const exportBtn = `<button id="btn-export" style="width:100%;margin-bottom:10px;padding:7px;background:rgba(88,166,255,.12);color:#58a6ff;border:1px solid rgba(88,166,255,.4);border-radius:5px;cursor:pointer;font-size:.82em;font-family:inherit">⬇ Export Report (JSON)</button>`;
+
+  document.getElementById("results-list").innerHTML = exportBtn + results.map(r => `
     <div class="result-item ${r.vulnerable ? "result-vuln" : "result-safe"}">
       <div class="result-title">${r.vulnerable ? "✗" : "✓"} ${r.test}</div>
       <div class="result-cat">${r.category}</div>
       <div class="result-detail">${r.actual}</div>
     </div>`).join("");
+
+  // Wire export button — downloads a timestamped JSON report
+  document.getElementById("btn-export").addEventListener("click", () => {
+    const report = {
+      tool: "MazAPI Scanner (browser extension)",
+      target: document.getElementById("scan-target").value,
+      scanned_at: new Date().toISOString(),
+      score, total: totalCount, vulnerable: vulnCount,
+      results,
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `mazapi-scan-${Date.now()}.json`;
+    a.click();
+  });
 }
 
 // ── Load on open ──────────────────────────────────────────────────────────────

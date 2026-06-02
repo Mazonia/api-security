@@ -9,22 +9,33 @@ IF_MODEL_PATH = "/data/model.joblib"
 RF_MODEL_PATH = "/data/rf_model.joblib"
 
 
+_SPECIAL_CHARS = (";", "|", "<", ">", "'", '"', "%2f", "%2e", "..", "$", "`", "&&")
+
+
 def _extract(record: dict) -> np.ndarray:
-    """Extract a 10-feature vector from a traffic record dict."""
+    """Extract a 13-feature vector from a traffic record dict.
+
+    Must stay in lockstep with FEATURE_NAMES in train_model.py.
+    """
     method_map = {"GET": 0, "POST": 1, "PUT": 2, "DELETE": 3, "PATCH": 4}
-    path   = record.get("path", "/")
-    status = record.get("status_code", 200)
+    path     = record.get("path", "/")
+    status   = record.get("status_code", 200)
+    raw_path = (record.get("raw_path") or path or "").lower()
+    has_special = 1 if any(c in raw_path for c in _SPECIAL_CHARS) else 0
     return np.array([[
-        method_map.get(record.get("method", "GET"), 4),
-        len([p for p in path.split("/") if p]),
-        1 if record.get("has_auth") else 0,
-        status,
-        float(record.get("response_time_ms", 0)),
-        datetime.utcnow().hour,
-        1 if "/admin" in path else 0,
-        1 if "/debug" in path else 0,
-        1 if status >= 400 else 0,
-        1 if record.get("bola_suspected") else 0,
+        method_map.get(record.get("method", "GET"), 4),       # 0 method
+        len([p for p in path.split("/") if p]),               # 1 path_depth
+        1 if record.get("has_auth") else 0,                   # 2 has_auth
+        status,                                               # 3 status_code
+        float(record.get("response_time_ms", 0)),             # 4 response_ms
+        datetime.utcnow().hour,                               # 5 hour
+        1 if "/admin" in path else 0,                         # 6 is_admin_path
+        1 if "/debug" in path else 0,                         # 7 is_debug_path
+        1 if 400 <= status < 500 else 0,                      # 8 is_4xx
+        1 if record.get("bola_suspected") else 0,             # 9 bola_suspected
+        len(path),                                            # 10 path_length
+        has_special,                                          # 11 has_special_chars
+        1 if status >= 500 else 0,                            # 12 is_5xx
     ]])
 
 
