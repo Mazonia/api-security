@@ -16,21 +16,31 @@ build/
 secrets.json
 credentials.json
 
-# ML models (large binary files — regenerated on container start)
-api-security-project/data/*.joblib
+# Virtual environments
+venv/
+.venv/
+env/
 
-# Training dataset (regenerated — but include if you want to track it)
-# api-security-project/data/training_dataset.csv
+# ML models (regenerated on container start)
+api-security-project/data/*.joblib
+data/model.joblib
 
 # SQLite traffic database (runtime data)
 api-security-project/data/traffic.db
-api-security-project/data/*.db
+data/traffic.db
+*.db
 
 # Generated reports
 api-security-project/reports/*.json
 api-security-project/reports/*.html
+reports/*.html
+reports/*.json
 
-# Generated documents
+# Generated presenter guide
+CY384_Presenter_Guide.pdf
+CY384_Presenter_Guide.html
+
+# Generated documents (not source)
 *.docx
 *.pptx
 *.pdf
@@ -48,13 +58,14 @@ mazapi-vscode/*.vsix
 Thumbs.db
 desktop.ini
 
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
 # Temporary probe scripts
 api-security-project/probe_site.py
 
 # Jupyter
 .ipynb_checkpoints/
-
-# Virtual environments
-venv/
-.venv/
-env/
