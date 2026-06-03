@@ -356,6 +356,7 @@ async def external_scan(req: ScanRequest):
         "api7","api9",
         "ext_verb","ext_traversal","ext_injection","ext_redirect",
         "ext_xxe","ext_crlf","ext_cmd",
+        "pii","graphql_scan",
     }
 
     # ── Build auth parameters ────────────────────────────────────────────────────
@@ -1274,6 +1275,67 @@ async def external_scan(req: ScanRequest):
                     "category": "CVE-2019-11229 / CWE-601 - Open Redirect",
                 })
 
+    # ── PII / sensitive data detection ──────────────────────────────────────────
+    if "pii" in _run:
+        import re as _re_pii
+        _PII_PATTERNS = [
+            ("Email address",       _re_pii.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")),
+            ("Phone number",        _re_pii.compile(r"(?:\+?\d{1,3}[\-.\s]?)?\(?\d{3}\)?[\-.\s]?\d{3}[\-.\s]?\d{4}")),
+            ("Credit card number",  _re_pii.compile(r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b")),
+            ("US Social Security",  _re_pii.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
+            ("AWS Access Key",      _re_pii.compile(r"AKIA[0-9A-Z]{16}")),
+            ("Password in response",_re_pii.compile(r'"password"\s*:\s*"[^"]{3,}"')),
+        ]
+        _pii_paths = ["/api/users", "/users", "/api/user", "/profile", "/api/profile",
+                      "/api/me", "/me", "/api/customers", "/api/accounts"]
+        _pii_found = []
+        _pii_at    = None
+        for _pp in _pii_paths:
+            try:
+                _rp = await _aget(_pp, hdrs=_auth_hdrs)
+                if _rp and _rp.status_code == 200 and len(_rp.content) > 10:
+                    _body = _rp.text
+                    _hits = []
+                    for _name, _pat in _PII_PATTERNS:
+                        _m = _pat.findall(_body)
+                        if _m:
+                            _hits.append(f"{_name} (×{len(_m)})")
+                    if _hits:
+                        _pii_found = _hits
+                        _pii_at    = _pp
+                        break
+            except Exception:
+                continue
+        results.append({
+            "test": f"PII / sensitive data in API responses",
+            "request": f"GET {_pii_at or _pii_paths[0]} (authenticated)",
+            "expected": "Response must not contain unnecessary PII",
+            "actual": (f"PII detected at {_pii_at}: {'; '.join(_pii_found[:4])}"
+                       if _pii_found else "No PII patterns detected in sampled responses"),
+            "severity": "HIGH",
+            "vulnerable": bool(_pii_found),
+            "category": "CWE-312 / GDPR - PII Exposure in API Response",
+        })
+
+    # ── GraphQL scan (probes even for REST targets) ───────────────────────────
+    if "graphql_scan" in _run and (req.api_type or "rest") == "rest":
+        for _gql_path in ["/graphql", "/api/graphql", "/v1/graphql"]:
+            try:
+                _gr = await _apost(_gql_path, {"query": "{ __schema { types { name } } }"})
+                if _gr and _gr.status_code == 200 and "__schema" in _gr.text:
+                    results.append({
+                        "test": f"GraphQL introspection enabled at {_gql_path}",
+                        "request": f"POST {_gql_path} (introspection query)",
+                        "expected": "404 or introspection disabled",
+                        "actual": f"200 — full schema returned ({len(_gr.content)} bytes)",
+                        "severity": "MEDIUM",
+                        "vulnerable": True,
+                        "category": "API9:2023 - Improper Inventory Management",
+                    })
+                    break
+            except Exception:
+                continue
+
     # Group results by category
     buckets: dict = {}
     for t in results:
@@ -1285,7 +1347,27 @@ async def external_scan(req: ScanRequest):
         if t["vulnerable"]:
             buckets[cat]["vulnerable_count"] += 1
 
+    _COMPLIANCE_MAP_M = {
+        "API1:2023 - Broken Object Level Authorization":          {"pci_dss":["6.2.4","8.2.3"],    "gdpr":["Art. 5(1)(f)","Art. 32"],   "iso27001":["A.9.4.1","A.14.2.5"]},
+        "API2:2023 - Broken Authentication":                      {"pci_dss":["8.2.1","8.3.1"],    "gdpr":["Art. 32(1)(b)"],            "iso27001":["A.9.4.3","A.10.1.1"]},
+        "API3:2023 - Broken Object Property Level Authorization": {"pci_dss":["6.2.4"],            "gdpr":["Art. 5(1)(c)","Art. 25"],   "iso27001":["A.14.2.5","A.18.1.3"]},
+        "API4:2023 - Unrestricted Resource Consumption":          {"pci_dss":["6.2.4","6.3.1"],    "gdpr":["Art. 32"],                  "iso27001":["A.12.6.1","A.17.2.1"]},
+        "API5:2023 - Broken Function Level Authorization":        {"pci_dss":["7.1.1","7.2.1"],    "gdpr":["Art. 32(4)"],               "iso27001":["A.9.2.3","A.9.4.1"]},
+        "API7:2023 - Server-Side Request Forgery":                {"pci_dss":["6.2.4","6.3.3"],    "gdpr":["Art. 32"],                  "iso27001":["A.13.1.3","A.14.2.5"]},
+        "API8:2023 - Security Misconfiguration":                  {"pci_dss":["6.3.3","6.4.1"],    "gdpr":["Art. 32"],                  "iso27001":["A.14.1.3","A.18.1.3"]},
+        "API9:2023 - Improper Inventory Management":              {"pci_dss":["6.3.3"],            "gdpr":["Art. 32"],                  "iso27001":["A.12.6.1"]},
+        "CWE-312 / GDPR - PII Exposure in API Response":         {"pci_dss":["3.4.1","4.2.1"],    "gdpr":["Art. 5","Art. 17","Art. 25","Art. 32","Art. 83(4)"], "iso27001":["A.18.1.4","A.8.2.3"]},
+        "CVE-2021-41773 / CWE-22 - Path Traversal":              {"pci_dss":["6.2.4"],            "gdpr":["Art. 32"],                  "iso27001":["A.14.2.5"]},
+        "CVE-2019-14234 / CWE-89 - SQL Injection":               {"pci_dss":["6.2.4"],            "gdpr":["Art. 32"],                  "iso27001":["A.14.2.5"]},
+        "CVE-2014-6271 / CWE-78 - Command Injection":            {"pci_dss":["6.2.4"],            "gdpr":["Art. 32"],                  "iso27001":["A.14.2.5"]},
+    }
     grouped = list(buckets.values())
+    for g in grouped:
+        for key, cval in _COMPLIANCE_MAP_M.items():
+            if g["category"] == key or g["category"].startswith(key.split(" - ")[0]):
+                g["compliance"] = cval
+                break
+
     total_v = sum(g["vulnerable_count"] for g in grouped)
     total_t = sum(g["total"] for g in grouped)
     score   = round((1 - total_v / total_t) * 100) if total_t else 100
@@ -1299,6 +1381,142 @@ async def external_scan(req: ScanRequest):
         "categories":       grouped,
         "pre_scan":         pre_scan,
     })
+
+
+@app.post("/monitor/scan/sarif")
+async def scan_sarif(req: ScanRequest):
+    """Run a full scan and return the results as a SARIF 2.1.0 document."""
+    scan_resp = await external_scan(req)
+    data = _json.loads(scan_resp.body)
+    categories = data.get("categories", [])
+
+    seen: set = set()
+    rules = []
+    for cat in categories:
+        rid = cat["category"].replace(" ", "-").replace("/", "-")[:64]
+        if rid not in seen:
+            seen.add(rid)
+            rules.append({
+                "id": rid,
+                "name": cat["category"].split(" - ")[0],
+                "shortDescription": {"text": cat["category"].split(" - ", 1)[-1]},
+                "helpUri": "https://owasp.org/API-Security/",
+            })
+
+    sarif_results = []
+    for cat in categories:
+        rid = cat["category"].replace(" ", "-").replace("/", "-")[:64]
+        for t in cat.get("tests", []):
+            if not t.get("vulnerable"):
+                continue
+            sarif_results.append({
+                "ruleId": rid,
+                "level": "error" if t.get("severity") in ("CRITICAL", "HIGH") else "warning",
+                "message": {"text": f"{t['test']}: {t['actual']}"},
+                "locations": [{"physicalLocation": {"artifactLocation": {"uri": req.target, "uriBaseId": "TARGETROOT"}}}],
+                "properties": {"severity": t.get("severity"), "compliance": cat.get("compliance", {})},
+            })
+
+    sarif = {
+        "version": "2.1.0",
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [{
+            "tool": {"driver": {"name": "MazAPI Scanner", "version": "2.0.0", "rules": rules}},
+            "results": sarif_results,
+            "properties": {"target": req.target, "scannedAt": datetime.utcnow().isoformat()},
+        }],
+    }
+    return JSONResponse(sarif, media_type="application/sarif+json")
+
+
+class WebhookConfig(BaseModel):
+    webhook_url: str
+    target: str
+    score: float
+    total_tests: int
+    total_vulnerable: int
+    categories: list = []
+
+
+@app.post("/monitor/scan/notify")
+async def send_scan_webhook(cfg: WebhookConfig):
+    """POST scan results to a Slack/Teams webhook URL."""
+    import httpx as _httpx_wh
+    vulns    = [t for cat in cfg.categories for t in cat.get("tests", []) if t.get("vulnerable")]
+    critical = [t for t in vulns if t.get("severity") == "CRITICAL"]
+    payload  = {
+        "source": "MazAPI Scanner (monitoring service)",
+        "target": cfg.target,
+        "score":  cfg.score,
+        "scanned_at": datetime.utcnow().isoformat(),
+        "summary": f"{cfg.total_vulnerable}/{cfg.total_tests} tests vulnerable",
+        "critical": len(critical),
+        "text": f"*MazAPI Alert* — `{cfg.target}`\nScore: *{cfg.score}%* | Vulnerable: {cfg.total_vulnerable}/{cfg.total_tests} | Critical: {len(critical)}",
+        "findings": [{"test": t["test"], "severity": t.get("severity"), "actual": t.get("actual")} for t in vulns[:10]],
+    }
+    try:
+        async with _httpx_wh.AsyncClient() as c:
+            r = await c.post(cfg.webhook_url, json=payload, timeout=10)
+        return {"ok": True, "status": r.status_code}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+class PostmanRequest(BaseModel):
+    target: str
+    endpoints: dict = {}
+
+
+@app.post("/monitor/export/postman")
+async def export_postman(req: PostmanRequest):
+    """Generate a Postman collection from a discovered endpoint map."""
+    host = req.target.replace("http://","").replace("https://","").rstrip("/")
+    items = []
+    for path, data in req.endpoints.items():
+        method = (data.get("methods") or ["GET"])[0]
+        items.append({
+            "name": f"{method} {path}",
+            "request": {
+                "method": method,
+                "header": [{"key": "Authorization", "value": "Bearer {{bearerToken}}"}],
+                "url": {"raw": req.target + path, "host": [host], "path": [p for p in path.split("/") if p]},
+            },
+            "response": [],
+        })
+    collection = {
+        "info": {
+            "name": f"MazAPI — {req.target}",
+            "description": f"Discovered by MazAPI Scanner on {datetime.utcnow().isoformat()}",
+            "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        },
+        "item": items,
+        "variable": [{"key": "baseUrl", "value": req.target}, {"key": "bearerToken", "value": ""}],
+    }
+    return JSONResponse(collection)
+
+
+@app.post("/monitor/export/openapi")
+async def export_openapi(req: PostmanRequest):
+    """Generate an OpenAPI 3.0 spec from a discovered endpoint map."""
+    paths = {}
+    for path, data in req.endpoints.items():
+        oa_path = path.replace("{id}", "{id}")
+        paths[oa_path] = {}
+        for method in (data.get("methods") or ["get"]):
+            paths[oa_path][method.lower()] = {
+                "summary": f"{method} {path}",
+                "security": [{"bearerAuth": []}] if data.get("authRequired") else [],
+                "responses": {"200": {"description": "Success"}, "401": {"description": "Unauthorized"}},
+            }
+    spec = {
+        "openapi": "3.0.3",
+        "info": {"title": f"MazAPI Discovery — {req.target}", "version": "1.0.0",
+                 "description": f"Auto-discovered by MazAPI Scanner on {datetime.utcnow().isoformat()}"},
+        "servers": [{"url": req.target}],
+        "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
+        "paths": paths,
+    }
+    return JSONResponse(spec)
 
 
 @app.get("/monitor/scan/capture")
@@ -2027,6 +2245,22 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
 .prescan-ok{color:#3fb950;font-weight:600}
 .prescan-warn{color:#e3b341;font-weight:600}
 .prescan-err{color:#f85149;font-weight:600}
+/* ── New feature styles ───────────────────────────────── */
+.compliance-row{font-size:.77em;color:#8b949e;margin-top:7px;line-height:1.7}
+.comp-chip{display:inline-block;background:rgba(88,166,255,.12);color:#58a6ff;border:1px solid rgba(88,166,255,.3);border-radius:3px;padding:1px 6px;margin-right:4px;font-size:.88em}
+.evidence-block{margin-top:8px}
+.evidence-block summary{font-size:.78em;color:#58a6ff;cursor:pointer;user-select:none}
+.evidence-pre{background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:8px;margin-top:5px;font-family:monospace;font-size:.75em;white-space:pre-wrap;color:#c9d1d9;word-break:break-all;overflow-x:auto}
+.fp-row{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+.fp-btn{padding:3px 8px;border:1px solid #30363d;border-radius:4px;font-size:.75em;cursor:pointer;background:rgba(255,255,255,.04);color:#8b949e;font-family:inherit;transition:all .15s}
+.fp-btn:hover{border-color:#58a6ff;color:#58a6ff}
+.fp-btn.active{background:rgba(88,166,255,.12);border-color:#58a6ff;color:#58a6ff}
+.reg-badge{display:inline-block;border:1px solid;border-radius:3px;padding:1px 6px;font-size:.72em;font-weight:700;margin-left:6px;vertical-align:middle}
+.result-fp{opacity:.55}
+.history-block{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 16px;margin-bottom:8px}
+.history-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.settings-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 16px;margin-bottom:14px}
+.settings-card h3{font-size:.78em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8b949e;margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -2453,14 +2687,33 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
       <label class="test-lbl"><input type="checkbox" id="t-ext_crlf" checked><div><span class="cat-name" style="color:#f0883e">CRLF / Header Injection</span><span class="cat-desc">%0d%0a response splitting — CVE-2020-26935, CVE-2019-9740, CWE-93</span></div></label>
       <label class="test-lbl"><input type="checkbox" id="t-ext_cmd" checked><div><span class="cat-name" style="color:#f0883e">Command Injection</span><span class="cat-desc">;id $(id) in URL params — CVE-2014-6271 (Shellshock), CVE-2021-44228, CWE-78</span></div></label>
     </div>
+    <div style="margin-top:16px;margin-bottom:8px;font-size:.75em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#bc8cff">&#128274; Privacy &amp; Inventory</div>
+    <div class="test-grid">
+      <label class="test-lbl"><input type="checkbox" id="t-pii" checked><div><span class="cat-name" style="color:#bc8cff">PII / Sensitive Data Exposure</span><span class="cat-desc">Scans API responses for emails, phone numbers, credit cards, SSNs, passwords, AWS keys — GDPR Art.32 / CWE-312</span></div></label>
+      <label class="test-lbl"><input type="checkbox" id="t-graphql_scan" checked><div><span class="cat-name" style="color:#bc8cff">GraphQL Introspection Probe</span><span class="cat-desc">Probes /graphql, /api/graphql — introspection, depth limits, batch abuse — API9:2023</span></div></label>
+    </div>
     <div style="margin-top:10px;display:flex;gap:12px">
       <button type="button" class="link-btn" id="btn-select-all">Select All</button>
       <button type="button" class="link-btn" id="btn-clear-all">Clear All</button>
     </div>
+    <!-- Settings: org name + webhook -->
+    <div class="settings-card" style="margin-top:18px">
+      <h3>&#9881; Report &amp; Alert Settings</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field" style="margin-bottom:0">
+          <label>Organisation Name (for HTML report)</label>
+          <input type="text" id="f-org-name" placeholder="e.g. Acme Security Team" style="background:#0d1117;border:1px solid #30363d;border-radius:5px;color:#c9d1d9;padding:7px 9px;font-size:.85em;font-family:inherit;width:100%">
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <label>Webhook URL (Slack / Teams)</label>
+          <input type="text" id="f-webhook-url" placeholder="https://hooks.slack.com/services/…" style="background:#0d1117;border:1px solid #30363d;border-radius:5px;color:#c9d1d9;padding:7px 9px;font-size:.85em;font-family:inherit;width:100%">
+        </div>
+      </div>
+    </div>
     <div style="display:flex;align-items:center;gap:14px;margin-top:20px;flex-wrap:wrap">
       <button class="btn-back" id="btn-back-4">&#8592; Back</button>
       <button type="button" class="btn btn-primary" id="scan-btn">&#9654; Run Scan</button>
-      <span style="font-size:.8em;color:#8b949e">Takes 20–60 seconds depending on the target.</span>
+      <span style="font-size:.8em;color:#8b949e">Takes 20–90 seconds depending on the target.</span>
     </div>
   </div><!-- /card step-4 -->
   </div><!-- /step-4 -->
@@ -2607,11 +2860,177 @@ function loadPreset(name) {
 function toggleAll(checked) {
   var ids = ["api1","api2","api3","api4","api5","api7","api8","api9",
              "ext_verb","ext_traversal","ext_injection","ext_redirect",
-             "ext_xxe","ext_crlf","ext_cmd"];
+             "ext_xxe","ext_crlf","ext_cmd","pii","graphql_scan"];
   for (var i = 0; i < ids.length; i++) {
     var cb = document.getElementById("t-" + ids[i]);
     if (cb) cb.checked = checked;
   }
+}
+
+/* ── Scan history (localStorage) ───────────────────────────────────── */
+var HIST_KEY = "mazapi_scan_history";
+var FP_KEY_SCAN = "mazapi_scan_fp";
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); } catch(e) { return []; }
+}
+
+function saveHistory(data) {
+  try {
+    var hist = getHistory().filter(function(h){ return h.target !== data.target; });
+    hist.unshift({
+      target: data.target, score: data.score,
+      total: data.total_tests, vulnerable: data.total_vulnerable,
+      date: new Date().toISOString(),
+      results: (function(){ var out=[]; (data.categories||[]).forEach(function(c){ (c.tests||[]).forEach(function(t){ out.push({test:t.test,category:c.category,vulnerable:t.vulnerable}); }); }); return out; })()
+    });
+    localStorage.setItem(HIST_KEY, JSON.stringify(hist.slice(0, 10)));
+  } catch(e) {}
+}
+
+function getLastScanHistory(target) {
+  return getHistory().find(function(h){ return h.target === target; }) || null;
+}
+
+function getFPStore() {
+  try { return JSON.parse(localStorage.getItem(FP_KEY_SCAN) || "{}"); } catch(e) { return {}; }
+}
+
+function setFP(target, testName, state) {
+  var fps = getFPStore();
+  var key = target + "::" + testName;
+  if (state === null) delete fps[key]; else fps[key] = {state: state, date: new Date().toISOString()};
+  try { localStorage.setItem(FP_KEY_SCAN, JSON.stringify(fps)); } catch(e) {}
+}
+
+function addRegressionTags(categories, lastScan) {
+  if (!lastScan) return categories;
+  var prev = {};
+  (lastScan.results || []).forEach(function(r){ prev[r.test] = r.vulnerable; });
+  categories.forEach(function(cat){
+    (cat.tests || []).forEach(function(t){
+      var was = prev[t.test];
+      if (was === undefined)          t.regression = t.vulnerable ? "NEW" : null;
+      else if (was && t.vulnerable)   t.regression = "RECURRING";
+      else if (!was && t.vulnerable)  t.regression = "NEW";
+      else if (was && !t.vulnerable)  t.regression = "FIXED";
+      else                            t.regression = null;
+    });
+  });
+  return categories;
+}
+
+/* ── SARIF client-side export ───────────────────────────────────────── */
+function exportSARIF(data) {
+  var seen = {}, rules = [], results = [];
+  (data.categories||[]).forEach(function(cat){
+    var rid = cat.category.replace(/[^A-Za-z0-9-]/g,"-").slice(0,64);
+    if (!seen[rid]) { seen[rid]=1; rules.push({id:rid,name:cat.category.split(" - ")[0],shortDescription:{text:cat.category}}); }
+    (cat.tests||[]).forEach(function(t){
+      if (!t.vulnerable) return;
+      results.push({ruleId:rid,level:(["CRITICAL","HIGH"].indexOf(t.severity||"")>=0)?"error":"warning",message:{text:t.test+": "+t.actual},locations:[{physicalLocation:{artifactLocation:{uri:data.target||"",uriBaseId:"TARGETROOT"}}}],properties:{severity:t.severity,compliance:cat.compliance||{}}});
+    });
+  });
+  var sarif = {version:"2.1.0","$schema":"https://json.schemastore.org/sarif-2.1.0.json",runs:[{tool:{driver:{name:"MazAPI Scanner",version:"2.0.0",rules:rules}},results:results,properties:{target:data.target,scannedAt:new Date().toISOString()}}]};
+  downloadJSON(sarif, "mazapi-" + Date.now() + ".sarif");
+}
+
+/* ── HTML report client-side ────────────────────────────────────────── */
+function exportHTMLReport(data) {
+  var orgName = (document.getElementById("f-org-name")||{}).value || "MazAPI Scanner";
+  var sc = data.score; var color = sc>=90?"#3fb950":sc>=70?"#e3b341":"#f85149";
+  var fps = getFPStore(); var target = data.target;
+  var SEV = {CRITICAL:"#ff6b6b",HIGH:"#f85149",MEDIUM:"#e3b341",LOW:"#58a6ff"};
+  var rows = "";
+  (data.categories||[]).forEach(function(cat){
+    (cat.tests||[]).forEach(function(t){
+      var fp = fps[target+"::"+t.test]; var sev = SEV[t.severity]||"#8b949e"; var vuln = t.vulnerable && !fp;
+      var fpBadge = fp?'<span style="background:#30363d;color:#8b949e;padding:1px 6px;border-radius:3px;font-size:.72em;margin-left:5px">'+(fp.state==="fp"?"FALSE POSITIVE":"ACCEPTED RISK")+"</span>":'';
+      var regColor = {NEW:"#f85149",RECURRING:"#e3b341",FIXED:"#3fb950"}[t.regression]||"";
+      var regBadge = t.regression?'<span style="border:1px solid '+regColor+';color:'+regColor+';padding:1px 5px;border-radius:3px;font-size:.7em;margin-left:5px">'+t.regression+"</span>":'';
+      var comp = cat.compliance;
+      var compHtml = comp?'<div style="font-size:.76em;color:#8b949e;margin-top:6px"><b style="color:#58a6ff">PCI-DSS</b> '+(comp.pci_dss||[]).join(", ")+" &nbsp;<b style=\"color:#58a6ff\">GDPR</b> "+(comp.gdpr||[]).join(", ")+" &nbsp;<b style=\"color:#58a6ff\">ISO 27001</b> "+(comp.iso27001||[]).join(", ")+"</div>":'';
+      rows += '<div style="border-left:3px solid '+(vuln?sev:"#30363d")+';padding:10px 14px;margin-bottom:8px;border-radius:0 6px 6px 0;background:'+(vuln?"rgba(248,81,73,.04)":"rgba(63,185,80,.04)")+'">'
+        +'<div style="display:flex;justify-content:space-between"><span style="font-weight:600;color:'+(vuln?sev:"#3fb950")+'">'+(vuln?"✗":"✓")+" "+t.test+fpBadge+regBadge+'</span><span style="font-size:.77em;color:'+sev+'">'+t.severity+'</span></div>'
+        +'<div style="font-size:.77em;color:#8b949e;margin-top:2px">'+cat.category+'</div>'
+        +'<div style="font-size:.82em;margin-top:4px">'+t.actual+'</div>'
+        +compHtml+"</div>";
+    });
+  });
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MazAPI Report</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui;background:#0d1117;color:#c9d1d9;padding:28px}</style></head><body>'
+    +'<div style="text-align:center;margin-bottom:24px"><h1 style="color:#58a6ff;font-size:1.8em">'+orgName+'</h1><p style="color:#8b949e">API Security Scan Report</p></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">'
+    +[["Score",sc+"%",color],["Vulnerable",data.total_vulnerable,"#f85149"],["Secure",(data.total_tests-data.total_vulnerable),"#3fb950"],["Tests",data.total_tests,"#58a6ff"]].map(function(x){return '<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;text-align:center"><div style="font-size:1.8em;font-weight:700;color:'+x[2]+'">'+x[1]+'</div><div style="font-size:.79em;color:#8b949e;margin-top:4px">'+x[0]+'</div></div>';}).join("")
+    +'</div><div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:11px 16px;margin-bottom:18px;font-size:.83em;color:#8b949e"><b style="color:#c9d1d9">Target:</b> '+data.target+' &nbsp;|&nbsp; <b style="color:#c9d1d9">Scanned:</b> '+new Date().toLocaleString()+'</div>'
+    +rows
+    +'<div style="text-align:center;padding:16px;color:#8b949e;font-size:.77em;border-top:1px solid #21262d;margin-top:20px">MazAPI Scanner v2.0 — CY384 API Security Project, UMaT Ghana</div></body></html>';
+  var blob = new Blob([html], {type:"text/html"});
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "mazapi-report-"+Date.now()+".html"; a.click();
+}
+
+/* ── Postman/OpenAPI export ─────────────────────────────────────────── */
+function exportPostman() {
+  if (!_lastScan) return;
+  fetch("/monitor/export/postman", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({target: _lastScan.target, endpoints: {}})
+  }).then(function(r){return r.json();}).then(function(col){ downloadJSON(col, "mazapi-postman-"+Date.now()+".json"); });
+}
+
+function exportOpenAPI() {
+  if (!_lastScan) return;
+  fetch("/monitor/export/openapi", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({target: _lastScan.target, endpoints: {}})
+  }).then(function(r){return r.json();}).then(function(spec){ downloadJSON(spec, "mazapi-openapi-"+Date.now()+".json"); });
+}
+
+/* ── Send webhook ───────────────────────────────────────────────────── */
+function sendWebhook() {
+  if (!_lastScan) return;
+  var url = (document.getElementById("f-webhook-url")||{}).value || "";
+  if (!url) { alert("Enter a webhook URL in the Settings section (Step 4)."); return; }
+  var btn = document.getElementById("btn-webhook");
+  if (btn) { btn.textContent = "Sending…"; btn.disabled = true; }
+  fetch("/monitor/scan/notify", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      webhook_url: url, target: _lastScan.target, score: _lastScan.score,
+      total_tests: _lastScan.total_tests, total_vulnerable: _lastScan.total_vulnerable,
+      categories: _lastScan.categories
+    })
+  }).then(function(r){return r.json();}).then(function(){
+    if (btn) { btn.textContent = "✓ Sent"; setTimeout(function(){ btn.textContent="🔔 Send Alert"; btn.disabled=false; }, 2500); }
+  }).catch(function(e){
+    if (btn) { btn.textContent = "✗ Failed"; setTimeout(function(){ btn.textContent="🔔 Send Alert"; btn.disabled=false; }, 2000); }
+  });
+}
+
+/* ── Generic download helper ────────────────────────────────────────── */
+function downloadJSON(obj, filename) {
+  var blob = new Blob([JSON.stringify(obj, null, 2)], {type:"application/json"});
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+}
+
+/* ── Scan history panel ─────────────────────────────────────────────── */
+function renderHistoryPanel() {
+  var hist = getHistory();
+  if (!hist.length) return "";
+  var COLOR = function(sc){ return sc>=90?"#3fb950":sc>=70?"#e3b341":"#f85149"; };
+  var rows = hist.map(function(h){
+    var newC = (h.results||[]).filter(function(r){ return r.regression==="NEW"; }).length;
+    var fixC = (h.results||[]).filter(function(r){ return r.regression==="FIXED"; }).length;
+    return '<div class="history-block"><div class="history-hdr">'
+      +'<span style="font-family:monospace;font-size:.82em;color:#58a6ff">'+h.target+'</span>'
+      +'<span style="font-size:1.1em;font-weight:700;color:'+COLOR(h.score)+'">'+h.score+'%</span></div>'
+      +'<div style="font-size:.76em;color:#8b949e">'+new Date(h.date).toLocaleString()+' &nbsp;|&nbsp; '+h.vulnerable+'/'+h.total+' vulnerable'
+      +(newC?' &nbsp;<span style="color:#f85149">+'+newC+' new</span>':'')
+      +(fixC?' &nbsp;<span style="color:#3fb950">&#8722;'+fixC+' fixed</span>':'')+'</div></div>';
+  }).join("");
+  return '<div style="margin-top:20px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +'<span style="font-size:.75em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8b949e">Scan History</span>'
+    +'<button class="link-btn" id="btn-clear-hist" style="font-size:.76em">Clear history</button></div>'
+    +rows+'</div>';
 }
 
 function discoverSchema() {
@@ -2686,7 +3105,7 @@ function runScan() {
 
   var testIds = ["api1","api2","api3","api4","api5","api7","api8","api9",
                  "ext_verb","ext_traversal","ext_injection","ext_redirect",
-                 "ext_xxe","ext_crlf","ext_cmd"];
+                 "ext_xxe","ext_crlf","ext_cmd","pii","graphql_scan"];
   var tests = [];
   for (var i = 0; i < testIds.length; i++) {
     var cb = document.getElementById("t-" + testIds[i]);
@@ -2766,7 +3185,9 @@ function runScan() {
     })
     .then(function(data) {
       _lastScan = data;
-      renderResults(data);
+      var prevScan = getLastScanHistory(data.target); // capture BEFORE overwriting history
+      saveHistory(data);
+      renderResults(data, prevScan);
       bar.style.display = "none";
     })
     .catch(function(e) {
@@ -2777,24 +3198,25 @@ function runScan() {
     });
 }
 
-function renderResults(data) {
+function renderResults(data, prevScan) {
   var el = document.getElementById("results");
+  var fps = getFPStore();
+  var target = data.target;
+  // prevScan: the scan from before this run (for regression detection)
+  // When called from an FP button re-render, prevScan is undefined → no regression mutation
+  if (prevScan !== undefined) addRegressionTags(data.categories, prevScan);
 
   var html = "";
+  var SEV_COLOR = {CRITICAL:"#ff6b6b",HIGH:"#f85149",MEDIUM:"#e3b341",LOW:"#58a6ff"};
+  var REG_COLOR = {NEW:"#f85149",RECURRING:"#e3b341",FIXED:"#3fb950"};
 
-  // ── Pre-scan status banner ─────────────────────────────────────────────────
+  // ── Pre-scan status banner ──────────────────────────────────────────────────
   var ps = data.pre_scan || {};
-  var psColor = "#8b949e";
-  var psIcon  = "?";
+  var psColor = "#8b949e", psIcon = "?";
   if (ps.auth_valid === true)  { psColor = "#3fb950"; psIcon = "&#10003;"; }
   if (ps.auth_valid === false) { psColor = "#f85149"; psIcon = "&#10007;"; }
-
   var reachColor = ps.target_reachable ? "#3fb950" : "#f85149";
-  var reachIcon  = ps.target_reachable ? "&#10003;" : "&#10007;";
-  var reachLabel = ps.target_reachable
-    ? ("Reachable" + (ps.reachable_status ? " (HTTP " + ps.reachable_status + ")" : ""))
-    : "Unreachable";
-
+  var reachLabel = ps.target_reachable ? ("Reachable" + (ps.reachable_status ? " (HTTP " + ps.reachable_status + ")" : "")) : "Unreachable";
   var authLabel = "Auth: ";
   if (!ps.auth_provided) { authLabel += "None"; psColor = "#8b949e"; psIcon = ""; }
   else if (ps.auth_valid === true)  authLabel += "Valid";
@@ -2803,62 +3225,157 @@ function renderResults(data) {
 
   html += '<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:.84em">'
     + '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">'
-    + '<div><span style="color:' + reachColor + ';font-weight:700">' + reachIcon + ' Target: ' + reachLabel + '</span></div>'
+    + '<div><span style="color:' + reachColor + ';font-weight:700">&#10003; Target: ' + reachLabel + '</span></div>'
     + (ps.auth_provided
         ? '<div><span style="color:' + psColor + ';font-weight:700">' + psIcon + ' ' + authLabel + '</span>'
           + '<div style="color:#8b949e;font-size:.9em;margin-top:3px">' + (ps.auth_message || "") + '</div></div>'
         : '<div style="color:#8b949e">' + (ps.auth_message || "") + '</div>')
     + '</div></div>';
 
+  // ── Score cards + regression summary ────────────────────────────────────────
   var sc = data.score >= 80 ? "green" : data.score >= 50 ? "yellow" : "red";
+  var newCount = 0, fixedCount = 0;
+  (data.categories||[]).forEach(function(c){ (c.tests||[]).forEach(function(t){ if(t.regression==="NEW") newCount++; if(t.regression==="FIXED") fixedCount++; }); });
   html += '<div class="score-row">'
     + '<div class="scard"><div class="num ' + sc + '">' + data.score + '%</div><div class="lbl">Security Score</div></div>'
     + '<div class="scard"><div class="num blue">' + data.total_tests + '</div><div class="lbl">Tests Run</div></div>'
     + '<div class="scard"><div class="num red">' + data.total_vulnerable + '</div><div class="lbl">Vulnerable</div></div>'
     + '<div class="scard"><div class="num green">' + (data.total_tests - data.total_vulnerable) + '</div><div class="lbl">Passed</div></div>'
-    + '</div>'
-    + '<p style="color:#8b949e;font-size:.83em;margin-bottom:16px">Target: <code>' + data.target + '</code> &nbsp;|&nbsp; ' + data.timestamp + '</p>';
+    + '</div>';
+  if (newCount || fixedCount) {
+    html += '<div style="text-align:center;font-size:.8em;color:#8b949e;margin-bottom:10px">'
+      + (newCount  ? '<span style="color:#f85149;margin-right:10px">&#9650; ' + newCount  + ' new finding' + (newCount >1?"s":"") + '</span>' : "")
+      + (fixedCount? '<span style="color:#3fb950">&#9660; '                   + fixedCount + ' finding' + (fixedCount>1?"s":"") + ' fixed</span>' : "")
+      + '</div>';
+  }
+  html += '<p style="color:#8b949e;font-size:.83em;margin-bottom:16px">Target: <code>' + data.target + '</code> &nbsp;|&nbsp; ' + data.timestamp + '</p>';
 
+  // ── Category blocks ──────────────────────────────────────────────────────────
   for (var ci = 0; ci < data.categories.length; ci++) {
     var cat = data.categories[ci];
     var cve = CVE_DB[cat.category] || null;
-    var vuln = cat.vulnerable_count > 0;
+    var comp = cat.compliance || null;
+    var catVuln = cat.vulnerable_count > 0;
+
+    // Compliance row for category header
+    var compBadges = comp ? '<div class="compliance-row" style="margin-top:8px;padding:0 18px 10px">'
+      + '<span class="comp-chip">PCI-DSS</span>' + (comp.pci_dss||[]).join(", ") + ' &nbsp;'
+      + '<span class="comp-chip">GDPR</span>' + (comp.gdpr||[]).join(", ") + ' &nbsp;'
+      + '<span class="comp-chip">ISO 27001</span>' + (comp.iso27001||[]).join(", ")
+      + '</div>' : '';
+
     html += '<div class="cat-block"><div class="cat-hdr"><h3>' + cat.category + '</h3>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
       + (cve ? '<span class="badge sev-' + cve.severity + '">' + cve.severity + '</span>' : '')
-      + '<span class="badge ' + (vuln ? 'bv' : 'bs') + '">' + cat.vulnerable_count + '/' + cat.total + ' Vulnerable</span>'
+      + '<span class="badge ' + (catVuln ? 'bv' : 'bs') + '">' + cat.vulnerable_count + '/' + cat.total + ' Vulnerable</span>'
       + '</div></div>'
-      + '<table><tr><th>Test</th><th>Request</th><th>Expected</th><th>Actual</th><th>Result</th></tr>';
+      + compBadges;
+
+    // Per-test rows (expanded, not just a table)
+    html += '<div style="padding:0 8px 8px">';
     for (var ti = 0; ti < cat.tests.length; ti++) {
       var t = cat.tests[ti];
-      html += '<tr><td>' + t.test + '</td><td><code>' + t.request + '</code></td><td>' + t.expected + '</td><td>' + t.actual + '</td>'
-        + '<td class="' + (t.vulnerable ? 'vY' : 'vN') + '">' + (t.vulnerable ? 'VULNERABLE' : 'SECURE') + '</td></tr>';
-    }
-    html += '</table>';
-    if (cve && vuln) {
-      var badges = '';
-      for (var bi = 0; bi < cve.cves.length; bi++) {
-        badges += '<a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/' + cve.cves[bi] + '" target="_blank">' + cve.cves[bi] + '</a>';
+      var fp = fps[target + "::" + t.test];
+      var sev = SEV_COLOR[t.severity] || "#8b949e";
+      var isVuln = t.vulnerable && !fp;
+      var fpBadge = fp ? '<span style="background:#30363d;color:#8b949e;padding:1px 6px;border-radius:3px;font-size:.71em;margin-left:5px">' + (fp.state==="fp"?"FALSE POSITIVE":"ACCEPTED RISK") + '</span>' : '';
+      var regBadge = t.regression ? '<span class="reg-badge" style="color:' + (REG_COLOR[t.regression]||"#8b949e") + ';border-color:' + (REG_COLOR[t.regression]||"#8b949e") + '">' + t.regression + '</span>' : '';
+
+      // Evidence panel — use String.fromCharCode(10) to avoid bare \n in Python triple-quoted string
+      var NL = String.fromCharCode(10);
+      var evHtml = "";
+      if (t.evidence) {
+        var evText = t.evidence.request.method + ' ' + t.evidence.request.url;
+        if (t.evidence.request.body) evText += NL + 'Body: ' + t.evidence.request.body;
+        evText += NL + '→ HTTP ' + t.evidence.response.status;
+        if (t.evidence.response.snippet) evText += NL + t.evidence.response.snippet;
+        evHtml = '<details class="evidence-block"><summary>Evidence</summary>'
+          + '<pre class="evidence-pre">' + evText + '</pre></details>';
       }
-      var fixItems = '';
-      for (var fi = 0; fi < cve.fixes.length; fi++) {
-        fixItems += '<li>' + cve.fixes[fi] + '</li>';
+
+      // False positive controls (only for vulnerable findings)
+      var fpBtns = "";
+      if (t.vulnerable) {
+        fpBtns = '<div class="fp-row">'
+          + '<button class="fp-btn js-fp' + (fp&&fp.state==="fp"?" active":"") + '" data-target="' + encodeURIComponent(target) + '" data-test="' + encodeURIComponent(t.test) + '" data-state="' + (fp&&fp.state==="fp"?"remove":"fp") + '">'
+          + (fp&&fp.state==="fp"?"&#10003; Unmark":"&#9872; False Positive") + '</button>'
+          + '<button class="fp-btn js-fp' + (fp&&fp.state==="risk"?" active":"") + '" data-target="' + encodeURIComponent(target) + '" data-test="' + encodeURIComponent(t.test) + '" data-state="' + (fp&&fp.state==="risk"?"remove":"risk") + '">'
+          + (fp&&fp.state==="risk"?"&#10003; Unmark":"&#128737; Accept Risk") + '</button>'
+          + '</div>';
+      }
+
+      html += '<div class="' + (fp ? 'result-fp' : '') + '" style="border-left:3px solid '+(isVuln?sev:"#30363d")+';padding:9px 12px;margin:5px 0;border-radius:0 5px 5px 0;background:'+(isVuln?"rgba(248,81,73,.05)":"rgba(63,185,80,.03)")+'">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:4px">'
+        + '<span style="font-weight:600;font-size:.87em;color:'+(isVuln?sev:"#3fb950")+'">'+(isVuln?"&#10007;":"&#10003;")+" "+t.test+fpBadge+regBadge+'</span>'
+        + '<span style="font-size:.76em;color:'+sev+';font-weight:700">'+t.severity+'</span></div>'
+        + '<div style="font-size:.78em;color:#8b949e;margin-top:2px"><code>' + t.request + '</code></div>'
+        + '<div style="font-size:.82em;margin-top:4px">' + t.actual + '</div>'
+        + evHtml + fpBtns + '</div>';
+    }
+    html += '</div>'; // /per-test rows
+
+    if (cve && catVuln) {
+      var badges2 = '';
+      for (var bi = 0; bi < cve.cves.length; bi++) {
+        badges2 += '<a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/' + cve.cves[bi] + '" target="_blank">' + cve.cves[bi] + '</a>';
+      }
+      var fixItems2 = '';
+      for (var fi2 = 0; fi2 < cve.fixes.length; fi2++) {
+        fixItems2 += '<li>' + cve.fixes[fi2] + '</li>';
       }
       html += '<div class="cve-panel"><h4>CVE References &amp; Remediation</h4>'
-        + '<div class="cve-row">' + badges
+        + '<div class="cve-row">' + badges2
         + '<a class="owasp-link" href="' + cve.owasp_ref + '" target="_blank">OWASP Reference &#x2192;</a>'
         + '</div><p class="vuln-desc">' + cve.description + '</p>'
-        + '<div class="fixes"><ol>' + fixItems + '</ol></div></div>';
+        + '<div class="fixes"><ol>' + fixItems2 + '</ol></div></div>';
     }
-    html += '</div>';
+    html += '</div>'; // /cat-block
   }
 
-  html += '<div class="export-bar">'
-    + '<span style="font-size:.82em;color:#8b949e">Save as report:</span>'
-    + '<button type="button" class="btn-save btn-save-brief js-save" data-detail="brief">Brief Report</button>'
-    + '<button type="button" class="btn-save btn-save-detail js-save" data-detail="detailed">Detailed Report</button>'
+  // ── Export bar ───────────────────────────────────────────────────────────────
+  html += '<div class="export-bar" style="flex-wrap:wrap;gap:8px">'
+    + '<span style="font-size:.82em;color:#8b949e;margin-right:4px">Export:</span>'
+    + '<button type="button" class="btn-save btn-save-brief js-save" data-detail="brief">&#128196; Brief Report</button>'
+    + '<button type="button" class="btn-save btn-save-detail js-save" data-detail="detailed">&#128196; Detailed Report</button>'
+    + '<button type="button" class="btn-save" style="background:rgba(188,140,255,.1);color:#bc8cff;border-color:rgba(188,140,255,.4)" id="btn-sarif-dl">&#8675; SARIF</button>'
+    + '<button type="button" class="btn-save" style="background:rgba(88,166,255,.1);color:#58a6ff;border-color:rgba(88,166,255,.4)" id="btn-html-dl">&#8675; HTML</button>'
+    + '<button type="button" class="btn-save" style="background:rgba(255,166,87,.1);color:#ffa657;border-color:rgba(255,166,87,.4)" id="btn-postman-dl">&#128197; Postman</button>'
+    + '<button type="button" class="btn-save" style="background:rgba(255,166,87,.1);color:#ffa657;border-color:rgba(255,166,87,.4)" id="btn-openapi-dl">&#128196; OpenAPI</button>'
+    + '<button type="button" class="btn-save" style="background:rgba(63,185,80,.1);color:#3fb950;border-color:rgba(63,185,80,.4)" id="btn-webhook">&#128276; Send Alert</button>'
     + '<span id="save-msg" style="font-size:.82em;margin-left:4px"></span></div>';
+
+  // ── Scan history panel ───────────────────────────────────────────────────────
+  html += renderHistoryPanel();
+
   el.innerHTML = html;
+
+  // Wire FP buttons (re-renders on click)
+  el.querySelectorAll(".js-fp").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var tgt = decodeURIComponent(btn.getAttribute("data-target"));
+      var tn  = decodeURIComponent(btn.getAttribute("data-test"));
+      var st  = btn.getAttribute("data-state");
+      setFP(tgt, tn, st === "remove" ? null : st);
+      renderResults(data); // re-render with updated FP store
+    });
+  });
+
+  // Wire new export buttons
+  var sarifBtn = document.getElementById("btn-sarif-dl");
+  if (sarifBtn) sarifBtn.addEventListener("click", function(){ exportSARIF(data); });
+  var htmlBtn = document.getElementById("btn-html-dl");
+  if (htmlBtn) htmlBtn.addEventListener("click", function(){ exportHTMLReport(data); });
+  var pmBtn = document.getElementById("btn-postman-dl");
+  if (pmBtn) pmBtn.addEventListener("click", exportPostman);
+  var oaBtn = document.getElementById("btn-openapi-dl");
+  if (oaBtn) oaBtn.addEventListener("click", exportOpenAPI);
+  var whBtn = document.getElementById("btn-webhook");
+  if (whBtn) whBtn.addEventListener("click", sendWebhook);
+  var clrHistBtn = document.getElementById("btn-clear-hist");
+  if (clrHistBtn) clrHistBtn.addEventListener("click", function(){
+    try { localStorage.removeItem(HIST_KEY); } catch(e){}
+    renderResults(data);
+  });
 }
 
 function saveReport(detail) {

@@ -27,6 +27,18 @@
       {
         "command": "mazapi.openPanel",
         "title": "MazAPI: Open Results Panel"
+      },
+      {
+        "command": "mazapi.exportSARIF",
+        "title": "MazAPI: Export Last Scan as SARIF"
+      },
+      {
+        "command": "mazapi.exportHTML",
+        "title": "MazAPI: Export Last Scan as HTML Report"
+      },
+      {
+        "command": "mazapi.configureWebhook",
+        "title": "MazAPI: Configure Webhook Alert URL"
       }
     ],
     "menus": {
@@ -50,6 +62,16 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically scan for hardcoded API keys when a file is saved"
+        },
+        "mazapi.webhookUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Slack or Teams webhook URL to send scan alerts to"
+        },
+        "mazapi.orgName": {
+          "type": "string",
+          "default": "",
+          "description": "Organisation name shown in HTML reports"
         }
       }
     },

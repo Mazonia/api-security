@@ -1,78 +1,129 @@
-// MazAPI Scanner — Popup Script
+// MazAPI Scanner — Popup Script v2.0
+
+let _showAllEndpoints = false;
+let _lastResults      = [];
+let _lastScore        = 100;
+let _lastTarget       = "";
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
-document.querySelectorAll(".tab").forEach((tab) => {
+document.querySelectorAll(".tab").forEach(tab => {
   tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
     tab.classList.add("active");
-    document.getElementById("pane-" + tab.dataset.tab).classList.add("active");
+    const pane = document.getElementById("pane-" + tab.dataset.tab);
+    if (pane) pane.classList.add("active");
+    if (tab.dataset.tab === "history")  renderHistory();
+    if (tab.dataset.tab === "settings") loadSettings();
   });
 });
 
 // ── Load session from background ──────────────────────────────────────────────
 function loadSession() {
-  chrome.runtime.sendMessage({ type: "GET_SESSION" }, (session) => {
-    if (!session) return;
-    renderDiscovered(session);
+  chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+    const activeTabUrl = tabs?.[0]?.url || "";
+    chrome.runtime.sendMessage({ type: "GET_SESSION" }, session => {
+      if (!session) return;
+      renderDiscovered(session, activeTabUrl);
+    });
   });
 }
 
-function renderDiscovered(session) {
-  // Base URL
-  document.getElementById("base-url").textContent = session.baseUrl || "—";
+// Check for context-menu triggered URL
+function checkContextUrl() {
+  chrome.runtime.sendMessage({ type: "GET_CONTEXT_URL" }, url => {
+    if (url) {
+      document.getElementById("scan-target").value = url;
+      document.querySelector(".tab[data-tab='scan']").click();
+    }
+  });
+}
+
+function renderDiscovered(session, activeTabUrl = "") {
+  let scanTargetOrigin = "";
+  try {
+    const u = new URL(activeTabUrl);
+    if (u.protocol === "https:" || u.protocol === "http:") scanTargetOrigin = `${u.protocol}//${u.host}`;
+  } catch {}
+  if (!scanTargetOrigin) scanTargetOrigin = session.baseUrl || "";
+
+  document.getElementById("base-url").textContent = scanTargetOrigin || "—";
 
   // Tokens
   const tokenArea = document.getElementById("token-area");
-  if (session.tokens && session.tokens.length) {
-    const tok = session.tokens[0];
+  if (session.tokens?.length) {
+    const tok   = session.tokens[0];
     const short = tok.length > 60 ? tok.slice(0, 60) + "…" : tok;
-    tokenArea.innerHTML = `
-      <div class="token-label">Bearer Token (captured from headers)</div>
-      <div class="token-box" title="${tok}">${short}</div>`;
-    document.getElementById("scan-token").value  = tok;
-  } else if (session.apiKeys && session.apiKeys.length) {
+    tokenArea.innerHTML = `<div class="token-label">Bearer Token (captured)</div><div class="token-box" title="${tok}">${short}</div>`;
+    document.getElementById("scan-token").value = tok;
+  } else if (session.apiKeys?.length) {
     const k = session.apiKeys[0];
     tokenArea.innerHTML = `<div class="token-label">${k.header}</div><div class="token-box">${k.value}</div>`;
   } else {
-    tokenArea.innerHTML = `<div style="color:#8b949e;font-size:.82em;margin-bottom:8px">No token captured yet — log in to the site to capture auth credentials.</div>`;
+    tokenArea.innerHTML = `<div style="color:#8b949e;font-size:.82em;margin-bottom:8px">No token captured — log in to capture auth credentials.</div>`;
   }
 
-  // Hardcoded key warnings from content script
+  // Key warnings
   const warnings = document.getElementById("key-warnings");
-  if (session.hardcoded_keys && session.hardcoded_keys.length) {
+  if (session.hardcoded_keys?.length) {
     warnings.innerHTML = session.hardcoded_keys.slice(0, 2).map(k =>
-      `<div class="key-warning">⚠️ Hardcoded credential detected in page JS: <code>${k.value.slice(0, 24)}…</code></div>`
+      `<div class="key-warning">&#9888; Hardcoded credential in page JS: <code>${k.value.slice(0, 24)}…</code></div>`
     ).join("");
   }
 
   // Endpoints
-  const list    = document.getElementById("endpoints-list");
   const eps     = Object.entries(session.endpoints || {});
+  const list    = document.getElementById("endpoints-list");
   const countEl = document.getElementById("ep-count");
   countEl.textContent = eps.length;
 
+  const targetInput = document.getElementById("scan-target");
+  if (!targetInput.value && scanTargetOrigin) targetInput.value = scanTargetOrigin;
+
   if (!eps.length) {
     list.innerHTML = '<div class="empty">Browse the target website to capture API calls.</div>';
-    if (session.baseUrl) document.getElementById("scan-target").value = session.baseUrl;
     return;
   }
 
-  if (session.baseUrl) document.getElementById("scan-target").value = session.baseUrl;
+  // Auto-fill auth endpoint (exclude telemetry/fingerprint paths)
+  const NON_CRED  = /\/(browserinfo|metrics|analytics|telemetry|track|beacon|pixel|log|event|health|ping|status|info)\b/i;
+  const authEpInput = document.getElementById("scan-auth-ep");
+  if (!authEpInput.value) {
+    const m = eps.find(([p]) => /\/(auth|login|signin|sign-in|token|oauth|session|credential|password)\b/i.test(p) && !NON_CRED.test(p));
+    if (m) authEpInput.value = m[0].replace(/\{id\}/g, "1");
+  }
 
-  list.innerHTML = eps.slice(0, 20).map(([path, data]) => {
-    const methods = (data.methods || []).map(m =>
-      `<span class="badge badge-${m.toLowerCase()}">${m}</span>`).join("");
-    const authNote = data.authRequired ? '<span style="color:#e3b341;font-size:.77em"> 🔒 auth required</span>' : "";
-    return `<div class="endpoint-item">
-      <div class="endpoint-path">${path}</div>
-      <div class="endpoint-meta">${methods}${authNote}</div>
-    </div>`;
-  }).join("") + (eps.length > 20 ? `<div style="color:#8b949e;font-size:.78em;padding:4px 0">…and ${eps.length - 20} more</div>` : "");
+  // Auto-fill protected path
+  const protectedInput = document.getElementById("scan-protected");
+  if (!protectedInput.value) {
+    const m = eps.find(([, d]) => d.authRequired);
+    if (m) protectedInput.value = m[0].replace(/\{id\}/g, "1");
+  }
+
+  // Render endpoint list with show/hide toggle
+  const visibleEps = _showAllEndpoints ? eps : eps.slice(0, 20);
+  const epRows = visibleEps.map(([path, data]) => {
+    const methods  = (data.methods || []).map(m => `<span class="badge badge-${m.toLowerCase()}">${m}</span>`).join("");
+    const authNote = data.authRequired ? '<span style="color:#e3b341;font-size:.77em"> &#128274; auth required</span>' : "";
+    return `<div class="endpoint-item"><div class="endpoint-path">${path}</div><div class="endpoint-meta">${methods}${authNote}</div></div>`;
+  }).join("");
+
+  const toggleBtn = eps.length > 20
+    ? `<button id="btn-toggle-eps" class="export-btn" style="width:100%;margin-top:6px">${_showAllEndpoints ? "Show less" : `Show all ${eps.length} endpoints`}</button>`
+    : "";
+
+  list.innerHTML = epRows + toggleBtn;
+  if (eps.length > 20) {
+    document.getElementById("btn-toggle-eps").addEventListener("click", () => {
+      _showAllEndpoints = !_showAllEndpoints;
+      renderDiscovered(session, activeTabUrl);
+    });
+  }
 }
 
 // ── Clear session ─────────────────────────────────────────────────────────────
 document.getElementById("btn-clear").addEventListener("click", () => {
+  _showAllEndpoints = false;
   chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }, () => {
     document.getElementById("base-url").textContent = "—";
     document.getElementById("token-area").innerHTML = "";
@@ -80,6 +131,24 @@ document.getElementById("btn-clear").addEventListener("click", () => {
     document.getElementById("ep-count").textContent = "0";
     document.getElementById("results-list").innerHTML = '<div class="empty">Run a scan to see results.</div>';
     document.getElementById("score-area").innerHTML = "";
+    document.getElementById("export-bar").style.display = "none";
+  });
+});
+
+// ── Postman / OpenAPI export from Capture tab ─────────────────────────────────
+document.getElementById("btn-postman").addEventListener("click", () => {
+  const target = document.getElementById("scan-target").value.trim() || _lastTarget;
+  if (!target) { alert("Browse a site first to capture endpoints."); return; }
+  chrome.runtime.sendMessage({ type: "GENERATE_POSTMAN", target }, col => {
+    downloadJSON(col, `mazapi-postman-${Date.now()}.json`);
+  });
+});
+
+document.getElementById("btn-openapi").addEventListener("click", () => {
+  const target = document.getElementById("scan-target").value.trim() || _lastTarget;
+  if (!target) { alert("Browse a site first to capture endpoints."); return; }
+  chrome.runtime.sendMessage({ type: "GENERATE_OPENAPI", target }, spec => {
+    downloadJSON(spec, `mazapi-openapi-${Date.now()}.json`);
   });
 });
 
@@ -92,71 +161,242 @@ document.getElementById("btn-scan").addEventListener("click", () => {
 
   if (!target) { alert("Enter a target URL first."); return; }
 
+  _lastTarget = target;
   const btn    = document.getElementById("btn-scan");
   const status = document.getElementById("scan-status");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Scanning…';
-  status.textContent = "Running 7 test categories…";
+  btn.disabled    = true;
+  btn.innerHTML   = '<span class="spinner"></span> Scanning…';
+  status.textContent = "Running all test categories…";
 
   chrome.runtime.sendMessage({
     type: "RUN_SCAN",
     target,
     token: token || null,
-    options: { authEndpoint: authEp, protectedPath: protected_ }
-  }, (resp) => {
-    btn.disabled = false;
-    btn.innerHTML = "▶ Run Scan";
-    if (!resp || !resp.ok) {
-      status.textContent = "Error: " + (resp ? resp.error : "no response");
+    options: { authEndpoint: authEp || null, protectedPath: protected_ || null },
+  }, resp => {
+    btn.disabled    = false;
+    btn.innerHTML   = "&#9654; Run Full Scan";
+    if (!resp?.ok) {
+      status.textContent = "Error: " + (resp?.error || "no response");
       return;
     }
     status.textContent = "";
-    renderResults(resp.results);
-    // Auto-switch to results tab
+    _lastResults = resp.results;
+    _lastScore   = resp.score ?? Math.round((1 - resp.results.filter(r => r.vulnerable).length / resp.results.length) * 100);
+    renderResults(resp.results, _lastScore, target);
     document.querySelector(".tab[data-tab='results']").click();
   });
 });
 
-function renderResults(results) {
+// ── Render Results ────────────────────────────────────────────────────────────
+function renderResults(results, score, target) {
   const vulnCount  = results.filter(r => r.vulnerable).length;
   const totalCount = results.length;
-  const score      = totalCount ? Math.round((1 - vulnCount / totalCount) * 100) : 100;
-  const scoreColor = score === 100 ? "#3fb950" : score >= 70 ? "#e3b341" : "#f85149";
+  const sc         = score ?? Math.round((1 - vulnCount / totalCount) * 100);
+  const scoreColor = sc >= 90 ? "#3fb950" : sc >= 70 ? "#e3b341" : "#f85149";
+  const newCount   = results.filter(r => r.regression === "NEW").length;
+  const fixedCount = results.filter(r => r.regression === "FIXED").length;
 
   document.getElementById("score-area").innerHTML = `
     <div class="score-row">
-      <div class="score-card"><div class="score-num" style="color:${scoreColor}">${score}%</div><div class="score-lbl">Security Score</div></div>
+      <div class="score-card"><div class="score-num" style="color:${scoreColor}">${sc}%</div><div class="score-lbl">Score</div></div>
       <div class="score-card"><div class="score-num" style="color:#f85149">${vulnCount}</div><div class="score-lbl">Vulnerable</div></div>
       <div class="score-card"><div class="score-num" style="color:#3fb950">${totalCount - vulnCount}</div><div class="score-lbl">Secure</div></div>
-    </div>`;
+      <div class="score-card"><div class="score-num" style="color:#e3b341">${totalCount}</div><div class="score-lbl">Total</div></div>
+    </div>
+    ${newCount || fixedCount ? `<div style="font-size:.78em;color:#8b949e;text-align:center;margin-bottom:8px">
+      ${newCount   ? `<span style="color:#f85149;margin-right:8px">&#9650; ${newCount} new</span>` : ""}
+      ${fixedCount ? `<span style="color:#3fb950">&#9660; ${fixedCount} fixed</span>` : ""}
+    </div>` : ""}`;
 
-  const exportBtn = `<button id="btn-export" style="width:100%;margin-bottom:10px;padding:7px;background:rgba(88,166,255,.12);color:#58a6ff;border:1px solid rgba(88,166,255,.4);border-radius:5px;cursor:pointer;font-size:.82em;font-family:inherit">⬇ Export Report (JSON)</button>`;
+  document.getElementById("export-bar").style.display = "block";
 
-  document.getElementById("results-list").innerHTML = exportBtn + results.map(r => `
-    <div class="result-item ${r.vulnerable ? "result-vuln" : "result-safe"}">
-      <div class="result-title">${r.vulnerable ? "✗" : "✓"} ${r.test}</div>
-      <div class="result-cat">${r.category}</div>
-      <div class="result-detail">${r.actual}</div>
-    </div>`).join("");
-
-  // Wire export button — downloads a timestamped JSON report
-  document.getElementById("btn-export").addEventListener("click", () => {
-    const report = {
-      tool: "MazAPI Scanner (browser extension)",
-      target: document.getElementById("scan-target").value,
-      scanned_at: new Date().toISOString(),
-      score, total: totalCount, vulnerable: vulnCount,
-      results,
-    };
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `mazapi-scan-${Date.now()}.json`;
-    a.click();
+  getFalsePositives(target).then(fps => {
+    document.getElementById("results-list").innerHTML = results.map(r => buildResultCard(r, target, fps)).join("");
+    wireResultActions(results, target);
   });
 }
 
-// ── Load on open ──────────────────────────────────────────────────────────────
+function buildResultCard(r, target, fps) {
+  const fp      = fps[`${target}::${r.test}`];
+  const SEV_CLR = { CRITICAL: "#ff6b6b", HIGH: "#f85149", MEDIUM: "#e3b341", LOW: "#58a6ff" };
+  const sev     = SEV_CLR[r.severity] || "#8b949e";
+  const isVuln  = r.vulnerable && !fp;
+  const REG_CLR = { NEW: "#f85149", RECURRING: "#e3b341", FIXED: "#3fb950" };
+
+  const fpBadge  = fp ? `<span class="badge-fp">${fp.state === "fp" ? "FALSE POSITIVE" : "ACCEPTED RISK"}</span>` : "";
+  const regBadge = r.regression ? `<span class="badge-reg" style="border-color:${REG_CLR[r.regression]};color:${REG_CLR[r.regression]}">${r.regression}</span>` : "";
+
+  const compHtml = r.compliance ? `<div class="compliance-row">
+    <span class="comp-chip">PCI-DSS</span> ${(r.compliance.pci_dss || []).join(", ")} &nbsp;
+    <span class="comp-chip">GDPR</span> ${(r.compliance.gdpr || []).join(", ")} &nbsp;
+    <span class="comp-chip">ISO 27001</span> ${(r.compliance.iso27001 || []).join(", ")}
+  </div>` : "";
+
+  const evHtml = r.evidence ? `<details class="evidence-block">
+    <summary>Evidence</summary>
+    <div class="evidence-pre">${r.evidence.request.method} ${r.evidence.request.url}${r.evidence.request.body ? "\nBody: "+r.evidence.request.body : ""}
+&#8594; HTTP ${r.evidence.response.status}${r.evidence.response.snippet ? "\n"+r.evidence.response.snippet : ""}</div>
+  </details>` : "";
+
+  const fpBtn = r.vulnerable
+    ? `<div class="fp-row">
+        <button class="fp-btn" data-test="${encodeURIComponent(r.test)}" data-state="${fp ? "remove" : "fp"}">${fp?.state === "fp" ? "&#10003; Unmark" : "&#9872; False Positive"}</button>
+        <button class="fp-btn" data-test="${encodeURIComponent(r.test)}" data-state="${fp?.state === "risk" ? "remove" : "risk"}">${fp?.state === "risk" ? "&#10003; Unmark" : "&#128737; Accept Risk"}</button>
+      </div>` : "";
+
+  return `<div class="result-item ${isVuln ? "result-vuln" : "result-safe"}${fp ? " result-fp" : ""}" data-test="${encodeURIComponent(r.test)}">
+    <div class="result-hdr">
+      <span class="result-title" style="color:${isVuln ? sev : "#3fb950"}">${isVuln ? "&#10007;" : "&#10003;"} ${r.test}</span>
+      <span class="sev-badge" style="color:${sev}">${r.severity}</span>
+    </div>
+    ${regBadge}${fpBadge}
+    <div class="result-cat">${r.category}</div>
+    <div class="result-detail">${r.actual}</div>
+    ${compHtml}${evHtml}${fpBtn}
+  </div>`;
+}
+
+function wireResultActions(results, target) {
+  // False positive / accept risk buttons
+  document.querySelectorAll(".fp-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const testName = decodeURIComponent(btn.dataset.test);
+      const state    = btn.dataset.state === "remove" ? null : btn.dataset.state;
+      chrome.runtime.sendMessage({ type: "SET_FALSE_POSITIVE", target, testName, state }, () => {
+        getFalsePositives(target).then(fps => {
+          document.getElementById("results-list").innerHTML = results.map(r => buildResultCard(r, target, fps)).join("");
+          wireResultActions(results, target);
+        });
+      });
+    });
+  });
+}
+
+// Helper to load fps for target
+function getFalsePositives(target) {
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage({ type: "GET_FALSE_POSITIVES" }, fps => {
+      // Filter to keys for this target
+      const out = {};
+      for (const [k, v] of Object.entries(fps || {})) {
+        if (k.startsWith(`${target}::`)) out[k] = v;
+      }
+      resolve(out);
+    });
+  });
+}
+
+// ── Export buttons ────────────────────────────────────────────────────────────
+document.getElementById("btn-export-json").addEventListener("click", () => {
+  if (!_lastResults.length) return;
+  downloadJSON({
+    tool: "MazAPI Scanner v2.0", target: _lastTarget,
+    scanned_at: new Date().toISOString(), score: _lastScore,
+    total: _lastResults.length, vulnerable: _lastResults.filter(r => r.vulnerable).length,
+    results: _lastResults,
+  }, `mazapi-scan-${Date.now()}.json`);
+});
+
+document.getElementById("btn-export-sarif").addEventListener("click", () => {
+  if (!_lastResults.length) return;
+  chrome.runtime.sendMessage({ type: "GENERATE_SARIF", target: _lastTarget, results: _lastResults }, sarif => {
+    downloadJSON(sarif, `mazapi-sarif-${Date.now()}.sarif`);
+  });
+});
+
+document.getElementById("btn-export-html").addEventListener("click", () => {
+  if (!_lastResults.length) return;
+  chrome.storage.local.get("mazapi_settings", d => {
+    const orgName = d.mazapi_settings?.orgName || "MazAPI Scanner";
+    chrome.runtime.sendMessage({ type: "GENERATE_HTML_REPORT", target: _lastTarget, score: _lastScore, results: _lastResults, orgName }, resp => {
+      if (resp?.html) {
+        const blob = new Blob([resp.html], { type: "text/html" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `mazapi-report-${Date.now()}.html`;
+        a.click();
+      }
+    });
+  });
+});
+
+document.getElementById("btn-send-webhook").addEventListener("click", () => {
+  chrome.storage.local.get("mazapi_settings", d => {
+    const url = d.mazapi_settings?.webhookUrl || "";
+    if (!url) { alert("No webhook URL set. Go to Settings tab."); return; }
+    chrome.runtime.sendMessage({ type: "SEND_WEBHOOK", webhookUrl: url, target: _lastTarget, score: _lastScore, results: _lastResults }, resp => {
+      document.getElementById("btn-send-webhook").textContent = resp?.ok ? "&#10003; Sent!" : "&#10007; Failed";
+      setTimeout(() => { document.getElementById("btn-send-webhook").textContent = "&#128276; Send Alert"; }, 2500);
+    });
+  });
+});
+
+// ── History tab ───────────────────────────────────────────────────────────────
+function renderHistory() {
+  chrome.runtime.sendMessage({ type: "GET_HISTORY" }, history => {
+    const list = document.getElementById("history-list");
+    if (!history?.length) {
+      list.innerHTML = '<div class="empty">No scan history yet — run a scan first.</div>';
+      return;
+    }
+    list.innerHTML = history.map(h => {
+      const sc    = h.score;
+      const color = sc >= 90 ? "#3fb950" : sc >= 70 ? "#e3b341" : "#f85149";
+      const date  = new Date(h.date).toLocaleString();
+      const newC  = h.results?.filter(r => r.regression === "NEW")?.length ?? 0;
+      const fixC  = h.results?.filter(r => r.regression === "FIXED")?.length ?? 0;
+      return `<div class="history-item" data-target="${encodeURIComponent(h.target)}" data-date="${encodeURIComponent(h.date)}">
+        <div class="history-hdr">
+          <span class="history-target">${h.target}</span>
+          <span style="font-size:1.1em;font-weight:700;color:${color}">${sc}%</span>
+        </div>
+        <div class="history-meta">${date} &nbsp;|&nbsp; ${h.vulnerable}/${h.total} vulnerable
+          ${newC  ? `&nbsp;<span style="color:#f85149">+${newC} new</span>` : ""}
+          ${fixC  ? `&nbsp;<span style="color:#3fb950">-${fixC} fixed</span>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+  });
+}
+
+document.getElementById("btn-clear-history").addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, () => renderHistory());
+});
+
+// ── Settings tab ──────────────────────────────────────────────────────────────
+function loadSettings() {
+  chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, s => {
+    if (!s) return;
+    document.getElementById("set-orgname").value       = s.orgName || "";
+    document.getElementById("set-webhook").value       = s.webhookUrl || "";
+    document.getElementById("set-auto-webhook").checked = !!s.autoWebhook;
+  });
+}
+
+document.getElementById("btn-save-settings").addEventListener("click", () => {
+  const settings = {
+    orgName:     document.getElementById("set-orgname").value.trim(),
+    webhookUrl:  document.getElementById("set-webhook").value.trim(),
+    autoWebhook: document.getElementById("set-auto-webhook").checked,
+  };
+  chrome.runtime.sendMessage({ type: "SAVE_SETTINGS", settings }, () => {
+    const st = document.getElementById("settings-status");
+    st.textContent = "&#10003; Settings saved";
+    setTimeout(() => { st.textContent = ""; }, 2000);
+  });
+});
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function downloadJSON(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
 loadSession();
-// Auto-refresh every 3s while popup is open
+checkContextUrl();
 setInterval(loadSession, 3000);

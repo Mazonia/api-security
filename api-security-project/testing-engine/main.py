@@ -11,18 +11,21 @@ from rich.panel import Panel
 from rich.table import Table
 
 from owasp_tests import (test_api1_bola, test_api2_auth, test_api3_mass_assign,
-                         test_api4_rate_limit, test_api5_func_auth, test_api8_misconfig)
+                         test_api4_rate_limit, test_api5_func_auth, test_api8_misconfig,
+                         test_graphql, test_pii)
 import report_generator
 
 console = Console()
 
 MODULES = [
-    ("API1:2023 — BOLA",                 test_api1_bola),
-    ("API2:2023 — Broken Authentication", test_api2_auth),
-    ("API3:2023 — Mass Assignment",       test_api3_mass_assign),
-    ("API4:2023 — Rate Limiting",         test_api4_rate_limit),
-    ("API5:2023 — Function Level Auth",   test_api5_func_auth),
-    ("API8:2023 — Misconfiguration",      test_api8_misconfig),
+    ("API1:2023 — BOLA",                      test_api1_bola),
+    ("API2:2023 — Broken Authentication",      test_api2_auth),
+    ("API3:2023 — Mass Assignment",            test_api3_mass_assign),
+    ("API4:2023 — Rate Limiting",              test_api4_rate_limit),
+    ("API5:2023 — Function Level Auth",        test_api5_func_auth),
+    ("API8:2023 — Misconfiguration",           test_api8_misconfig),
+    ("API9:2023 — GraphQL Security",           test_graphql),
+    ("GDPR/CWE-312 — PII Exposure",           test_pii),
 ]
 
 SEV_COLOR = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "cyan", "LOW": "dim"}
@@ -90,13 +93,37 @@ def main() -> None:
         box=box.DOUBLE_EDGE,
     ))
 
-    json_path, html_path = report_generator.generate(
+    json_path, html_path, sarif_path = report_generator.generate(
         all_results, target, report_dir,
         detail=os.getenv("REPORT_DETAIL", "brief"),
     )
     console.print(f"\n[green]Reports saved:[/green]")
-    console.print(f"  JSON → {json_path}")
-    console.print(f"  HTML → {html_path}")
+    console.print(f"  JSON  → {json_path}")
+    console.print(f"  HTML  → {html_path}")
+    console.print(f"  SARIF → {sarif_path}")
+
+    # Optional webhook notification
+    webhook_url = os.getenv("WEBHOOK_URL", "")
+    if webhook_url:
+        try:
+            import urllib.request, json as _json
+            vuln_list = [t for r in all_results for t in r["tests"] if t.get("vulnerable")]
+            critical  = [t for t in vuln_list if t.get("severity") == "CRITICAL"]
+            payload   = {
+                "source": "MazAPI Testing Engine",
+                "target": target,
+                "score": round(score, 1),
+                "total_tests": total_tests,
+                "vulnerable": total_vuln,
+                "critical": len(critical),
+                "text": f"*MazAPI Scan* — `{target}`\nScore: *{score:.0f}%* | Vulnerable: {total_vuln}/{total_tests} | Critical: {len(critical)}",
+            }
+            data = _json.dumps(payload).encode()
+            req  = urllib.request.Request(webhook_url, data=data, headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req, timeout=8)
+            console.print("[green]  Webhook notification sent.[/green]")
+        except Exception as exc:
+            console.print(f"[yellow]  Webhook failed: {exc}[/yellow]")
 
 
 if __name__ == "__main__":

@@ -1,15 +1,47 @@
 import * as vscode from 'vscode';
 
-export type FindingKind = 'hardcoded-key' | 'hardcoded-url' | 'endpoint' | 'weak-auth';
+export type FindingKind = 'hardcoded-key' | 'hardcoded-url' | 'endpoint' | 'weak-auth' | 'pii';
+
+export interface Compliance {
+    pci_dss?:  string[];
+    gdpr?:     string[];
+    iso27001?: string[];
+}
 
 export interface ScanFinding {
-    kind:     FindingKind;
-    message:  string;
-    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-    category: string;
-    range?:   vscode.Range;
-    value?:   string;
-    fix?:     string;
+    kind:        FindingKind;
+    message:     string;
+    severity:    'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    category:    string;
+    range?:      vscode.Range;
+    value?:      string;
+    fix?:        string;
+    compliance?: Compliance;
+}
+
+const COMPLIANCE_MAP: Record<string, Compliance> = {
+    'CWE-798 - Hardcoded Credentials':                   { pci_dss: ['8.2.1','6.2.4'], gdpr: ['Art. 32(1)(b)'],          iso27001: ['A.9.4.3','A.10.1.1'] },
+    'CWE-321 - Hardcoded Cryptographic Key':             { pci_dss: ['8.2.1','6.2.4'], gdpr: ['Art. 32(1)(b)'],          iso27001: ['A.10.1.1','A.9.4.3'] },
+    'CWE-321 - Private Key in Source Code':              { pci_dss: ['8.2.1'],          gdpr: ['Art. 32'],                iso27001: ['A.10.1.1'] },
+    'CWE-798 - Hardcoded DB Credentials':                { pci_dss: ['8.2.1','2.2.7'], gdpr: ['Art. 32'],                iso27001: ['A.9.4.3'] },
+    'CVE-2019-9599 class / CWE-321 - Hardcoded Cryptographic Key': { pci_dss: ['8.2.1'], gdpr: ['Art. 32'], iso27001: ['A.10.1.1'] },
+    'CVE-2015-9235 - JWT Algorithm None Bypass':         { pci_dss: ['8.2.1','6.2.4'], gdpr: ['Art. 32(1)(b)'],          iso27001: ['A.9.4.3'] },
+    'CWE-327 - Weak Cryptographic Algorithm (MD5)':      { pci_dss: ['4.2.1','8.3.2'], gdpr: ['Art. 32(1)(a)'],          iso27001: ['A.10.1.1'] },
+    'CWE-327 - Weak Cryptographic Algorithm (SHA-1)':    { pci_dss: ['4.2.1','8.3.2'], gdpr: ['Art. 32(1)(a)'],          iso27001: ['A.10.1.1'] },
+    'CWE-521 - Weak Password Requirements':              { pci_dss: ['8.3.6'],          gdpr: ['Art. 32'],                iso27001: ['A.9.4.3'] },
+    'CVE-2019-14234 class / CWE-89 - SQL Injection':     { pci_dss: ['6.2.4'],          gdpr: ['Art. 32'],                iso27001: ['A.14.2.5'] },
+    'CWE-78 - OS Command Injection':                     { pci_dss: ['6.2.4'],          gdpr: ['Art. 32'],                iso27001: ['A.14.2.5'] },
+    'CWE-319 - Cleartext Transmission':                  { pci_dss: ['4.2.1'],          gdpr: ['Art. 32(1)(a)'],          iso27001: ['A.13.2.3'] },
+    'CWE-295 - Improper Certificate Validation':         { pci_dss: ['4.2.1'],          gdpr: ['Art. 32(1)(a)'],          iso27001: ['A.13.2.3'] },
+    'CWE-95 - Code Injection via eval()':                { pci_dss: ['6.2.4'],          gdpr: ['Art. 32'],                iso27001: ['A.14.2.5'] },
+    'CWE-312 - PII / Sensitive Data Pattern in Code':    { pci_dss: ['3.4.1','4.2.1'], gdpr: ['Art. 5','Art. 25','Art. 32'], iso27001: ['A.18.1.4','A.8.2.3'] },
+};
+
+function getCompliance(category: string): Compliance | undefined {
+    for (const [key, val] of Object.entries(COMPLIANCE_MAP)) {
+        if (category === key || category.startsWith(key.split(' - ')[0])) return val;
+    }
+    return undefined;
 }
 
 // ── Pattern definitions ───────────────────────────────────────────────────────
@@ -211,13 +243,14 @@ export function scanFileForIssues(
         while ((m = pattern.exec(text)) !== null) {
             const value = (m[1] || m[0]).slice(0, 40);
             findings.push({
-                kind:     'hardcoded-key',
-                message:  `${name} detected: "${value}…" — never commit credentials to source code`,
+                kind:       'hardcoded-key',
+                message:    `${name} detected: "${value}…" — never commit credentials to source code`,
                 severity,
                 category,
-                range:    rangeOf(m, text),
-                value:    m[1] || m[0],
+                range:      rangeOf(m, text),
+                value:      m[1] || m[0],
                 fix,
+                compliance: getCompliance(category),
             });
         }
     }
@@ -228,12 +261,13 @@ export function scanFileForIssues(
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(text)) !== null) {
             findings.push({
-                kind:     category.includes('Endpoint') ? 'endpoint' : 'hardcoded-url',
-                message:  `Hardcoded URL: ${m[0].slice(0, 60)}`,
+                kind:       category.includes('Endpoint') ? 'endpoint' : 'hardcoded-url',
+                message:    `Hardcoded URL: ${m[0].slice(0, 60)}`,
                 severity,
                 category,
-                range:    rangeOf(m, text),
-                value:    m[0],
+                range:      rangeOf(m, text),
+                value:      m[0],
+                compliance: getCompliance(category),
             });
         }
     }
@@ -244,12 +278,38 @@ export function scanFileForIssues(
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(text)) !== null) {
             findings.push({
-                kind:    'weak-auth',
-                message: `${name}: ${m[0].slice(0, 60)}`,
+                kind:       'weak-auth',
+                message:    `${name}: ${m[0].slice(0, 60)}`,
                 severity,
                 category,
-                range:   rangeOf(m, text),
+                range:      rangeOf(m, text),
                 fix,
+                compliance: getCompliance(category),
+            });
+        }
+    }
+
+    // Check for PII patterns hardcoded in source (email regex, SSN regex, CC pattern, phone)
+    const PII_CODE_PATTERNS: { name: string; pattern: RegExp; fix: string }[] = [
+        { name: 'Hardcoded email address',      pattern: /["']([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})["']/g,  fix: 'Remove hardcoded emails; load from env or config' },
+        { name: 'Hardcoded credit card number', pattern: /\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b/g, fix: 'Never hardcode card numbers; use tokenisation' },
+        { name: 'Hardcoded SSN',                pattern: /\b\d{3}-\d{2}-\d{4}\b/g,                                           fix: 'Remove SSN from source code' },
+        { name: 'Hardcoded password (plain)',   pattern: /(?:password|passwd|pwd)\s*[:=]\s*["'](?!x{3})[^"']{6,}["']/gi,     fix: 'Never hardcode passwords; load from secrets manager' },
+    ];
+    const PII_CATEGORY = 'CWE-312 - PII / Sensitive Data Pattern in Code';
+    for (const { name, pattern, fix } of PII_CODE_PATTERNS) {
+        pattern.lastIndex = 0;
+        let m: RegExpExecArray | null;
+        while ((m = pattern.exec(text)) !== null) {
+            findings.push({
+                kind:       'pii',
+                message:    `${name}: ${m[0].slice(0, 50)} — PII must not be hardcoded in source`,
+                severity:   'HIGH',
+                category:   PII_CATEGORY,
+                range:      rangeOf(m, text),
+                value:      m[0],
+                fix,
+                compliance: getCompliance(PII_CATEGORY),
             });
         }
     }

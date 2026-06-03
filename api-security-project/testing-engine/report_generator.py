@@ -1,8 +1,78 @@
-"""Generate HTML and JSON reports from OWASP test results."""
+"""Generate HTML, JSON, and SARIF reports from OWASP test results."""
 import json
 import os
 from datetime import datetime
 from jinja2 import Template
+
+# ── Compliance mapping ────────────────────────────────────────────────────────
+COMPLIANCE_MAP = {
+    "API1:2023 - Broken Object Level Authorization":          {"pci_dss": ["6.2.4","8.2.3"],    "gdpr": ["Art. 5(1)(f)","Art. 32"],   "iso27001": ["A.9.4.1","A.14.2.5"]},
+    "API2:2023 - Broken Authentication":                      {"pci_dss": ["8.2.1","8.3.1"],    "gdpr": ["Art. 32(1)(b)"],            "iso27001": ["A.9.4.3","A.10.1.1"]},
+    "API3:2023 - Broken Object Property Level Authorization": {"pci_dss": ["6.2.4"],            "gdpr": ["Art. 5(1)(c)","Art. 25"],   "iso27001": ["A.14.2.5","A.18.1.3"]},
+    "API4:2023 - Unrestricted Resource Consumption":          {"pci_dss": ["6.2.4","6.3.1"],    "gdpr": ["Art. 32"],                  "iso27001": ["A.12.6.1","A.17.2.1"]},
+    "API5:2023 - Broken Function Level Authorization":        {"pci_dss": ["7.1.1","7.2.1"],    "gdpr": ["Art. 32(4)"],               "iso27001": ["A.9.2.3","A.9.4.1"]},
+    "API8:2023 - Security Misconfiguration":                  {"pci_dss": ["6.3.3","6.4.1"],    "gdpr": ["Art. 32"],                  "iso27001": ["A.14.1.3","A.18.1.3"]},
+    "API9:2023 - Improper Inventory Management (GraphQL)":    {"pci_dss": ["6.3.3"],            "gdpr": ["Art. 32"],                  "iso27001": ["A.12.6.1"]},
+    "CWE-312 / GDPR - PII Exposure in API Responses":        {"pci_dss": ["3.4.1","4.2.1"],    "gdpr": ["Art. 5","Art. 17","Art. 25","Art. 32","Art. 83(4)"], "iso27001": ["A.18.1.4","A.8.2.3"]},
+}
+
+def _get_compliance(category: str) -> dict:
+    for key, val in COMPLIANCE_MAP.items():
+        if category == key or category.startswith(key.split(" - ")[0]):
+            return val
+    return {}
+
+
+def generate_sarif(results: list, target: str) -> dict:
+    """Generate a SARIF 2.1.0 document from test results."""
+    seen_rules: set = set()
+    rules = []
+    for cat in results:
+        cat_id = cat["category"].replace(" ", "-").replace("/", "-")[:64]
+        if cat_id not in seen_rules:
+            seen_rules.add(cat_id)
+            rules.append({
+                "id": cat_id,
+                "name": cat["category"].split(" - ")[0],
+                "shortDescription": {"text": cat["category"].split(" - ", 1)[-1]},
+                "helpUri": "https://owasp.org/API-Security/",
+                "properties": {"tags": ["security", "api"]},
+            })
+
+    sarif_results = []
+    for cat in results:
+        cat_id = cat["category"].replace(" ", "-").replace("/", "-")[:64]
+        for t in cat["tests"]:
+            if not t.get("vulnerable"):
+                continue
+            sarif_results.append({
+                "ruleId": cat_id,
+                "level": "error" if t.get("severity") in ("CRITICAL", "HIGH") else "warning",
+                "message": {"text": f"{t['test']}: {t['actual']}"},
+                "locations": [{"physicalLocation": {"artifactLocation": {"uri": target, "uriBaseId": "TARGETROOT"}}}],
+                "properties": {
+                    "severity": t.get("severity"),
+                    "expected": t.get("expected"),
+                    "compliance": _get_compliance(cat["category"]),
+                },
+            })
+
+    return {
+        "version": "2.1.0",
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "MazAPI Testing Engine",
+                    "version": "2.0.0",
+                    "informationUri": "https://github.com/Mazonia/api-security",
+                    "rules": rules,
+                }
+            },
+            "results": sarif_results,
+            "properties": {"target": target, "scannedAt": datetime.utcnow().isoformat()},
+        }],
+    }
 
 try:
     from cve_data import CVE_DB
@@ -202,6 +272,12 @@ def generate(results: list, target: str, report_dir: str = "/reports", detail: s
     os.makedirs(report_dir, exist_ok=True)
     slug = target.replace("http://", "").replace(":", "-").replace("/", "_")
 
+    # Enrich results with compliance mapping
+    for cat in results:
+        compliance = _get_compliance(cat["category"])
+        if compliance:
+            cat["compliance"] = compliance
+
     suffix = f"_{detail}" if detail != "brief" else ""
     json_path = os.path.join(report_dir, f"report_{slug}_{ts_file}{suffix}.json")
     with open(json_path, "w") as f:
@@ -219,4 +295,9 @@ def generate(results: list, target: str, report_dir: str = "/reports", detail: s
     with open(html_path, "w") as f:
         f.write(html)
 
-    return json_path, html_path
+    # SARIF export (always generated alongside JSON/HTML)
+    sarif_path = os.path.join(report_dir, f"report_{slug}_{ts_file}{suffix}.sarif")
+    with open(sarif_path, "w") as f:
+        json.dump(generate_sarif(results, target), f, indent=2)
+
+    return json_path, html_path, sarif_path

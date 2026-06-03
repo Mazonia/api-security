@@ -92,6 +92,43 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // ── Command: Export SARIF from last panel scan ────────────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mazapi.exportSARIF', () => {
+            if (MazAPIPanel.currentPanel) {
+                MazAPIPanel.currentPanel['_panel'].webview.postMessage({ type: 'triggerExport', format: 'sarif' });
+            } else {
+                vscode.window.showWarningMessage('MazAPI: No scan results — run a scan first.');
+            }
+        })
+    );
+
+    // ── Command: Export HTML report from last panel scan ──────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mazapi.exportHTML', () => {
+            if (MazAPIPanel.currentPanel) {
+                MazAPIPanel.currentPanel['_panel'].webview.postMessage({ type: 'triggerExport', format: 'html' });
+            } else {
+                vscode.window.showWarningMessage('MazAPI: No scan results — run a scan first.');
+            }
+        })
+    );
+
+    // ── Command: Configure webhook ────────────────────────────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mazapi.configureWebhook', async () => {
+            const url = await vscode.window.showInputBox({
+                prompt: 'Enter Slack/Teams webhook URL',
+                placeHolder: 'https://hooks.slack.com/services/…',
+                value: vscode.workspace.getConfiguration('mazapi').get<string>('webhookUrl') || '',
+            });
+            if (url !== undefined) {
+                await vscode.workspace.getConfiguration('mazapi').update('webhookUrl', url, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage('MazAPI: Webhook URL saved.');
+            }
+        })
+    );
+
     // ── Status bar item ───────────────────────────────────────────────────────
     const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBar.text = '$(shield) MazAPI';

@@ -7,28 +7,34 @@
 </head>
 <body>
 <header>
-  <div class="brand">MazAPI Scanner <span>v1.0</span></div>
-  <button class="clear-btn" id="btn-clear">Clear Session</button>
+  <div class="brand">MazAPI Scanner <span>v2.0</span></div>
+  <button class="clear-btn" id="btn-clear">Clear</button>
 </header>
 
 <div class="tabs">
-  <button class="tab active" data-tab="discover">Discovered</button>
+  <button class="tab active" data-tab="discover">Capture</button>
   <button class="tab" data-tab="scan">Scan</button>
   <button class="tab" data-tab="results">Results</button>
+  <button class="tab" data-tab="history">History</button>
+  <button class="tab" data-tab="settings">&#9881;</button>
 </div>
 
-<!-- ── Tab 1: Discovered APIs ─────────────────────────────── -->
+<!-- ── Tab 1: Captured APIs ───────────────────────────────────────────────── -->
 <div class="pane active" id="pane-discover">
   <div id="key-warnings"></div>
-  <div class="section-title">Base URL</div>
+  <div class="section-title">Active Page</div>
   <div id="base-url" style="font-family:monospace;font-size:.84em;color:#58a6ff;margin-bottom:10px">—</div>
   <div class="section-title">Auth Token</div>
   <div id="token-area"></div>
   <div class="section-title">API Endpoints (<span id="ep-count">0</span>)</div>
   <div id="endpoints-list"><div class="empty">Browse any website to start capturing API calls.</div></div>
+  <div style="margin-top:10px;display:flex;gap:6px">
+    <button class="export-btn" id="btn-postman" style="flex:1">&#128197; Postman</button>
+    <button class="export-btn" id="btn-openapi" style="flex:1">&#128196; OpenAPI</button>
+  </div>
 </div>
 
-<!-- ── Tab 2: Scan ────────────────────────────────────────── -->
+<!-- ── Tab 2: Scan ────────────────────────────────────────────────────────── -->
 <div class="pane" id="pane-scan">
   <div class="field">
     <label>Target URL</label>
@@ -39,24 +45,61 @@
     <input type="text" id="scan-token" placeholder="eyJhbGciOiJIUzI1NiIs…">
   </div>
   <div class="field">
-    <label>Auth Endpoint (for rate-limit test)</label>
-    <input type="text" id="scan-auth-ep" value="/auth/login">
+    <label>Auth Endpoint (rate-limit test)</label>
+    <input type="text" id="scan-auth-ep" placeholder="auto-detected from captured traffic">
   </div>
   <div class="field">
-    <label>Protected Path (for JWT test)</label>
-    <input type="text" id="scan-protected" value="/admin/users">
+    <label>Protected Path (JWT test)</label>
+    <input type="text" id="scan-protected" placeholder="auto-detected from captured traffic">
   </div>
-  <button class="scan-btn" id="btn-scan">▶ Run Scan</button>
+  <button class="scan-btn" id="btn-scan">&#9654; Run Full Scan</button>
   <div id="scan-status" style="margin-top:8px;font-size:.8em;color:#8b949e;text-align:center"></div>
 </div>
 
-<!-- ── Tab 3: Results ─────────────────────────────────────── -->
+<!-- ── Tab 3: Results ─────────────────────────────────────────────────────── -->
 <div class="pane" id="pane-results">
   <div id="score-area"></div>
+  <div id="export-bar" style="display:none;margin-bottom:10px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
+      <button class="export-btn" id="btn-export-json">&#8675; JSON</button>
+      <button class="export-btn" id="btn-export-sarif">&#8675; SARIF</button>
+      <button class="export-btn" id="btn-export-html">&#8675; HTML Report</button>
+      <button class="export-btn" id="btn-send-webhook">&#128276; Send Alert</button>
+    </div>
+  </div>
   <div id="results-list"><div class="empty">Run a scan to see results.</div></div>
 </div>
 
-<footer>MazAPI Scanner · OWASP · MITRE · CWE · Works on any website</footer>
+<!-- ── Tab 4: History ─────────────────────────────────────────────────────── -->
+<div class="pane" id="pane-history">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="section-title" style="margin:0">Scan History</div>
+    <button class="clear-btn" id="btn-clear-history">Clear All</button>
+  </div>
+  <div id="history-list"><div class="empty">No scan history yet.</div></div>
+</div>
+
+<!-- ── Tab 5: Settings ────────────────────────────────────────────────────── -->
+<div class="pane" id="pane-settings">
+  <div class="section-title">Organisation</div>
+  <div class="field">
+    <label>Organisation Name (for reports)</label>
+    <input type="text" id="set-orgname" placeholder="e.g. Acme Security Team">
+  </div>
+  <div class="section-title" style="margin-top:12px">Webhook Alerts</div>
+  <div class="field">
+    <label>Slack / Teams Webhook URL</label>
+    <input type="text" id="set-webhook" placeholder="https://hooks.slack.com/services/…">
+  </div>
+  <div class="field" style="display:flex;align-items:center;gap:8px">
+    <input type="checkbox" id="set-auto-webhook" style="width:auto;accent-color:#58a6ff">
+    <label for="set-auto-webhook" style="display:inline;color:#c9d1d9;font-size:.84em">Auto-send on Critical findings</label>
+  </div>
+  <button class="scan-btn" id="btn-save-settings" style="margin-top:6px">Save Settings</button>
+  <div id="settings-status" style="margin-top:6px;font-size:.8em;color:#3fb950;text-align:center"></div>
+</div>
+
+<footer>MazAPI Scanner v2.0 &middot; OWASP &middot; MITRE &middot; CWE &middot; PCI-DSS &middot; GDPR</footer>
 
 <script src="popup.js"></script>
 </body>

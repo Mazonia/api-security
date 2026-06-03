@@ -1,9 +1,13 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class MazAPIPanel {
     public static currentPanel: MazAPIPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
+    private readonly _extensionUri: vscode.Uri;
     private _target: string;
+    private _lastData: unknown = null;
 
     public static createOrShow(extensionUri: vscode.Uri, target: string) {
         const col = vscode.window.activeTextEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One;
@@ -17,17 +21,21 @@ export class MazAPIPanel {
             'mazapiScanner', 'MazAPI Scanner', col,
             { enableScripts: true, retainContextWhenHidden: true }
         );
-        MazAPIPanel.currentPanel = new MazAPIPanel(panel, target);
+        MazAPIPanel.currentPanel = new MazAPIPanel(panel, extensionUri, target);
     }
 
-    private constructor(panel: vscode.WebviewPanel, target: string) {
+    private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, target: string) {
         this._panel = panel;
+        this._extensionUri = extensionUri;
         this._target = target;
         this._update(target);
         this._panel.onDidDispose(() => { MazAPIPanel.currentPanel = undefined; });
-        this._panel.webview.onDidReceiveMessage(async (msg) => {
-            if (msg.type === 'runScan') {
-                await this._runScan(msg.target, msg.token);
+        this._panel.webview.onDidReceiveMessage(async msg => {
+            switch (msg.type) {
+                case 'runScan':      await this._runScan(msg.target, msg.token); break;
+                case 'exportSARIF': this._exportSARIF(msg.data); break;
+                case 'exportHTML':  this._exportHTML(msg.html); break;
+                case 'sendWebhook': await this._sendWebhook(msg.url, msg.data); break;
             }
         });
     }
@@ -43,14 +51,66 @@ export class MazAPIPanel {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
-                signal: AbortSignal.timeout(90000),
+                signal: AbortSignal.timeout(120000),
             });
             const data = await resp.json();
+            this._lastData = data;
             this._panel.webview.postMessage({ type: 'scanResult', data });
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            this._panel.webview.postMessage({ type: 'scanError', message: msg });
+            const m = err instanceof Error ? err.message : String(err);
+            this._panel.webview.postMessage({ type: 'scanError', message: m });
         }
+    }
+
+    private _exportSARIF(data: unknown) {
+        const d = data as Record<string, unknown>;
+        const categories = (d.categories as unknown[]) || [];
+        const seen = new Set<string>();
+        const rules: unknown[] = [];
+        for (const cat of categories as Record<string, unknown>[]) {
+            const rid = String(cat.category).replace(/[ /]/g, '-').slice(0, 64);
+            if (!seen.has(rid)) { seen.add(rid); rules.push({ id: rid, name: String(cat.category).split(' - ')[0], shortDescription: { text: String(cat.category) }, helpUri: 'https://owasp.org/API-Security/' }); }
+        }
+        const results: unknown[] = [];
+        for (const cat of categories as Record<string, unknown>[]) {
+            const rid = String(cat.category).replace(/[ /]/g, '-').slice(0, 64);
+            for (const t of (cat.tests as Record<string, unknown>[]) || []) {
+                if (!t.vulnerable) continue;
+                results.push({ ruleId: rid, level: ['CRITICAL','HIGH'].includes(String(t.severity)) ? 'error' : 'warning', message: { text: `${t.test}: ${t.actual}` }, locations: [{ physicalLocation: { artifactLocation: { uri: String(d.target || ''), uriBaseId: 'TARGETROOT' } } }], properties: { severity: t.severity, compliance: (cat as Record<string,unknown>).compliance || {} } });
+            }
+        }
+        const sarif = { version: '2.1.0', $schema: 'https://json.schemastore.org/sarif-2.1.0.json', runs: [{ tool: { driver: { name: 'MazAPI Scanner', version: '2.0.0', rules } }, results, properties: { target: d.target, scannedAt: new Date().toISOString() } }] };
+        this._downloadJSON(sarif, `mazapi-${Date.now()}.sarif`);
+    }
+
+    private _exportHTML(html: string) {
+        const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const filePath = path.join(wsFolder || require('os').tmpdir(), `mazapi-report-${Date.now()}.html`);
+        fs.writeFileSync(filePath, html, 'utf8');
+        vscode.env.openExternal(vscode.Uri.file(filePath));
+        vscode.window.showInformationMessage(`MazAPI HTML report saved: ${filePath}`);
+    }
+
+    private async _sendWebhook(webhookUrl: string, data: unknown) {
+        if (!webhookUrl) { vscode.window.showWarningMessage('No webhook URL configured (mazapi.webhookUrl).'); return; }
+        try {
+            const d = data as Record<string, unknown>;
+            const categories = (d.categories as Record<string,unknown>[]) || [];
+            const vulns = categories.flatMap(c => (c.tests as Record<string,unknown>[]).filter(t => t.vulnerable));
+            const payload = { source: 'MazAPI VS Code Extension', target: d.target, score: d.score, total_tests: d.total_tests, total_vulnerable: d.total_vulnerable, text: `*MazAPI Alert* — \`${d.target}\`\nScore: *${d.score}%* | Vulnerable: ${d.total_vulnerable}/${d.total_tests}`, findings: vulns.slice(0,10).map(t => ({ test: t.test, severity: t.severity, actual: t.actual })) };
+            await fetch(webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(10000) });
+            vscode.window.showInformationMessage('MazAPI: Webhook alert sent.');
+        } catch (e) {
+            vscode.window.showErrorMessage(`MazAPI webhook failed: ${e instanceof Error ? e.message : e}`);
+        }
+    }
+
+    private _downloadJSON(obj: unknown, filename: string) {
+        const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const filePath = path.join(wsFolder || require('os').tmpdir(), filename);
+        fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf8');
+        vscode.env.openExternal(vscode.Uri.file(filePath));
+        vscode.window.showInformationMessage(`MazAPI: ${filename} saved to workspace.`);
     }
 
     private _update(target: string) {
@@ -59,11 +119,8 @@ export class MazAPIPanel {
     }
 
     private _getHtml(target: string): string {
-        return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+        return `<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--vscode-font-family);background:var(--vscode-editor-background);color:var(--vscode-foreground);padding:20px;font-size:13px}
@@ -74,45 +131,69 @@ h1{font-size:1.1em;margin-bottom:16px;color:var(--vscode-textLink-foreground)}
 button{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border:none;border-radius:3px;padding:8px 18px;cursor:pointer;font-size:.9em;font-family:inherit}
 button:hover{background:var(--vscode-button-hoverBackground)}
 button:disabled{opacity:.5;cursor:not-allowed}
+.btn-sec{background:transparent;color:var(--vscode-textLink-foreground);border:1px solid var(--vscode-textLink-foreground);margin-left:6px;padding:6px 12px}
+.btn-sec:hover{background:var(--vscode-textLink-activeForeground);color:#fff}
 #status{margin-top:10px;font-size:.85em;color:var(--vscode-descriptionForeground)}
-.result{border-left:3px solid;padding:8px 12px;margin-bottom:6px;border-radius:0 4px 4px 0}
+.result{border-left:3px solid;padding:10px 12px;margin-bottom:6px;border-radius:0 4px 4px 0}
 .result.vuln{border-color:#f85149;background:rgba(248,81,73,.08)}
 .result.safe{border-color:#3fb950;background:rgba(63,185,80,.08)}
 .result-title{font-weight:600;font-size:.9em}
 .result-cat{font-size:.78em;color:var(--vscode-descriptionForeground);margin-top:2px}
+.result-detail{font-size:.82em;margin-top:4px}
+.compliance{font-size:.74em;color:var(--vscode-descriptionForeground);margin-top:5px}
+.comp-chip{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid rgba(88,166,255,.3);border-radius:3px;padding:1px 5px;margin-right:3px}
+details summary{font-size:.75em;color:#58a6ff;cursor:pointer;margin-top:5px}
+details pre{background:var(--vscode-textBlockQuote-background);border:1px solid var(--vscode-widget-border);border-radius:3px;padding:6px;font-size:.73em;white-space:pre-wrap;margin-top:4px;word-break:break-all}
 .score{font-size:1.8em;font-weight:700;text-align:center;padding:10px 0}
-</style>
-</head>
-<body>
+.export-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.reg-badge{display:inline-block;border:1px solid;border-radius:3px;padding:1px 5px;font-size:.72em;font-weight:700;margin-left:6px;vertical-align:middle}
+</style></head><body>
 <h1>&#128737; MazAPI Scanner</h1>
-<div class="field">
-  <label>Target URL</label>
-  <input id="target" value="${target}" placeholder="https://api.example.com">
+<div class="field"><label>Target URL</label><input id="target" value="${target}" placeholder="https://api.example.com"></div>
+<div class="field"><label>Bearer Token (optional)</label><input id="token" placeholder="eyJhbGciOiJIUzI1NiIs…"></div>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+  <button id="btn-scan">&#9654; Run Full Scan</button>
+  <button class="btn-sec" id="btn-sarif" disabled>&#8675; SARIF</button>
+  <button class="btn-sec" id="btn-html" disabled>&#8675; HTML</button>
+  <button class="btn-sec" id="btn-webhook" disabled>&#128276;</button>
 </div>
-<div class="field">
-  <label>Bearer Token (optional)</label>
-  <input id="token" placeholder="eyJhbGciOiJIUzI1NiIs…">
-</div>
-<button id="btn-scan">&#9654; Run Full Scan</button>
 <div id="status"></div>
 <div id="results" style="margin-top:16px"></div>
-
 <script>
 const vscode = acquireVsCodeApi();
+let _data = null;
+
 document.getElementById('btn-scan').addEventListener('click', () => {
   const target = document.getElementById('target').value.trim();
   const token  = document.getElementById('token').value.trim();
   if (!target) { document.getElementById('status').textContent = 'Enter a target URL'; return; }
   vscode.postMessage({ type: 'runScan', target, token });
 });
+
+document.getElementById('btn-sarif').addEventListener('click', () => {
+  if (_data) vscode.postMessage({ type: 'exportSARIF', data: _data });
+});
+
+document.getElementById('btn-html').addEventListener('click', () => {
+  if (!_data) return;
+  const html = buildHTMLReport(_data);
+  vscode.postMessage({ type: 'exportHTML', html });
+});
+
+document.getElementById('btn-webhook').addEventListener('click', () => {
+  const url = prompt('Webhook URL (Slack/Teams):');
+  if (url && _data) vscode.postMessage({ type: 'sendWebhook', url, data: _data });
+});
+
 window.addEventListener('message', e => {
   const msg = e.data;
   const status  = document.getElementById('status');
   const results = document.getElementById('results');
   if (msg.type === 'scanStarted') {
-    status.textContent  = 'Scanning… (up to 60 seconds)';
-    results.innerHTML   = '';
+    status.textContent = 'Scanning… (up to 120 seconds)';
+    results.innerHTML  = '';
     document.getElementById('btn-scan').disabled = true;
+    ['btn-sarif','btn-html','btn-webhook'].forEach(id => document.getElementById(id).disabled = true);
   }
   if (msg.type === 'scanError') {
     status.textContent = 'Error: ' + msg.message + ' — is the MazAPI backend running at localhost:9000?';
@@ -120,26 +201,65 @@ window.addEventListener('message', e => {
   }
   if (msg.type === 'scanResult') {
     document.getElementById('btn-scan').disabled = false;
+    ['btn-sarif','btn-html','btn-webhook'].forEach(id => document.getElementById(id).disabled = false);
     status.textContent = '';
-    const d = msg.data;
+    _data = msg.data;
+    const d  = msg.data;
     const sc = d.score ?? 0;
-    const color = sc === 100 ? '#3fb950' : sc >= 70 ? '#e3b341' : '#f85149';
-    let html = '<div class="score" style="color:'+color+'">'+sc+'%</div>';
-    html += '<p style="text-align:center;font-size:.82em;color:var(--vscode-descriptionForeground);margin-bottom:14px">'
-          + (d.total_vulnerable||0) + ' vulnerabilities / ' + (d.total_tests||0) + ' tests</p>';
+    const color = sc >= 90 ? '#3fb950' : sc >= 70 ? '#e3b341' : '#f85149';
+    let html = '<div class="score" style="color:'+color+'">'+sc+'%<span style="font-size:.4em;color:var(--vscode-descriptionForeground);margin-left:8px">Security Score</span></div>';
+    html += '<p style="text-align:center;font-size:.82em;color:var(--vscode-descriptionForeground);margin-bottom:14px">'+(d.total_vulnerable||0)+' vulnerabilities / '+(d.total_tests||0)+' tests</p>';
+    const REG_COLOR = { NEW: '#f85149', RECURRING: '#e3b341', FIXED: '#3fb950' };
+    const SEV_COLOR = { CRITICAL: '#ff6b6b', HIGH: '#f85149', MEDIUM: '#e3b341', LOW: '#58a6ff' };
     for (const cat of (d.categories||[])) {
+      const comp = cat.compliance;
       for (const t of (cat.tests||[])) {
+        const sev   = SEV_COLOR[t.severity] || '#8b949e';
+        const regBadge = t.regression ? \`<span class="reg-badge" style="color:\${REG_COLOR[t.regression]};border-color:\${REG_COLOR[t.regression]}">\${t.regression}</span>\` : '';
+        const compHtml = comp ? \`<div class="compliance">
+          <span class="comp-chip">PCI-DSS</span>\${(comp.pci_dss||[]).join(', ')} &nbsp;
+          <span class="comp-chip">GDPR</span>\${(comp.gdpr||[]).join(', ')} &nbsp;
+          <span class="comp-chip">ISO 27001</span>\${(comp.iso27001||[]).join(', ')}
+        </div>\` : '';
+        const evHtml = t.evidence ? \`<details><summary>Evidence</summary><pre>\${t.evidence.request.method} \${t.evidence.request.url}\${t.evidence.request.body?'\\nBody: '+t.evidence.request.body:''}\\n→ HTTP \${t.evidence.response.status}\${t.evidence.response.snippet?'\\n'+t.evidence.response.snippet:''}</pre></details>\` : '';
         const cls = t.vulnerable ? 'vuln' : 'safe';
-        html += '<div class="result '+cls+'"><div class="result-title">'+(t.vulnerable?'✗':'✓')+' '+t.test+'</div>'
-              + '<div class="result-cat">'+cat.category+'</div>'
-              + '<div class="result-cat">'+t.actual+'</div></div>';
+        html += \`<div class="result \${cls}">
+          <div class="result-title" style="color:\${t.vulnerable?sev:'#3fb950'}">\${t.vulnerable?'✗':'✓'} \${t.test}\${regBadge}</div>
+          <div class="result-cat">\${cat.category} &nbsp;<span style="color:\${sev};font-size:.82em;font-weight:700">\${t.severity}</span></div>
+          <div class="result-detail">\${t.actual}</div>
+          \${compHtml}\${evHtml}
+        </div>\`;
       }
     }
     results.innerHTML = html;
   }
 });
-</script>
-</body>
-</html>`;
+
+function buildHTMLReport(d) {
+  const sc = d.score ?? 0;
+  const color = sc >= 90 ? '#3fb950' : sc >= 70 ? '#e3b341' : '#f85149';
+  const SEV_COLOR = { CRITICAL: '#ff6b6b', HIGH: '#f85149', MEDIUM: '#e3b341', LOW: '#58a6ff' };
+  let rows = '';
+  for (const cat of (d.categories || [])) {
+    const comp = cat.compliance;
+    for (const t of (cat.tests || [])) {
+      const sev = SEV_COLOR[t.severity] || '#8b949e';
+      const compHtml = comp ? \`<div style="font-size:.77em;color:#8b949e;margin-top:6px"><b style="color:#58a6ff">Compliance:</b> PCI-DSS \${(comp.pci_dss||[]).join(', ')} | GDPR \${(comp.gdpr||[]).join(', ')} | ISO 27001 \${(comp.iso27001||[]).join(', ')}</div>\` : '';
+      rows += \`<div style="border-left:3px solid \${t.vulnerable?sev:'#30363d'};padding:10px 14px;margin-bottom:8px;border-radius:0 6px 6px 0;background:\${t.vulnerable?'rgba(248,81,73,.04)':'rgba(63,185,80,.04)'}">
+        <div style="display:flex;justify-content:space-between"><span style="font-weight:600;color:\${t.vulnerable?sev:'#3fb950'}">\${t.vulnerable?'✗':'✓'} \${t.test}</span><span style="font-size:.78em;color:\${sev};font-weight:700">\${t.severity}</span></div>
+        <div style="font-size:.78em;color:#8b949e;margin-top:2px">\${cat.category}</div>
+        <div style="font-size:.82em;margin-top:4px">\${t.actual}</div>
+        \${compHtml}
+      </div>\`;
+    }
+  }
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MazAPI Report</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui;background:#0d1117;color:#c9d1d9;padding:28px}</style></head><body>'
+    + \`<div style="text-align:center;margin-bottom:24px"><h1 style="color:#58a6ff;font-size:1.8em">MazAPI Security Report</h1><p style="color:#8b949e">\${d.target} | \${new Date().toLocaleString()}</p></div>\`
+    + \`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">\`
+    + [['Score',sc+'%',color],['Vulnerable',(d.total_vulnerable||0),'#f85149'],['Secure',((d.total_tests||0)-(d.total_vulnerable||0)),'#3fb950'],['Tests',(d.total_tests||0),'#58a6ff']].map(([l,v,c]) =>
+        \`<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;text-align:center"><div style="font-size:1.8em;font-weight:700;color:\${c}">\${v}</div><div style="font-size:.78em;color:#8b949e;margin-top:4px">\${l}</div></div>\`
+      ).join('') + '</div>' + rows + '<div style="text-align:center;padding:16px;color:#8b949e;font-size:.78em;border-top:1px solid #21262d;margin-top:20px">MazAPI Scanner — CY384, UMaT Ghana</div></body></html>';
+}
+</script></body></html>`;
     }
 }

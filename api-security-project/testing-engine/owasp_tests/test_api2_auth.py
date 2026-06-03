@@ -74,6 +74,37 @@ def run(base_url: str) -> dict:
             "severity": "MEDIUM",
         })
 
+    # Test 4: JWT alg:none — unsigned token must be rejected
+    import base64 as _b64
+    try:
+        _h = _b64.urlsafe_b64encode(b'{"alg":"none","typ":"JWT"}').rstrip(b"=").decode()
+        _p = _b64.urlsafe_b64encode(
+            b'{"sub":"1","username":"alice","role":"admin"}'
+        ).rstrip(b"=").decode()
+        none_tok = f"{_h}.{_p}."
+        r = httpx.get(
+            f"{base_url}/admin/users",
+            headers={"Authorization": f"Bearer {none_tok}"},
+            timeout=10,
+        )
+        tests.append({
+            "test": "JWT algorithm confusion — alg:none (unsigned token)",
+            "request": "GET /admin/users with JWT alg=none (no signature)",
+            "expected": "401 Unauthorized — unsigned tokens must be rejected",
+            "actual": r.status_code,
+            "vulnerable": r.status_code == 200,
+            "severity": "CRITICAL",
+        })
+    except Exception as e:
+        tests.append({
+            "test": "JWT algorithm confusion — alg:none (unsigned token)",
+            "request": "GET /admin/users with JWT alg=none",
+            "expected": "401 Unauthorized",
+            "actual": f"Error: {e}",
+            "vulnerable": False,
+            "severity": "CRITICAL",
+        })
+
     return {
         "category": "API2:2023 - Broken Authentication",
         "tests": tests,

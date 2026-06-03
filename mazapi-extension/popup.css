@@ -101,3 +101,70 @@ footer {
   border-top: 1px solid #21262d; padding: 7px 14px;
   font-size: .72em; color: #8b949e; text-align: center;
 }
+
+/* ── Result card enhancements ── */
+.result-hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
+.result-title { font-size: .84em; font-weight: 600; flex: 1; }
+.sev-badge { font-size: .72em; font-weight: 700; white-space: nowrap; margin-top: 1px; }
+
+.badge-reg {
+  display: inline-block; border: 1px solid; border-radius: 3px;
+  padding: 1px 5px; font-size: .7em; font-weight: 700;
+  margin-right: 4px; margin-top: 3px; margin-bottom: 3px;
+}
+.badge-fp {
+  display: inline-block; background: #30363d; color: #8b949e;
+  border-radius: 3px; padding: 1px 6px; font-size: .7em; font-weight: 700;
+  margin-right: 4px; margin-top: 3px;
+}
+.result-fp { opacity: .6; }
+
+/* ── Compliance row ── */
+.compliance-row {
+  font-size: .73em; color: #8b949e; margin-top: 6px; line-height: 1.6;
+}
+.comp-chip {
+  display: inline-block; background: rgba(88,166,255,.12);
+  color: #58a6ff; border: 1px solid rgba(88,166,255,.3);
+  border-radius: 3px; padding: 1px 5px; font-size: .9em; margin-right: 2px;
+}
+
+/* ── Evidence block ── */
+.evidence-block { margin-top: 7px; }
+.evidence-block summary {
+  font-size: .77em; color: #58a6ff; cursor: pointer; user-select: none;
+}
+.evidence-pre {
+  background: #0d1117; border: 1px solid #21262d; border-radius: 4px;
+  padding: 8px; margin-top: 4px; font-family: monospace; font-size: .73em;
+  white-space: pre-wrap; color: #c9d1d9; word-break: break-all; overflow-x: auto;
+}
+
+/* ── False positive buttons ── */
+.fp-row { display: flex; gap: 5px; margin-top: 6px; }
+.fp-btn {
+  flex: 1; padding: 3px 6px; font-size: .74em; font-family: inherit;
+  background: rgba(255,255,255,.05); color: #8b949e;
+  border: 1px solid #30363d; border-radius: 4px; cursor: pointer;
+}
+.fp-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+
+/* ── Export buttons ── */
+.export-btn {
+  padding: 6px 8px; background: rgba(88,166,255,.10); color: #58a6ff;
+  border: 1px solid rgba(88,166,255,.35); border-radius: 5px;
+  cursor: pointer; font-size: .8em; font-family: inherit;
+}
+.export-btn:hover { background: rgba(88,166,255,.2); }
+
+/* ── History tab ── */
+.history-item {
+  background: #161b22; border: 1px solid #21262d; border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 7px; cursor: default;
+}
+.history-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.history-target { font-family: monospace; font-size: .8em; color: #58a6ff; word-break: break-all; flex: 1; margin-right: 8px; }
+.history-meta { font-size: .74em; color: #8b949e; }
+
+/* ── Settings tab ── */
+#pane-settings .section-title { margin-top: 0; margin-bottom: 8px; }
