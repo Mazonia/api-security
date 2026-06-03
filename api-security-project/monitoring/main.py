@@ -2949,7 +2949,7 @@ function exportHTMLReport(data) {
       var regColor = {NEW:"#f85149",RECURRING:"#e3b341",FIXED:"#3fb950"}[t.regression]||"";
       var regBadge = t.regression?'<span style="border:1px solid '+regColor+';color:'+regColor+';padding:1px 5px;border-radius:3px;font-size:.7em;margin-left:5px">'+t.regression+"</span>":'';
       var comp = cat.compliance;
-      var compHtml = comp?'<div style="font-size:.76em;color:#8b949e;margin-top:6px"><b style="color:#58a6ff">PCI-DSS</b> '+(comp.pci_dss||[]).join(", ")+" &nbsp;<b style=\"color:#58a6ff\">GDPR</b> "+(comp.gdpr||[]).join(", ")+" &nbsp;<b style=\"color:#58a6ff\">ISO 27001</b> "+(comp.iso27001||[]).join(", ")+"</div>":'';
+      var compHtml = comp?'<div style="font-size:.76em;color:#8b949e;margin-top:6px"><b style="color:#58a6ff">PCI-DSS</b> '+(comp.pci_dss||[]).join(', ')+' &nbsp;<b style="color:#58a6ff">GDPR</b> '+(comp.gdpr||[]).join(', ')+' &nbsp;<b style="color:#58a6ff">ISO 27001</b> '+(comp.iso27001||[]).join(', ')+'</div>':'';
       rows += '<div style="border-left:3px solid '+(vuln?sev:"#30363d")+';padding:10px 14px;margin-bottom:8px;border-radius:0 6px 6px 0;background:'+(vuln?"rgba(248,81,73,.04)":"rgba(63,185,80,.04)")+'">'
         +'<div style="display:flex;justify-content:space-between"><span style="font-weight:600;color:'+(vuln?sev:"#3fb950")+'">'+(vuln?"✗":"✓")+" "+t.test+fpBadge+regBadge+'</span><span style="font-size:.77em;color:'+sev+'">'+t.severity+'</span></div>'
         +'<div style="font-size:.77em;color:#8b949e;margin-top:2px">'+cat.category+'</div>'
@@ -3281,7 +3281,7 @@ function renderResults(data, prevScan) {
       var fpBadge = fp ? '<span style="background:#30363d;color:#8b949e;padding:1px 6px;border-radius:3px;font-size:.71em;margin-left:5px">' + (fp.state==="fp"?"FALSE POSITIVE":"ACCEPTED RISK") + '</span>' : '';
       var regBadge = t.regression ? '<span class="reg-badge" style="color:' + (REG_COLOR[t.regression]||"#8b949e") + ';border-color:' + (REG_COLOR[t.regression]||"#8b949e") + '">' + t.regression + '</span>' : '';
 
-      // Evidence panel — use String.fromCharCode(10) to avoid bare \n in Python triple-quoted string
+      // Evidence panel
       var NL = String.fromCharCode(10);
       var evHtml = "";
       if (t.evidence) {
