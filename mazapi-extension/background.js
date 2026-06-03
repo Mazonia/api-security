@@ -660,10 +660,13 @@ async function runScan(target, token, options = {}) {
 }
 
 // ── Context menu ──────────────────────────────────────────────────────────────
-chrome.contextMenus.create({
-  id:       "mazapi-scan-link",
-  title:    "Scan this API with MazAPI",
-  contexts: ["link", "selection"],
+// Create inside onInstalled so it only runs once, not on every service-worker wake
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id:       "mazapi-scan-link",
+    title:    "Scan this API with MazAPI",
+    contexts: ["link", "selection"],
+  });
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {
