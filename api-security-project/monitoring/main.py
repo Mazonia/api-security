@@ -2457,8 +2457,38 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
   <button type="button" id="help-btn" title="Help &amp; FAQ">?</button>
 </nav>
 <div class="wrap">
-  <h1>MazAPI Scanner</h1>
-  <p class="sub">Multi-standard API vulnerability scanner — OWASP API Top 10, MITRE ATT&amp;CK, CWE. Four-step wizard, 15 test categories, no source code needed.</p>
+  <div style="text-align:center;margin-bottom:16px">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="80" height="80" style="display:inline-block;margin-bottom:12px">
+      <defs>
+        <linearGradient id="spr" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
+        <linearGradient id="swv" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00d4ff" stop-opacity="0"/><stop offset="20%" stop-color="#00d4ff"/><stop offset="80%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/></linearGradient>
+        <filter id="sgl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="ssg"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="url(#spr)" fill-opacity="0.14"/>
+      <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="none" stroke="url(#spr)" stroke-width="2.5" filter="url(#sgl)"/>
+      <polygon points="100,44 143,69 143,119 100,144 57,119 57,69" fill="none" stroke="url(#spr)" stroke-width="0.8" opacity="0.22"/>
+      <circle cx="100" cy="44" r="3" fill="#00d4ff" opacity="0.45"/>
+      <circle cx="143" cy="69" r="2.5" fill="#7c3aed" opacity="0.45"/>
+      <circle cx="143" cy="119" r="2.5" fill="#7c3aed" opacity="0.45"/>
+      <circle cx="100" cy="144" r="3" fill="#00d4ff" opacity="0.45"/>
+      <circle cx="57" cy="119" r="2.5" fill="#7c3aed" opacity="0.45"/>
+      <circle cx="57" cy="69" r="2.5" fill="#7c3aed" opacity="0.45"/>
+      <circle cx="68"  cy="65" r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#ssg)"/>
+      <circle cx="100" cy="96" r="5.5" fill="#00d4ff" opacity="0.8" filter="url(#ssg)"/>
+      <circle cx="132" cy="65" r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#ssg)"/>
+      <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="#dde3ec" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="url(#spr)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+      <path d="M70,145 L80,135 L90,152 L100,135 L110,152 L120,135 L130,145" fill="none" stroke="url(#swv)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" filter="url(#ssg)"/>
+      <circle cx="80" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+      <circle cx="90" cy="152" r="2" fill="#00d4ff" opacity="0.55"/>
+      <circle cx="100" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+      <circle cx="110" cy="152" r="2" fill="#00d4ff" opacity="0.55"/>
+      <circle cx="120" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+    </svg>
+    <h1>MazAPI Scanner</h1>
+    <p class="sub">Multi-standard API vulnerability scanner — OWASP API Top 10, MITRE ATT&amp;CK, CWE. Four-step wizard, 15 test categories, no source code needed.</p>
+  </div>
 
   <!-- Wizard step indicator -->
   <div class="wizard-bar" id="wizard-bar">

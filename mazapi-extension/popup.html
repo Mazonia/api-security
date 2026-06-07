@@ -7,12 +7,41 @@
 </head>
 <body>
 <header>
-  <div class="brand">MazAPI Scanner <span>v2.0</span></div>
+  <div class="brand">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="28" height="28" class="brand-logo">
+      <defs>
+        <linearGradient id="epri" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
+        <linearGradient id="ewav" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00d4ff" stop-opacity="0"/><stop offset="20%" stop-color="#00d4ff"/><stop offset="80%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/></linearGradient>
+        <filter id="egl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <filter id="esg"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="url(#epri)" fill-opacity="0.14"/>
+      <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="none" stroke="url(#epri)" stroke-width="3" filter="url(#egl)"/>
+      <polygon points="100,44 143,69 143,119 100,144 57,119 57,69" fill="none" stroke="url(#epri)" stroke-width="1" opacity="0.28"/>
+      <circle cx="100" cy="44"  r="3"   fill="#00d4ff" opacity="0.5"/>
+      <circle cx="143" cy="69"  r="2.5" fill="#7c3aed" opacity="0.5"/>
+      <circle cx="143" cy="119" r="2.5" fill="#7c3aed" opacity="0.5"/>
+      <circle cx="100" cy="144" r="3"   fill="#00d4ff" opacity="0.5"/>
+      <circle cx="57"  cy="119" r="2.5" fill="#7c3aed" opacity="0.5"/>
+      <circle cx="57"  cy="69"  r="2.5" fill="#7c3aed" opacity="0.5"/>
+      <circle cx="68"  cy="65"  r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#esg)"/>
+      <circle cx="100" cy="96"  r="5.5" fill="#00d4ff" opacity="0.8" filter="url(#esg)"/>
+      <circle cx="132" cy="65"  r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#esg)"/>
+      <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="#dde3ec" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="url(#epri)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.45"/>
+      <path d="M70,145 L80,135 L90,152 L100,135 L110,152 L120,135 L130,145" fill="none" stroke="url(#ewav)" stroke-width="2.5" stroke-linecap="round" filter="url(#esg)"/>
+      <circle cx="80"  cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+      <circle cx="100" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+      <circle cx="120" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+    </svg>
+    MazAPI <span>v2.0</span>
+  </div>
   <button class="clear-btn" id="btn-clear">Clear</button>
 </header>
 
 <div class="tabs">
   <button class="tab active" data-tab="discover">Capture</button>
+  <button class="tab" data-tab="keys">&#128273; Keys</button>
   <button class="tab" data-tab="scan">Scan</button>
   <button class="tab" data-tab="results">Results</button>
   <button class="tab" data-tab="history">History</button>
@@ -34,7 +63,18 @@
   </div>
 </div>
 
-<!-- ── Tab 2: Scan ────────────────────────────────────────────────────────── -->
+<!-- ── Tab 2: API Keys ────────────────────────────────────────────────────── -->
+<div class="pane" id="pane-keys">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div class="section-title" style="margin:0">Detected API Keys &nbsp;<span id="keys-count" class="keys-badge">0</span></div>
+    <button class="clear-btn" id="btn-clear-keys">Clear</button>
+  </div>
+  <div id="keys-list">
+    <div class="empty">Browse any page — MazAPI scans JavaScript files for hardcoded API keys.</div>
+  </div>
+</div>
+
+<!-- ── Tab 3: Scan ────────────────────────────────────────────────────────── -->
 <div class="pane" id="pane-scan">
   <div class="field">
     <label>Target URL</label>

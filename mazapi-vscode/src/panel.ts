@@ -167,7 +167,37 @@ details pre{background:var(--vscode-textBlockQuote-background);border:1px solid 
 .export-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .reg-badge{display:inline-block;border:1px solid;border-radius:3px;padding:1px 5px;font-size:.72em;font-weight:700;margin-left:6px;vertical-align:middle}
 </style></head><body>
-<h1>&#128737; MazAPI Scanner</h1>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="36" height="36" style="flex-shrink:0;border-radius:8px">
+  <defs>
+    <linearGradient id="ppr" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
+    <linearGradient id="pwv" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00d4ff" stop-opacity="0"/><stop offset="20%" stop-color="#00d4ff"/><stop offset="80%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/></linearGradient>
+    <filter id="pgl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="psg"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="url(#ppr)" fill-opacity="0.14"/>
+  <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="none" stroke="url(#ppr)" stroke-width="2.5" filter="url(#pgl)"/>
+  <polygon points="100,44 143,69 143,119 100,144 57,119 57,69" fill="none" stroke="url(#ppr)" stroke-width="0.8" opacity="0.22"/>
+  <circle cx="100" cy="44" r="3" fill="#00d4ff" opacity="0.45"/>
+  <circle cx="143" cy="69" r="2.5" fill="#7c3aed" opacity="0.45"/>
+  <circle cx="143" cy="119" r="2.5" fill="#7c3aed" opacity="0.45"/>
+  <circle cx="100" cy="144" r="3" fill="#00d4ff" opacity="0.45"/>
+  <circle cx="57" cy="119" r="2.5" fill="#7c3aed" opacity="0.45"/>
+  <circle cx="57" cy="69" r="2.5" fill="#7c3aed" opacity="0.45"/>
+  <circle cx="68"  cy="65" r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#psg)"/>
+  <circle cx="100" cy="96" r="5.5" fill="#00d4ff" opacity="0.8" filter="url(#psg)"/>
+  <circle cx="132" cy="65" r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#psg)"/>
+  <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="#dde3ec" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="url(#ppr)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+  <path d="M70,145 L80,135 L90,152 L100,135 L110,152 L120,135 L130,145" fill="none" stroke="url(#pwv)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" filter="url(#psg)"/>
+  <circle cx="80" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+  <circle cx="90" cy="152" r="2" fill="#00d4ff" opacity="0.55"/>
+  <circle cx="100" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+  <circle cx="110" cy="152" r="2" fill="#00d4ff" opacity="0.55"/>
+  <circle cx="120" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
+</svg>
+<h1 style="margin:0">MazAPI Scanner</h1>
+</div>
 <div class="field"><label>Target URL</label><input id="target" value="${target}" placeholder="https://api.example.com"></div>
 <div class="field"><label>Bearer Token (optional)</label><input id="token" placeholder="eyJhbGciOiJIUzI1NiIs…"></div>
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">

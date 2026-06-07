@@ -4,6 +4,7 @@
   "description": "Scan APIs for OWASP / MITRE / CWE vulnerabilities directly from VS Code. Detects hardcoded endpoints and API keys in your code.",
   "version": "1.0.0",
   "publisher": "MazAPI",
+  "repository": { "type": "git", "url": "https://github.com/Mazonia/mazapi" },
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other", "Linters"],
   "keywords": ["api", "security", "owasp", "scanner", "vulnerability"],

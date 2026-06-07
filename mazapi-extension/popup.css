@@ -15,8 +15,9 @@ header {
   align-items: center;
   justify-content: space-between;
 }
-.brand { font-weight: 700; color: #58a6ff; font-size: 1em; }
+.brand { font-weight: 700; color: #58a6ff; font-size: 1em; display: flex; align-items: center; gap: 0; }
 .brand span { font-size: .75em; font-weight: 400; color: #8b949e; margin-left: 6px; }
+.brand-logo { border-radius: 6px; margin-right: 8px; flex-shrink: 0; background: rgba(0,212,255,0.06); box-shadow: 0 0 0 1px rgba(0,212,255,0.22); padding: 1px; }
 .clear-btn {
   background: none; border: 1px solid #30363d; color: #8b949e;
   border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: .78em;
@@ -168,3 +169,25 @@ footer {
 
 /* ── Settings tab ── */
 #pane-settings .section-title { margin-top: 0; margin-bottom: 8px; }
+
+/* ── Keys tab ── */
+.keys-badge {
+  display: inline-block; background: #21262d; color: #8b949e;
+  border-radius: 10px; padding: 1px 7px; font-size: .75em; font-weight: 700;
+}
+.keys-badge-alert { background: rgba(248,81,73,.18); color: #f85149; }
+.key-card {
+  background: #161b22; border: 1px solid #21262d;
+  border-left: 3px solid #f85149; border-radius: 0 6px 6px 0;
+  padding: 8px 10px; margin-bottom: 7px;
+}
+.key-card-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.key-name { font-weight: 600; font-size: .84em; color: #c9d1d9; }
+.key-sev  { font-size: .72em; font-weight: 700; white-space: nowrap; }
+.key-service { font-size: .78em; color: #58a6ff; margin-bottom: 4px; }
+.key-masked {
+  display: inline-block; background: #0d1117; border: 1px solid #30363d;
+  border-radius: 3px; padding: 2px 8px; margin-bottom: 4px;
+}
+.key-masked code { color: #e3b341; font-family: monospace; font-size: .82em; letter-spacing: .03em; }
+.key-source { font-size: .72em; color: #8b949e; word-break: break-all; }

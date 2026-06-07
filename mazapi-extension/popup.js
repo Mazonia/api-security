@@ -15,6 +15,7 @@ document.querySelectorAll(".tab").forEach(tab => {
     if (pane) pane.classList.add("active");
     if (tab.dataset.tab === "history")  renderHistory();
     if (tab.dataset.tab === "settings") loadSettings();
+    if (tab.dataset.tab === "keys")     renderKeys();
   });
 });
 
@@ -25,6 +26,13 @@ function loadSession() {
     chrome.runtime.sendMessage({ type: "GET_SESSION" }, session => {
       if (!session) return;
       renderDiscovered(session, activeTabUrl);
+      // Update Keys tab badge count without switching to it
+      const keyCount = (session.hardcoded_keys || []).length;
+      const countEl  = document.getElementById("keys-count");
+      if (countEl) {
+        countEl.textContent = keyCount;
+        countEl.className   = "keys-badge" + (keyCount ? " keys-badge-alert" : "");
+      }
     });
   });
 }
@@ -329,6 +337,81 @@ document.getElementById("btn-send-webhook").addEventListener("click", () => {
       document.getElementById("btn-send-webhook").textContent = resp?.ok ? "&#10003; Sent!" : "&#10007; Failed";
       setTimeout(() => { document.getElementById("btn-send-webhook").textContent = "&#128276; Send Alert"; }, 2500);
     });
+  });
+});
+
+// ── Keys tab ──────────────────────────────────────────────────────────────────
+function renderKeys() {
+  chrome.runtime.sendMessage({ type: "GET_SESSION" }, session => {
+    const keys    = session?.hardcoded_keys || [];
+    const list    = document.getElementById("keys-list");
+    const countEl = document.getElementById("keys-count");
+    countEl.textContent = keys.length;
+    countEl.className   = "keys-badge" + (keys.length ? " keys-badge-alert" : "");
+
+    if (!keys.length) {
+      list.innerHTML = '<div class="empty">No API keys detected yet.<br>Navigate to a website — MazAPI will scan its JavaScript automatically.</div>';
+      return;
+    }
+
+    const SEV = k => {
+      const n = (k.name || "").toLowerCase();
+      const s = (k.service || "").toLowerCase();
+      if (n.includes("live") || s.includes("live") || n.includes("aws") || n.includes("private") || n.includes("anthropic")) return "CRITICAL";
+      if (n.includes("test") || s.includes("test") || n.includes("generic")) return "HIGH";
+      return "CRITICAL";
+    };
+    const SEV_COLOR = { CRITICAL: "#f85149", HIGH: "#e3b341" };
+    const KEY_ICON  = k => {
+      const n = (k.name || "").toLowerCase();
+      if (n.includes("google"))    return "🔵";
+      if (n.includes("openai"))    return "🟢";
+      if (n.includes("anthropic")) return "🟣";
+      if (n.includes("aws"))       return "🟠";
+      if (n.includes("stripe"))    return "💜";
+      if (n.includes("github"))    return "⚫";
+      if (n.includes("gitlab"))    return "🟠";
+      if (n.includes("slack"))     return "🔴";
+      if (n.includes("twilio") || n.includes("sendgrid")) return "🔴";
+      if (n.includes("hugging"))   return "🟡";
+      if (n.includes("mapbox"))    return "🔵";
+      if (n.includes("notion"))    return "⬜";
+      return "🔑";
+    };
+
+    list.innerHTML = keys.map(k => {
+      const sev   = SEV(k);
+      const color = SEV_COLOR[sev] || "#f85149";
+      let srcLabel = "";
+      try {
+        const u = new URL(k.source);
+        srcLabel = u.pathname.length > 40 ? "…" + u.pathname.slice(-38) : u.pathname || "/";
+        if (k.source.includes("(inline)")) srcLabel = "inline script";
+      } catch { srcLabel = k.source || "page"; }
+
+      return `<div class="key-card">
+        <div class="key-card-hdr">
+          <span class="key-name">${KEY_ICON(k)} ${k.name || "API Key"}</span>
+          <span class="key-sev" style="color:${color}">${sev}</span>
+        </div>
+        <div class="key-service">&#128279; ${k.service || "Unknown service"}</div>
+        <div class="key-masked"><code>${k.maskedValue || (k.value || "").slice(0, 8) + "****"}</code></div>
+        <div class="key-source">&#128196; ${srcLabel}</div>
+      </div>`;
+    }).join("");
+  });
+}
+
+document.getElementById("btn-clear-keys").addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }, () => {
+    document.getElementById("keys-list").innerHTML = '<div class="empty">Session cleared.</div>';
+    document.getElementById("keys-count").textContent = "0";
+    document.getElementById("keys-count").className = "keys-badge";
+    // Also reset the capture tab counters
+    document.getElementById("base-url").textContent = "—";
+    document.getElementById("token-area").innerHTML = "";
+    document.getElementById("endpoints-list").innerHTML = '<div class="empty">Session cleared.</div>';
+    document.getElementById("ep-count").textContent = "0";
   });
 });
 

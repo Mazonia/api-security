@@ -54,11 +54,12 @@ function detectPII(text) {
 
 // ── Session state ─────────────────────────────────────────────────────────────
 let sessionData = {
-  baseUrl:   "",
-  endpoints: {},
-  tokens:    [],
-  apiKeys:   [],
-  lastUrl:   "",
+  baseUrl:        "",
+  endpoints:      {},
+  tokens:         [],
+  apiKeys:        [],
+  lastUrl:        "",
+  hardcoded_keys: [],
 };
 
 // ── Request interception ──────────────────────────────────────────────────────
@@ -659,6 +660,59 @@ async function runScan(target, token, options = {}) {
   return results;
 }
 
+// ── Action icon (drawn on canvas so no PNG needed) ───────────────────────────
+function _drawIcon(size) {
+  const c = new OffscreenCanvas(size, size);
+  const ctx = c.getContext('2d');
+  const s = size, cx = s / 2, cy = s * 0.48, r = s * 0.41;
+
+  // Background
+  ctx.fillStyle = '#0d1117';
+  if (ctx.roundRect) {
+    ctx.beginPath(); ctx.roundRect(0, 0, s, s, s * 0.16); ctx.fill();
+  } else {
+    ctx.fillRect(0, 0, s, s);
+  }
+
+  // Hexagon (pointy-top)
+  const grad = ctx.createLinearGradient(0, 0, s, s);
+  grad.addColorStop(0, '#00d4ff');
+  grad.addColorStop(1, '#7c3aed');
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 3;
+    const px = cx + r * Math.cos(a), py = cy + r * Math.sin(a);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = Math.max(1, s * 0.07);
+  ctx.shadowColor = '#00d4ff';
+  ctx.shadowBlur = s * 0.14;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // M
+  const lx = cx - r * 0.50, rx2 = cx + r * 0.50;
+  const ty = cy - r * 0.50, by = cy + r * 0.34, mid = cy - r * 0.04;
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = Math.max(1, s * 0.09);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(lx, by); ctx.lineTo(lx, ty);
+  ctx.lineTo(cx, mid);
+  ctx.lineTo(rx2, ty); ctx.lineTo(rx2, by);
+  ctx.stroke();
+
+  return ctx.getImageData(0, 0, s, s);
+}
+
+function _setActionIcon() {
+  try {
+    chrome.action.setIcon({ imageData: { 16: _drawIcon(16), 32: _drawIcon(32), 48: _drawIcon(48) } });
+  } catch (e) { /* OffscreenCanvas not ready yet */ }
+}
+
 // ── Context menu ──────────────────────────────────────────────────────────────
 // Create inside onInstalled so it only runs once, not on every service-worker wake
 chrome.runtime.onInstalled.addListener(() => {
@@ -667,7 +721,10 @@ chrome.runtime.onInstalled.addListener(() => {
     title:    "Scan this API with MazAPI",
     contexts: ["link", "selection"],
   });
+  _setActionIcon();
 });
+
+chrome.runtime.onStartup.addListener(_setActionIcon);
 
 chrome.contextMenus.onClicked.addListener((info) => {
   const url = info.linkUrl || info.selectionText?.trim() || "";
@@ -751,8 +808,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === "CONTENT_FINDINGS") {
+    if (!sessionData.hardcoded_keys) sessionData.hardcoded_keys = [];
+    for (const k of (msg.keys || [])) {
+      if (!sessionData.hardcoded_keys.some(x => x.value === k.value)) {
+        sessionData.hardcoded_keys.push(k);
+      }
+    }
+    chrome.storage.session.set({ mazapi_session: sessionData });
+    sendResponse({ ok: true });
+    return true;
+  }
+
   if (msg.type === "CLEAR_SESSION") {
-    sessionData = { baseUrl: "", endpoints: {}, tokens: [], apiKeys: [], lastUrl: "" };
+    sessionData = { baseUrl: "", endpoints: {}, tokens: [], apiKeys: [], lastUrl: "", hardcoded_keys: [] };
     chrome.storage.session.set({ mazapi_session: sessionData });
     sendResponse({ ok: true });
     return true;
