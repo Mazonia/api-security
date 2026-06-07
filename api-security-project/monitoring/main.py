@@ -3338,9 +3338,7 @@ function renderResults(data, prevScan) {
     + '<button type="button" class="btn-save btn-save-brief js-save" data-detail="brief">&#128196; Brief Report</button>'
     + '<button type="button" class="btn-save btn-save-detail js-save" data-detail="detailed">&#128196; Detailed Report</button>'
     + '<button type="button" class="btn-save" style="background:rgba(188,140,255,.1);color:#bc8cff;border-color:rgba(188,140,255,.4)" id="btn-sarif-dl">&#8675; SARIF</button>'
-    + '<button type="button" class="btn-save" style="background:rgba(88,166,255,.1);color:#58a6ff;border-color:rgba(88,166,255,.4)" id="btn-html-dl">&#8675; HTML</button>'
-    + '<button type="button" class="btn-save" style="background:rgba(255,166,87,.1);color:#ffa657;border-color:rgba(255,166,87,.4)" id="btn-postman-dl">&#128197; Postman</button>'
-    + '<button type="button" class="btn-save" style="background:rgba(255,166,87,.1);color:#ffa657;border-color:rgba(255,166,87,.4)" id="btn-openapi-dl">&#128196; OpenAPI</button>'
+    + '<button type="button" class="btn-save" style="background:rgba(88,166,255,.1);color:#58a6ff;border-color:rgba(88,166,255,.4)" id="btn-html-dl">&#8675; HTML Report</button>'
     + '<button type="button" class="btn-save" style="background:rgba(63,185,80,.1);color:#3fb950;border-color:rgba(63,185,80,.4)" id="btn-webhook">&#128276; Send Alert</button>'
     + '<span id="save-msg" style="font-size:.82em;margin-left:4px"></span></div>';
 
@@ -3365,10 +3363,6 @@ function renderResults(data, prevScan) {
   if (sarifBtn) sarifBtn.addEventListener("click", function(){ exportSARIF(data); });
   var htmlBtn = document.getElementById("btn-html-dl");
   if (htmlBtn) htmlBtn.addEventListener("click", function(){ exportHTMLReport(data); });
-  var pmBtn = document.getElementById("btn-postman-dl");
-  if (pmBtn) pmBtn.addEventListener("click", exportPostman);
-  var oaBtn = document.getElementById("btn-openapi-dl");
-  if (oaBtn) oaBtn.addEventListener("click", exportOpenAPI);
   var whBtn = document.getElementById("btn-webhook");
   if (whBtn) whBtn.addEventListener("click", sendWebhook);
   var clrHistBtn = document.getElementById("btn-clear-hist");

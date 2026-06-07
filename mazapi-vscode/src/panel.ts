@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 export class MazAPIPanel {
@@ -35,9 +36,27 @@ export class MazAPIPanel {
                 case 'runScan':      await this._runScan(msg.target, msg.token); break;
                 case 'exportSARIF': this._exportSARIF(msg.data); break;
                 case 'exportHTML':  this._exportHTML(msg.html); break;
-                case 'sendWebhook': await this._sendWebhook(msg.url, msg.data); break;
+                case 'sendWebhook': {
+                    // URL comes from VS Code settings, not from webview (prompt() is blocked in webviews)
+                    const url = vscode.workspace.getConfiguration('mazapi').get<string>('webhookUrl') || '';
+                    await this._sendWebhook(url, msg.data);
+                    break;
+                }
+                case 'triggerExport':
+                    // Triggered by mazapi.exportSARIF / mazapi.exportHTML commands from command palette
+                    if (this._lastData) {
+                        if (msg.format === 'sarif') this._exportSARIF(this._lastData);
+                        if (msg.format === 'html')  this._panel.webview.postMessage({ type: 'requestHtml' });
+                    } else {
+                        vscode.window.showWarningMessage('MazAPI: Run a scan first.');
+                    }
+                    break;
             }
         });
+    }
+
+    public postToWebview(msg: unknown) {
+        this._panel.webview.postMessage(msg);
     }
 
     private async _runScan(target: string, token: string) {
@@ -85,7 +104,7 @@ export class MazAPIPanel {
 
     private _exportHTML(html: string) {
         const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        const filePath = path.join(wsFolder || require('os').tmpdir(), `mazapi-report-${Date.now()}.html`);
+        const filePath = path.join(wsFolder || os.tmpdir(), `mazapi-report-${Date.now()}.html`);
         fs.writeFileSync(filePath, html, 'utf8');
         vscode.env.openExternal(vscode.Uri.file(filePath));
         vscode.window.showInformationMessage(`MazAPI HTML report saved: ${filePath}`);
@@ -107,7 +126,7 @@ export class MazAPIPanel {
 
     private _downloadJSON(obj: unknown, filename: string) {
         const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        const filePath = path.join(wsFolder || require('os').tmpdir(), filename);
+        const filePath = path.join(wsFolder || os.tmpdir(), filename);
         fs.writeFileSync(filePath, JSON.stringify(obj, null, 2), 'utf8');
         vscode.env.openExternal(vscode.Uri.file(filePath));
         vscode.window.showInformationMessage(`MazAPI: ${filename} saved to workspace.`);
@@ -181,12 +200,16 @@ document.getElementById('btn-html').addEventListener('click', () => {
 });
 
 document.getElementById('btn-webhook').addEventListener('click', () => {
-  const url = prompt('Webhook URL (Slack/Teams):');
-  if (url && _data) vscode.postMessage({ type: 'sendWebhook', url, data: _data });
+  // prompt() is blocked in VS Code webviews — URL comes from mazapi.webhookUrl setting
+  if (_data) vscode.postMessage({ type: 'sendWebhook', data: _data });
 });
 
 window.addEventListener('message', e => {
   const msg = e.data;
+  if (msg.type === 'requestHtml') {
+    if (_data) vscode.postMessage({ type: 'exportHTML', html: buildHTMLReport(_data) });
+    return;
+  }
   const status  = document.getElementById('status');
   const results = document.getElementById('results');
   if (msg.type === 'scanStarted') {

@@ -96,7 +96,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('mazapi.exportSARIF', () => {
             if (MazAPIPanel.currentPanel) {
-                MazAPIPanel.currentPanel['_panel'].webview.postMessage({ type: 'triggerExport', format: 'sarif' });
+                MazAPIPanel.currentPanel.postToWebview({ type: 'triggerExport', format: 'sarif' });
             } else {
                 vscode.window.showWarningMessage('MazAPI: No scan results — run a scan first.');
             }
@@ -107,7 +107,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('mazapi.exportHTML', () => {
             if (MazAPIPanel.currentPanel) {
-                MazAPIPanel.currentPanel['_panel'].webview.postMessage({ type: 'triggerExport', format: 'html' });
+                MazAPIPanel.currentPanel.postToWebview({ type: 'triggerExport', format: 'html' });
             } else {
                 vscode.window.showWarningMessage('MazAPI: No scan results — run a scan first.');
             }
