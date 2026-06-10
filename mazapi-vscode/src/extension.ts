@@ -8,6 +8,21 @@ let endpointsProvider: EndpointsProvider;
 let diagnosticCollection: vscode.DiagnosticCollection;
 let statusBar: vscode.StatusBarItem;
 
+// Debounce map: uri string → timeout handle
+const changeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+// Languages scanned by auto-scan
+const SCAN_LANGS = new Set([
+    'javascript','javascriptreact','typescript','typescriptreact',
+    'python','json','yaml','plaintext','env','dotenv',
+    'php','ruby','go','java','kotlin','swift','rust','csharp',
+    'shellscript','toml','ini','properties',
+]);
+
+function isScannable(doc: vscode.TextDocument): boolean {
+    return SCAN_LANGS.has(doc.languageId) || /\.(env|cfg|ini|toml|properties)$/i.test(doc.fileName);
+}
+
 // ── CodeLens provider — "▶ Scan with MazAPI" above any API URL line ──────────
 
 class MazAPICodeLensProvider implements vscode.CodeLensProvider {
@@ -131,15 +146,49 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // ── Auto-scan on save (if enabled) ────────────────────────────────────────
+    // ── Auto-scan: on open ────────────────────────────────────────────────────
     context.subscriptions.push(
-        vscode.workspace.onDidSaveTextDocument(async (doc) => {
-            const cfg = vscode.workspace.getConfiguration('mazapi');
-            if (cfg.get<boolean>('autoScanOnSave')) {
-                await runFileScan(doc);
-            }
+        vscode.workspace.onDidOpenTextDocument(async (doc) => {
+            if (!isAutoScanEnabled() || !isScannable(doc)) return;
+            await runFileScan(doc);
         })
     );
+
+    // ── Auto-scan: debounced on change (600 ms) ───────────────────────────────
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument((event) => {
+            if (!isAutoScanEnabled() || !isScannable(event.document)) return;
+            if (!event.contentChanges.length) return;
+            const key = event.document.uri.toString();
+            const existing = changeTimers.get(key);
+            if (existing) clearTimeout(existing);
+            changeTimers.set(key, setTimeout(async () => {
+                changeTimers.delete(key);
+                await runFileScan(event.document);
+            }, 600));
+        })
+    );
+
+    // ── Auto-scan: on save ────────────────────────────────────────────────────
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(async (doc) => {
+            // Save always triggers a scan when auto-scan is on (cancels any pending debounce)
+            if (!isAutoScanEnabled() || !isScannable(doc)) return;
+            const key = doc.uri.toString();
+            const t = changeTimers.get(key);
+            if (t) { clearTimeout(t); changeTimers.delete(key); }
+            await runFileScan(doc);
+        })
+    );
+
+    // ── Auto-scan: scan active editor immediately on activation ───────────────
+    if (isAutoScanEnabled()) {
+        const active = vscode.window.activeTextEditor?.document;
+        if (active && isScannable(active)) {
+            // Small delay so the extension finishes registering before the first scan
+            setTimeout(() => runFileScan(active), 400);
+        }
+    }
 
     // ── Command: Export SARIF from last panel scan ────────────────────────────
     context.subscriptions.push(
@@ -183,6 +232,12 @@ export function activate(context: vscode.ExtensionContext) {
     updateStatusBar(0);
     statusBar.show();
     context.subscriptions.push(statusBar);
+}
+
+function isAutoScanEnabled(): boolean {
+    const cfg = vscode.workspace.getConfiguration('mazapi');
+    // autoScan is the new setting; fall back to legacy autoScanOnSave
+    return cfg.get<boolean>('autoScan') ?? cfg.get<boolean>('autoScanOnSave') ?? true;
 }
 
 function updateStatusBar(issueCount: number) {
@@ -234,5 +289,7 @@ function applyDiagnostics(uri: vscode.Uri, findings: ScanFinding[]) {
 }
 
 export function deactivate() {
+    for (const t of changeTimers.values()) clearTimeout(t);
+    changeTimers.clear();
     diagnosticCollection.dispose();
 }

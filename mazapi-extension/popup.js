@@ -423,13 +423,14 @@ function renderHistory() {
       list.innerHTML = '<div class="empty">No scan history yet — run a scan first.</div>';
       return;
     }
-    list.innerHTML = history.map(h => {
+    list.innerHTML = history.map((h, idx) => {
       const sc    = h.score;
       const color = sc >= 90 ? "#3fb950" : sc >= 70 ? "#e3b341" : "#f85149";
       const date  = new Date(h.date).toLocaleString();
       const newC  = h.results?.filter(r => r.regression === "NEW")?.length ?? 0;
       const fixC  = h.results?.filter(r => r.regression === "FIXED")?.length ?? 0;
-      return `<div class="history-item" data-target="${encodeURIComponent(h.target)}" data-date="${encodeURIComponent(h.date)}">
+      const hasFullResults = h.results?.length && h.results[0].severity;
+      return `<div class="history-item" data-idx="${idx}" style="cursor:pointer">
         <div class="history-hdr">
           <span class="history-target">${h.target}</span>
           <span style="font-size:1.1em;font-weight:700;color:${color}">${sc}%</span>
@@ -438,9 +439,43 @@ function renderHistory() {
           ${newC  ? `&nbsp;<span style="color:#f85149">+${newC} new</span>` : ""}
           ${fixC  ? `&nbsp;<span style="color:#3fb950">-${fixC} fixed</span>` : ""}
         </div>
+        <div style="margin-top:5px">
+          ${hasFullResults
+            ? `<button class="export-btn history-view-btn" data-idx="${idx}" style="font-size:.75em;padding:3px 8px">&#128269; View Results</button>`
+            : `<span style="font-size:.73em;color:#8b949e;font-style:italic">Rescan to get detailed results</span>`
+          }
+        </div>
       </div>`;
     }).join("");
+
+    // Wire up "View Results" buttons
+    document.querySelectorAll(".history-view-btn").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        const h = history[parseInt(btn.dataset.idx)];
+        loadHistoryResults(h);
+      });
+    });
+
+    // Also make the whole card clickable if it has results
+    document.querySelectorAll(".history-item").forEach(card => {
+      card.addEventListener("click", () => {
+        const h = history[parseInt(card.dataset.idx)];
+        if (h.results?.length && h.results[0].severity) loadHistoryResults(h);
+      });
+    });
   });
+}
+
+function loadHistoryResults(h) {
+  // Populate the scan form fields so the user can rescan if they want
+  document.getElementById("scan-target").value = h.target;
+  // Load results into Results tab and switch to it
+  _lastTarget  = h.target;
+  _lastResults = h.results;
+  _lastScore   = h.score;
+  renderResults(h.results, h.score, h.target);
+  document.querySelector(".tab[data-tab='results']").click();
 }
 
 document.getElementById("btn-clear-history").addEventListener("click", () => {

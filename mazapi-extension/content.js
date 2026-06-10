@@ -106,8 +106,8 @@
     // African payment services
     { name: 'Paystack Secret Key',          service: 'Paystack',
       re: /(?:paystack[_-]?(?:secret|sk|api[_-]?key|secret[_-]?key))\s*[:=]\s*["']((?:sk)_(?:live|test)_[A-Za-z0-9]{20,})["']/gi },
-    { name: 'Paystack Public Key',          service: 'Paystack',
-      re: /pk_(?:live|test)_[A-Za-z0-9]{20,}/g },
+    { name: 'Stripe / Paystack Publishable Key', service: 'Stripe or Paystack',
+      re: /pk_(?:live|test)_[A-Za-z0-9]{20,}/g, useDiscovery: true },
     { name: 'Hubtel API Credentials',       service: 'Hubtel',
       re: /(?:hubtel[_-]?(?:client[_-]?(?:id|secret)|api[_-]?key|secret))\s*[:=]\s*["']([A-Za-z0-9._-]{10,80})["']/gi },
     { name: 'Flutterwave Live Secret Key',  service: 'Flutterwave',
@@ -199,25 +199,25 @@
     { name: 'SendGrid API Key',             service: 'SendGrid / Twilio Email',
       re: /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g },
     { name: 'Twilio API Key SID',           service: 'Twilio',
-      re: /SK[0-9a-fA-F]{32}/g },
+      re: /["'`](SK[0-9a-fA-F]{32})["'`]/g },
     { name: 'Mailchimp API Key',            service: 'Mailchimp',
-      re: /[0-9a-f]{32}-us\d{1,2}/g },
+      re: /["'`]([0-9a-f]{32}-us\d{1,2})["'`]/g },
     { name: 'Mailgun API Key',              service: 'Mailgun',
-      re: /key-[0-9a-zA-Z]{32}/g },
+      re: /["'`](key-[0-9a-zA-Z]{32})["'`]/g },
     { name: 'Brevo (Sendinblue) API Key',   service: 'Brevo (Sendinblue)',
       re: /xkeysib-[A-Za-z0-9_\-]{64}/g },
     { name: 'Resend API Key',               service: 'Resend',
-      re: /re_[A-Za-z0-9]{24}/g },
+      re: /["'`](re_[A-Za-z0-9]{24})["'`]/g },
 
     // Social / messaging
     { name: 'Telegram Bot Token',           service: 'Telegram',
-      re: /\d{9,10}:[A-Za-z0-9_\-]{35}/g },
+      re: /["'`](\d{9,10}:[A-Za-z0-9_\-]{35})["'`]/g },
     { name: 'Discord Bot Token',            service: 'Discord',
       re: /[MN][A-Za-z0-9]{23}\.[A-Za-z0-9_\-]{6}\.[A-Za-z0-9_\-]{27}/g },
     { name: 'Twitter / X Bearer Token',     service: 'Twitter / X',
       re: /AAAA[A-Za-z0-9%_\-]{80,}/g },
     { name: 'Facebook / Meta Access Token', service: 'Meta / Facebook',
-      re: /EAA[A-Za-z0-9]{20,}/g },
+      re: /EAA[A-Za-z0-9]{50,}/g },
 
     // Monitoring
     { name: 'New Relic Key',                service: 'New Relic',
@@ -255,7 +255,7 @@
     { name: 'Hardcoded Bearer Token',       service: 'HTTP Authorization',
       re: /["']Bearer\s+[A-Za-z0-9._\-]{20,}["']/g },
     { name: 'Generic API Key / Token',      service: 'Unknown service',
-      re: /(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|secret[_-]?key)\s*[:=]\s*["']([A-Za-z0-9._\-]{20,80})["']/gi,
+      re: /(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']([A-Za-z0-9._\-]{20,80})["']/gi,
       useDiscovery: true },
   ];
 

@@ -197,12 +197,13 @@ const KEY_PATTERNS: {
         fix: 'Revoke at dashboard.paystack.com > Settings > API Keys, use PAYSTACK_SECRET_KEY env var',
     },
     {
-        name: 'Paystack Public Key',
-        service: 'Paystack',
+        name: 'Stripe / Paystack Publishable Key',
+        service: 'Stripe or Paystack',
         pattern: /pk_(?:live|test)_[A-Za-z0-9]{20,}/g,
         severity: 'HIGH',
         category: 'CWE-798 - Hardcoded Credentials',
-        fix: 'Public keys are lower risk but should still be restricted via allowed domains in Paystack dashboard',
+        fix: 'Publishable keys are lower risk but should be restricted: Stripe — allowed domains in Dashboard; Paystack — allowed domains in Settings',
+        useDiscovery: true,
     },
     {
         name: 'Hubtel API Credentials',
@@ -368,7 +369,8 @@ const KEY_PATTERNS: {
     {
         name: 'Twilio API Key SID',
         service: 'Twilio',
-        pattern: /SK[0-9a-fA-F]{32}/g,
+        // Require string-literal context — bare SK+hex32 can appear in UUIDs and test data
+        pattern: /["'`](SK[0-9a-fA-F]{32})["'`]/g,
         severity: 'CRITICAL',
         category: 'CWE-798 - Hardcoded Credentials',
         fix: 'Revoke in Twilio console at console.twilio.com/user/api-keys',
@@ -499,7 +501,8 @@ const KEY_PATTERNS: {
     {
         name: 'Mailchimp API Key',
         service: 'Mailchimp',
-        pattern: /[0-9a-f]{32}-us\d{1,2}/g,
+        // Require string context — 32-char hex can appear in MD5 hashes and other contexts
+        pattern: /["'`]([0-9a-f]{32}-us\d{1,2})["'`]/g,
         severity: 'CRITICAL',
         category: 'CWE-798 - Hardcoded Credentials',
         fix: 'Revoke at mailchimp.com/account/api-key-popup and use MAILCHIMP_API_KEY env var',
@@ -507,7 +510,8 @@ const KEY_PATTERNS: {
     {
         name: 'Mailgun API Key',
         service: 'Mailgun',
-        pattern: /key-[0-9a-zA-Z]{32}/g,
+        // Require string context — "key-" prefix is too common without quotes
+        pattern: /["'`](key-[0-9a-zA-Z]{32})["'`]/g,
         severity: 'CRITICAL',
         category: 'CWE-798 - Hardcoded Credentials',
         fix: 'Revoke at app.mailgun.com/settings/api_security and use MAILGUN_API_KEY env var',
@@ -523,7 +527,8 @@ const KEY_PATTERNS: {
     {
         name: 'Resend API Key',
         service: 'Resend',
-        pattern: /re_[A-Za-z0-9]{24}/g,
+        // "re_" is a common variable prefix; require string-literal context
+        pattern: /["'`](re_[A-Za-z0-9]{24})["'`]/g,
         severity: 'CRITICAL',
         category: 'CWE-798 - Hardcoded Credentials',
         fix: 'Revoke at resend.com/api-keys and use RESEND_API_KEY env var',
@@ -606,7 +611,8 @@ const KEY_PATTERNS: {
     {
         name: 'Telegram Bot Token',
         service: 'Telegram',
-        pattern: /\d{9,10}:[A-Za-z0-9_\-]{35}/g,
+        // Require string context — bare digit-colon-alphanum can appear in log lines / IDs
+        pattern: /["'`](\d{9,10}:[A-Za-z0-9_\-]{35})["'`]/g,
         severity: 'CRITICAL',
         category: 'CWE-798 - Hardcoded Credentials',
         fix: 'Revoke via @BotFather on Telegram and use TELEGRAM_BOT_TOKEN env var',
@@ -630,7 +636,8 @@ const KEY_PATTERNS: {
     {
         name: 'Facebook / Meta Access Token',
         service: 'Meta / Facebook',
-        pattern: /EAA[A-Za-z0-9]{20,}/g,
+        // Real Facebook tokens are 100+ chars; 50+ minimum avoids matching short EAA-prefixed strings
+        pattern: /EAA[A-Za-z0-9]{50,}/g,
         severity: 'CRITICAL',
         category: 'CWE-798 - Hardcoded Credentials',
         fix: 'Revoke at developers.facebook.com > Tools > Access Token Debugger',
@@ -793,7 +800,8 @@ const KEY_PATTERNS: {
     {
         name: 'Generic API Key / Token',
         service: 'Unknown service',
-        pattern: /(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token|secret[_-]?key)\s*[:=]\s*["']([A-Za-z0-9._\-]{20,80})["']/gi,
+        // secret_key covered by JWT pattern; avoid duplicate findings
+        pattern: /(?:api[_-]?key|apikey|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']([A-Za-z0-9._\-]{20,80})["']/gi,
         severity: 'HIGH',
         category: 'CWE-798 - Hardcoded Credentials',
         fix: 'Extract to environment variable or secrets manager',
@@ -937,9 +945,10 @@ export function scanFileForIssues(
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(text)) !== null) {
             const line = lines[rangeOf(m, text).start.line] || '';
-            // Skip matches inside HTML template strings (educational code examples in report generators)
+            // Skip HTML template strings and pure comment lines
             if (isHtmlTemplateLine(line)) continue;
-            const rawVal = m[1] || m[0];
+            if (/^\s*(?:#|\/\/|\/\*)/.test(line)) continue;
+            const rawVal = (m[1] || m[0]).replace(/^["'`]|["'`]$/g, '');
             // For generic patterns, try to identify service from surrounding context
             let resolvedService = service;
             if (useDiscovery) {

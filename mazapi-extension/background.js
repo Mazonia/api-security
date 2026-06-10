@@ -130,12 +130,27 @@ const getFalsePositives = () => new Promise(r => chrome.storage.local.get(FP_KEY
 
 async function saveToHistory(target, score, total, vulnerable, results) {
   const history = await getHistory();
+  // Store full result details so the user can view them later without rescanning.
+  // We keep the fields needed to render result cards; drop raw response bodies to
+  // stay within chrome.storage.local limits (~5 MB total).
   const entry = {
     target, score, total, vulnerable,
     date: new Date().toISOString(),
-    results: results.map(({ test, category, vulnerable: v }) => ({ test, category, vulnerable: v })),
+    results: results.map(r => ({
+      test:        r.test,
+      category:    r.category,
+      vulnerable:  r.vulnerable,
+      severity:    r.severity,
+      actual:      r.actual,
+      regression:  r.regression,
+      compliance:  r.compliance,
+      evidence:    r.evidence ? {
+        request:  { method: r.evidence.request.method, url: r.evidence.request.url, body: r.evidence.request.body },
+        response: { status: r.evidence.response.status, snippet: r.evidence.response.snippet },
+      } : null,
+    })),
   };
-  const updated = [entry, ...history.filter(h => h.target !== target)].slice(0, 10);
+  const updated = [entry, ...history.filter(h => h.target !== target)].slice(0, 20);
   return new Promise(r => chrome.storage.local.set({ [HISTORY_KEY]: updated }, r));
 }
 

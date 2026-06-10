@@ -8,7 +8,7 @@
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other", "Linters"],
   "keywords": ["api", "security", "owasp", "scanner", "vulnerability"],
-  "activationEvents": ["onLanguage:javascript", "onLanguage:typescript", "onLanguage:python"],
+  "activationEvents": ["onStartupFinished"],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -59,10 +59,15 @@
           "default": "http://localhost:9000",
           "description": "URL of your MazAPI backend (optional — used for full OWASP scans)"
         },
+        "mazapi.autoScan": {
+          "type": "boolean",
+          "default": true,
+          "description": "Continuously scan files for security issues as you open and edit them (results appear in the Findings panel and Problems tab)"
+        },
         "mazapi.autoScanOnSave": {
           "type": "boolean",
-          "default": false,
-          "description": "Automatically scan for hardcoded API keys when a file is saved"
+          "default": true,
+          "description": "Scan for security issues when a file is saved (legacy — use autoScan instead)"
         },
         "mazapi.webhookUrl": {
           "type": "string",

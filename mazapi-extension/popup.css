@@ -161,8 +161,9 @@ footer {
 /* ── History tab ── */
 .history-item {
   background: #161b22; border: 1px solid #21262d; border-radius: 6px;
-  padding: 8px 12px; margin-bottom: 7px; cursor: default;
+  padding: 8px 12px; margin-bottom: 7px; cursor: pointer; transition: border-color .15s;
 }
+.history-item:hover { border-color: #58a6ff; }
 .history-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
 .history-target { font-family: monospace; font-size: .8em; color: #58a6ff; word-break: break-all; flex: 1; margin-right: 8px; }
 .history-meta { font-size: .74em; color: #8b949e; }
