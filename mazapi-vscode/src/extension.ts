@@ -108,12 +108,11 @@ export function activate(context: vscode.ExtensionContext) {
                         allFindings.push(...findings);
                         applyDiagnostics(doc.uri, findings);
                     }
-                    findingsProvider.refresh(allFindings);
+                    findingsProvider.refresh(allFindings.filter(f => f.kind !== 'endpoint'));
                     endpointsProvider.refresh(allFindings.filter(f => f.kind === 'endpoint'));
-                    const issues = allFindings.filter(f => f.kind !== 'endpoint');
-                    updateStatusBar(issues.length);
+                    updateStatusBar(findingsProvider.getTotalIssueCount());
                     vscode.window.showInformationMessage(
-                        `MazAPI: ${issues.length} issue(s) · ${allFindings.filter(f => f.kind === 'endpoint').length} endpoint(s) across ${files.length} files.`
+                        `MazAPI: ${findingsProvider.getTotalIssueCount()} issue(s) · ${allFindings.filter(f => f.kind === 'endpoint').length} endpoint(s) across ${files.length} files.`
                     );
                 }
             );
@@ -150,7 +149,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(async (doc) => {
             if (!isAutoScanEnabled() || !isScannable(doc)) return;
-            await runFileScan(doc);
+            await runFileScan(doc, true);
         })
     );
 
@@ -164,7 +163,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (existing) clearTimeout(existing);
             changeTimers.set(key, setTimeout(async () => {
                 changeTimers.delete(key);
-                await runFileScan(event.document);
+                await runFileScan(event.document, true);
             }, 600));
         })
     );
@@ -172,12 +171,21 @@ export function activate(context: vscode.ExtensionContext) {
     // ── Auto-scan: on save ────────────────────────────────────────────────────
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(async (doc) => {
-            // Save always triggers a scan when auto-scan is on (cancels any pending debounce)
             if (!isAutoScanEnabled() || !isScannable(doc)) return;
             const key = doc.uri.toString();
             const t = changeTimers.get(key);
             if (t) { clearTimeout(t); changeTimers.delete(key); }
-            await runFileScan(doc);
+            await runFileScan(doc, true);
+        })
+    );
+
+    // ── Auto-scan: clean up findings when a file is closed ───────────────────
+    context.subscriptions.push(
+        vscode.workspace.onDidCloseTextDocument((doc) => {
+            diagnosticCollection.delete(doc.uri);
+            findingsProvider.updateFile(doc.uri, []);
+            endpointsProvider.updateFile(doc.uri, []);
+            updateStatusBar(findingsProvider.getTotalIssueCount());
         })
     );
 
@@ -185,8 +193,7 @@ export function activate(context: vscode.ExtensionContext) {
     if (isAutoScanEnabled()) {
         const active = vscode.window.activeTextEditor?.document;
         if (active && isScannable(active)) {
-            // Small delay so the extension finishes registering before the first scan
-            setTimeout(() => runFileScan(active), 400);
+            setTimeout(() => runFileScan(active, true), 400);
         }
     }
 
@@ -248,26 +255,33 @@ function updateStatusBar(issueCount: number) {
         statusBar.command = 'mazapi.scanFile';
     } else {
         statusBar.text    = `$(shield) MazAPI $(warning) ${issueCount}`;
-        statusBar.tooltip = `MazAPI found ${issueCount} security issue(s) — click to scan current file`;
+        statusBar.tooltip = `MazAPI: ${issueCount} security issue(s) across open files — click to scan current file`;
         statusBar.color   = new vscode.ThemeColor('statusBarItem.warningForeground');
         statusBar.command = 'mazapi.scanFile';
     }
 }
 
-async function runFileScan(doc: vscode.TextDocument) {
+async function runFileScan(doc: vscode.TextDocument, silent = false) {
     const findings = scanFileForIssues(doc.getText(), doc.languageId, doc.uri);
     applyDiagnostics(doc.uri, findings);
-    findingsProvider.refresh(findings);
-    endpointsProvider.refresh(findings.filter(f => f.kind === 'endpoint'));
-    const issues = findings.filter(f => f.kind !== 'endpoint');
-    updateStatusBar(issues.length);
-    if (findings.length === 0) {
-        vscode.window.showInformationMessage('MazAPI: No issues found in this file.');
-    } else {
-        vscode.window.showWarningMessage(
-            `MazAPI: ${issues.length} issue(s) · ${findings.filter(f => f.kind === 'endpoint').length} endpoint(s) detected.`,
-            'Open Scanner'
-        ).then(btn => { if (btn === 'Open Scanner') vscode.commands.executeCommand('mazapi.openPanel'); });
+
+    // Per-file update: findings from other open files are preserved
+    findingsProvider.updateFile(doc.uri, findings.filter(f => f.kind !== 'endpoint'));
+    endpointsProvider.updateFile(doc.uri, findings.filter(f => f.kind === 'endpoint'));
+
+    // Status bar always reflects the workspace total, not just this file
+    updateStatusBar(findingsProvider.getTotalIssueCount());
+
+    if (!silent) {
+        const issues = findings.filter(f => f.kind !== 'endpoint');
+        if (findings.length === 0) {
+            vscode.window.showInformationMessage('MazAPI: No issues found in this file.');
+        } else {
+            vscode.window.showWarningMessage(
+                `MazAPI: ${issues.length} issue(s) · ${findings.filter(f => f.kind === 'endpoint').length} endpoint(s) detected.`,
+                'Open Scanner'
+            ).then(btn => { if (btn === 'Open Scanner') vscode.commands.executeCommand('mazapi.openPanel'); });
+        }
     }
 }
 

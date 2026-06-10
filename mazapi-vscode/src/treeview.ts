@@ -95,6 +95,17 @@ export class FindingsProvider implements vscode.TreeDataProvider<FileGroupItem |
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
     private groups: Map<string, { uri: vscode.Uri; findings: ScanFinding[] }> = new Map();
 
+    /** Replace findings for one file only — preserves other files' results. */
+    updateFile(uri: vscode.Uri, findings: ScanFinding[]) {
+        if (findings.length === 0) {
+            this.groups.delete(uri.fsPath);
+        } else {
+            this.groups.set(uri.fsPath, { uri, findings });
+        }
+        this._onDidChangeTreeData.fire(undefined);
+    }
+
+    /** Full replacement — used by the workspace scan command. */
     refresh(findings: ScanFinding[]) {
         this.groups = new Map();
         for (const f of findings) {
@@ -108,11 +119,19 @@ export class FindingsProvider implements vscode.TreeDataProvider<FileGroupItem |
         this._onDidChangeTreeData.fire(undefined);
     }
 
+    /** Total issue count across all files (excludes endpoints). */
+    getTotalIssueCount(): number {
+        let n = 0;
+        for (const { findings } of this.groups.values()) {
+            n += findings.filter(f => f.kind !== 'endpoint').length;
+        }
+        return n;
+    }
+
     getTreeItem(el: FileGroupItem | FindingItem) { return el; }
 
     getChildren(el?: FileGroupItem | FindingItem): (FileGroupItem | FindingItem)[] {
         if (!el) {
-            // Root level — one entry per file that has findings
             return Array.from(this.groups.values()).map(g => new FileGroupItem(g.uri, g.findings));
         }
         if (el instanceof FileGroupItem) {
@@ -127,11 +146,29 @@ export class FindingsProvider implements vscode.TreeDataProvider<FileGroupItem |
 export class EndpointsProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     private _onDidChangeTreeData = new vscode.EventEmitter<undefined>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-    private endpoints: ScanFinding[] = [];
+    private byFile: Map<string, ScanFinding[]> = new Map();
 
-    refresh(endpoints: ScanFinding[]) {
-        this.endpoints = endpoints;
+    /** Replace endpoints for one file only. */
+    updateFile(uri: vscode.Uri, endpoints: ScanFinding[]) {
+        if (endpoints.length === 0) this.byFile.delete(uri.fsPath);
+        else this.byFile.set(uri.fsPath, endpoints);
         this._onDidChangeTreeData.fire(undefined);
+    }
+
+    /** Full replacement — used by workspace scan. */
+    refresh(endpoints: ScanFinding[]) {
+        this.byFile = new Map();
+        for (const e of endpoints) {
+            if (!e.uri) continue;
+            const arr = this.byFile.get(e.uri.fsPath) ?? [];
+            arr.push(e);
+            this.byFile.set(e.uri.fsPath, arr);
+        }
+        this._onDidChangeTreeData.fire(undefined);
+    }
+
+    private get endpoints(): ScanFinding[] {
+        return Array.from(this.byFile.values()).flat();
     }
     getTreeItem(el: vscode.TreeItem) { return el; }
     getChildren(): vscode.TreeItem[] {
