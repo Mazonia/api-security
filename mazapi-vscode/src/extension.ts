@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { scanFileForIssues, ScanFinding } from './scanner';
 import { MazAPIPanel } from './panel';
-import { EndpointsProvider, FindingsProvider } from './treeview';
+import { EndpointsProvider, FindingsProvider, FindingsFilter, DEFAULT_FILTER, isDefaultFilter } from './treeview';
 
 let findingsProvider: FindingsProvider;
 let endpointsProvider: EndpointsProvider;
@@ -234,11 +234,77 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // ── Command: Configure findings filter ───────────────────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mazapi.filter.configure', async () => {
+            const cur = findingsProvider.getFilter();
+
+            // ── Step 1: choose which finding kinds to show ────────────────────
+            const kindItems: (vscode.QuickPickItem & { key: keyof FindingsFilter })[] = [
+                { label: '$(key) API Keys & Hardcoded Secrets',   key: 'showKeys',      picked: cur.showKeys },
+                { label: '$(shield) Weak Auth & Crypto Issues',   key: 'showWeakAuth',  picked: cur.showWeakAuth },
+                { label: '$(person) PII Patterns',                key: 'showPII',       picked: cur.showPII },
+                { label: '$(globe) Hardcoded External URLs',      key: 'showUrls',      picked: cur.showUrls },
+                { label: '$(link) Detected API Endpoints',        key: 'showEndpoints', picked: cur.showEndpoints,
+                  description: 'informational — these are not vulnerabilities' },
+            ];
+
+            const picked = await vscode.window.showQuickPick(kindItems, {
+                title:       'MazAPI Findings Filter — which types to show?',
+                placeHolder: 'Select finding types to show (uncheck to hide)',
+                canPickMany: true,
+            });
+            if (!picked) return; // cancelled
+
+            // ── Step 2: choose minimum severity ──────────────────────────────
+            const sevItems: (vscode.QuickPickItem & { value: FindingsFilter['minSeverity'] })[] = [
+                { label: 'All findings (LOW and above)',  value: 'LOW',      description: cur.minSeverity === 'LOW'      ? '← active' : '' },
+                { label: 'MEDIUM and above',              value: 'MEDIUM',   description: cur.minSeverity === 'MEDIUM'   ? '← active' : '' },
+                { label: 'HIGH and above',                value: 'HIGH',     description: cur.minSeverity === 'HIGH'     ? '← active' : '' },
+                { label: 'CRITICAL only',                 value: 'CRITICAL', description: cur.minSeverity === 'CRITICAL' ? '← active' : '' },
+            ];
+
+            const sevPick = await vscode.window.showQuickPick(sevItems, {
+                title:       'MazAPI Findings Filter — minimum severity to show?',
+                placeHolder: 'Only findings at or above this severity will appear',
+            });
+            if (!sevPick) return; // cancelled
+
+            // Build new filter from selections
+            const selectedKeys = new Set(picked.map(p => p.key));
+            const next: FindingsFilter = {
+                showKeys:      selectedKeys.has('showKeys'),
+                showWeakAuth:  selectedKeys.has('showWeakAuth'),
+                showPII:       selectedKeys.has('showPII'),
+                showUrls:      selectedKeys.has('showUrls'),
+                showEndpoints: selectedKeys.has('showEndpoints'),
+                minSeverity:   sevPick.value,
+            };
+
+            applyFilter(next);
+        })
+    );
+
+    // ── Command: Reset findings filter ────────────────────────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mazapi.filter.reset', () => {
+            applyFilter({ ...DEFAULT_FILTER });
+            vscode.window.showInformationMessage('MazAPI: Filter reset — showing all findings.');
+        })
+    );
+
     // ── Status bar — shows live finding count, click to scan current file ─────
     statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     updateStatusBar(0);
     statusBar.show();
     context.subscriptions.push(statusBar);
+}
+
+function applyFilter(f: FindingsFilter) {
+    findingsProvider.setFilter(f);
+    const active = !isDefaultFilter(f);
+    vscode.commands.executeCommand('setContext', 'mazapi.filterActive', active);
+    updateStatusBar(findingsProvider.getTotalIssueCount());
 }
 
 function isAutoScanEnabled(): boolean {

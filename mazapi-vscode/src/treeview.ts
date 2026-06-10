@@ -2,6 +2,29 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ScanFinding } from './scanner';
 
+// ── Filter state ──────────────────────────────────────────────────────────────
+
+export interface FindingsFilter {
+    showKeys:      boolean;  // hardcoded-key
+    showUrls:      boolean;  // hardcoded-url
+    showEndpoints: boolean;  // endpoint (informational)
+    showWeakAuth:  boolean;  // weak-auth
+    showPII:       boolean;  // pii
+    minSeverity:   'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export const DEFAULT_FILTER: FindingsFilter = {
+    showKeys: true, showUrls: true, showEndpoints: true,
+    showWeakAuth: true, showPII: true, minSeverity: 'LOW',
+};
+
+const SEV_RANK: Record<string, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
+export function isDefaultFilter(f: FindingsFilter): boolean {
+    return f.showKeys && f.showUrls && f.showEndpoints &&
+           f.showWeakAuth && f.showPII && f.minSeverity === 'LOW';
+}
+
 // Icon per finding kind
 function findingIcon(f: ScanFinding): vscode.ThemeIcon {
     const isCritical = f.severity === 'CRITICAL' || f.severity === 'HIGH';
@@ -94,14 +117,36 @@ export class FindingsProvider implements vscode.TreeDataProvider<FileGroupItem |
     private _onDidChangeTreeData = new vscode.EventEmitter<undefined>();
     readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
     private groups: Map<string, { uri: vscode.Uri; findings: ScanFinding[] }> = new Map();
+    private filter: FindingsFilter = { ...DEFAULT_FILTER };
+
+    // ── Filter API ────────────────────────────────────────────────────────────
+
+    setFilter(f: FindingsFilter) {
+        this.filter = { ...f };
+        this._onDidChangeTreeData.fire(undefined);
+    }
+
+    getFilter(): FindingsFilter { return { ...this.filter }; }
+
+    private applyFilter(findings: ScanFinding[]): ScanFinding[] {
+        const minRank = SEV_RANK[this.filter.minSeverity] ?? 1;
+        return findings.filter(f => {
+            if (!this.filter.showKeys      && f.kind === 'hardcoded-key')  return false;
+            if (!this.filter.showUrls      && f.kind === 'hardcoded-url')  return false;
+            if (!this.filter.showEndpoints && f.kind === 'endpoint')       return false;
+            if (!this.filter.showWeakAuth  && f.kind === 'weak-auth')      return false;
+            if (!this.filter.showPII       && f.kind === 'pii')            return false;
+            if ((SEV_RANK[f.severity] ?? 1) < minRank)                     return false;
+            return true;
+        });
+    }
+
+    // ── Data API ──────────────────────────────────────────────────────────────
 
     /** Replace findings for one file only — preserves other files' results. */
     updateFile(uri: vscode.Uri, findings: ScanFinding[]) {
-        if (findings.length === 0) {
-            this.groups.delete(uri.fsPath);
-        } else {
-            this.groups.set(uri.fsPath, { uri, findings });
-        }
+        if (findings.length === 0) this.groups.delete(uri.fsPath);
+        else this.groups.set(uri.fsPath, { uri, findings });
         this._onDidChangeTreeData.fire(undefined);
     }
 
@@ -111,28 +156,36 @@ export class FindingsProvider implements vscode.TreeDataProvider<FileGroupItem |
         for (const f of findings) {
             if (!f.uri) continue;
             const key = f.uri.fsPath;
-            if (!this.groups.has(key)) {
-                this.groups.set(key, { uri: f.uri, findings: [] });
-            }
+            if (!this.groups.has(key)) this.groups.set(key, { uri: f.uri, findings: [] });
             this.groups.get(key)!.findings.push(f);
         }
         this._onDidChangeTreeData.fire(undefined);
     }
 
-    /** Total issue count across all files (excludes endpoints). */
+    /** Total visible issue count across all files (respects active filter, excludes endpoints). */
     getTotalIssueCount(): number {
         let n = 0;
         for (const { findings } of this.groups.values()) {
-            n += findings.filter(f => f.kind !== 'endpoint').length;
+            n += this.applyFilter(findings).filter(f => f.kind !== 'endpoint').length;
         }
         return n;
+    }
+
+    /** All raw findings for a URI (unfiltered — used for diagnostics). */
+    getRawFindings(uri: vscode.Uri): ScanFinding[] {
+        return this.groups.get(uri.fsPath)?.findings ?? [];
     }
 
     getTreeItem(el: FileGroupItem | FindingItem) { return el; }
 
     getChildren(el?: FileGroupItem | FindingItem): (FileGroupItem | FindingItem)[] {
         if (!el) {
-            return Array.from(this.groups.values()).map(g => new FileGroupItem(g.uri, g.findings));
+            const items: FileGroupItem[] = [];
+            for (const g of this.groups.values()) {
+                const filtered = this.applyFilter(g.findings);
+                if (filtered.length) items.push(new FileGroupItem(g.uri, filtered));
+            }
+            return items;
         }
         if (el instanceof FileGroupItem) {
             return el.findings.map(f => new FindingItem(f));

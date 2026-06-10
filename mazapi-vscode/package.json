@@ -40,6 +40,21 @@
       {
         "command": "mazapi.configureWebhook",
         "title": "MazAPI: Configure Webhook Alert URL"
+      },
+      {
+        "command": "mazapi.filter.configure",
+        "title": "MazAPI: Configure Findings Filter",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "mazapi.filter.reset",
+        "title": "MazAPI: Reset Filter (show all findings)",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "mazapi.scanWorkspace",
+        "title": "MazAPI: Scan Entire Workspace",
+        "icon": "$(run-all)"
       }
     ],
     "menus": {
@@ -48,6 +63,23 @@
           "command": "mazapi.scanEndpoint",
           "when": "editorTextFocus",
           "group": "MazAPI"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "mazapi.scanWorkspace",
+          "when": "view == mazapi.findings",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mazapi.filter.configure",
+          "when": "view == mazapi.findings",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mazapi.filter.reset",
+          "when": "view == mazapi.findings && mazapi.filterActive",
+          "group": "navigation@3"
         }
       ]
     },
