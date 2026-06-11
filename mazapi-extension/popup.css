@@ -103,6 +103,75 @@ footer {
   font-size: .72em; color: #8b949e; text-align: center;
 }
 
+/* ── Tooltip system ── */
+[data-tooltip] { position: relative; }
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  transform: translateX(-50%);
+  background: #1c2128;
+  border: 1px solid #30363d;
+  border-radius: 5px;
+  color: #c9d1d9;
+  font-size: .72em;
+  font-weight: 400;
+  line-height: 1.4;
+  padding: 5px 9px;
+  max-width: 210px;
+  white-space: normal;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease;
+  z-index: 999;
+  box-shadow: 0 4px 12px rgba(0,0,0,.4);
+}
+
+/* Small arrow pointing down toward the button */
+[data-tooltip]::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 1px);
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #30363d;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease;
+  z-index: 999;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before { opacity: 1; }
+
+/* Tooltips that should open downward (tabs at top) */
+[data-tooltip][data-tip-dir="down"]::after {
+  bottom: auto;
+  top: calc(100% + 7px);
+}
+[data-tooltip][data-tip-dir="down"]::before {
+  bottom: auto;
+  top: calc(100% + 1px);
+  border-top-color: transparent;
+  border-bottom-color: #30363d;
+}
+
+/* Pin to left edge for buttons near the right side of the popup */
+[data-tooltip][data-tip-dir="left"]::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+[data-tooltip][data-tip-dir="left"]::before {
+  left: auto;
+  right: 12px;
+  transform: none;
+}
+
 /* ── Result card enhancements ── */
 .result-hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
 .result-title { font-size: .84em; font-weight: 600; flex: 1; }

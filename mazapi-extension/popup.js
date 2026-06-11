@@ -300,8 +300,8 @@ function buildResultCard(r, target, fps) {
 
   const fpBtn = r.vulnerable
     ? `<div class="fp-row">
-        <button class="fp-btn" data-test="${encodeURIComponent(r.test)}" data-state="${fp ? "remove" : "fp"}">${fp?.state === "fp" ? "&#10003; Unmark" : "&#9872; False Positive"}</button>
-        <button class="fp-btn" data-test="${encodeURIComponent(r.test)}" data-state="${fp?.state === "risk" ? "remove" : "risk"}">${fp?.state === "risk" ? "&#10003; Unmark" : "&#128737; Accept Risk"}</button>
+        <button class="fp-btn" data-test="${encodeURIComponent(r.test)}" data-state="${fp ? "remove" : "fp"}" data-tooltip="Mark as a false positive — finding will be greyed out">${fp?.state === "fp" ? "&#10003; Unmark" : "&#9872; False Positive"}</button>
+        <button class="fp-btn" data-test="${encodeURIComponent(r.test)}" data-state="${fp?.state === "risk" ? "remove" : "risk"}" data-tooltip="Accept the risk — logs that this finding is a known, accepted risk" data-tip-dir="left">${fp?.state === "risk" ? "&#10003; Unmark" : "&#128737; Accept Risk"}</button>
       </div>` : "";
 
   return `<div class="result-item ${isVuln ? "result-vuln" : "result-safe"}${fp ? " result-fp" : ""}" data-test="${encodeURIComponent(r.test)}">
@@ -492,7 +492,7 @@ function renderHistory() {
         </div>
         <div style="margin-top:5px">
           ${hasFullResults
-            ? `<button class="export-btn history-view-btn" data-idx="${idx}" style="font-size:.75em;padding:3px 8px">&#128269; View Results</button>`
+            ? `<button class="export-btn history-view-btn" data-idx="${idx}" style="font-size:.75em;padding:3px 8px" data-tooltip="Load these results into the Results tab without rescanning">&#128269; View Results</button>`
             : `<span style="font-size:.73em;color:#8b949e;font-style:italic">Rescan to get detailed results</span>`
           }
         </div>

@@ -36,16 +36,30 @@
     </svg>
     MazAPI <span>v2.0</span>
   </div>
-  <button class="clear-btn" id="btn-clear">Clear</button>
+  <button class="clear-btn" id="btn-clear"
+    data-tooltip="Clear all captured endpoints, tokens and keys for this session"
+    data-tip-dir="left">Clear</button>
 </header>
 
 <div class="tabs">
-  <button class="tab active" data-tab="discover">Capture</button>
-  <button class="tab" data-tab="keys">&#128273; Keys</button>
-  <button class="tab" data-tab="scan">Scan</button>
-  <button class="tab" data-tab="results">Results</button>
-  <button class="tab" data-tab="history">History</button>
-  <button class="tab" data-tab="settings">&#9881;</button>
+  <button class="tab active" data-tab="discover"
+    data-tooltip="Auto-captures API endpoints and auth tokens as you browse"
+    data-tip-dir="down">Capture</button>
+  <button class="tab" data-tab="keys"
+    data-tooltip="Hardcoded API keys found in page JavaScript"
+    data-tip-dir="down">&#128273; Keys</button>
+  <button class="tab" data-tab="scan"
+    data-tooltip="Run OWASP API Top 10 active security tests against a target"
+    data-tip-dir="down">Scan</button>
+  <button class="tab" data-tab="results"
+    data-tooltip="View findings with severity, compliance tags and evidence"
+    data-tip-dir="down">Results</button>
+  <button class="tab" data-tab="history"
+    data-tooltip="Previous scans — click any entry to view its results"
+    data-tip-dir="down">History</button>
+  <button class="tab" data-tab="settings"
+    data-tooltip="Configure organisation name and webhook alerts"
+    data-tip-dir="down">&#9881;</button>
 </div>
 
 <!-- ── Tab 1: Captured APIs ───────────────────────────────────────────────── -->
@@ -58,8 +72,10 @@
   <div class="section-title">API Endpoints (<span id="ep-count">0</span>)</div>
   <div id="endpoints-list"><div class="empty">Browse any website to start capturing API calls.</div></div>
   <div style="margin-top:10px;display:flex;gap:6px">
-    <button class="export-btn" id="btn-postman" style="flex:1">&#128197; Postman</button>
-    <button class="export-btn" id="btn-openapi" style="flex:1">&#128196; OpenAPI</button>
+    <button class="export-btn" id="btn-postman" style="flex:1"
+      data-tooltip="Export captured endpoints as a Postman collection JSON">&#128197; Postman</button>
+    <button class="export-btn" id="btn-openapi" style="flex:1"
+      data-tooltip="Export captured endpoints as an OpenAPI 3.0 specification">&#128196; OpenAPI</button>
   </div>
 </div>
 
@@ -67,7 +83,9 @@
 <div class="pane" id="pane-keys">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section-title" style="margin:0">Detected API Keys &nbsp;<span id="keys-count" class="keys-badge">0</span></div>
-    <button class="clear-btn" id="btn-clear-keys">Clear</button>
+    <button class="clear-btn" id="btn-clear-keys"
+      data-tooltip="Clear all detected keys from this session"
+      data-tip-dir="left">Clear</button>
   </div>
   <div id="keys-list">
     <div class="empty">Browse any page — MazAPI scans JavaScript files for hardcoded API keys.</div>
@@ -92,7 +110,8 @@
     <label>Protected Path (JWT test)</label>
     <input type="text" id="scan-protected" placeholder="auto-detected from captured traffic">
   </div>
-  <button class="scan-btn" id="btn-scan">&#9654; Run Full Scan</button>
+  <button class="scan-btn" id="btn-scan"
+    data-tooltip="Tests BOLA, broken auth, rate limiting, JWT flaws, CORS, SSRF, mass assignment and more">&#9654; Run Full Scan</button>
   <div id="scan-status" style="margin-top:8px;font-size:.8em;color:#8b949e;text-align:center"></div>
 </div>
 
@@ -101,10 +120,16 @@
   <div id="score-area"></div>
   <div id="export-bar" style="display:none;margin-bottom:10px">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
-      <button class="export-btn" id="btn-export-json">&#8675; JSON</button>
-      <button class="export-btn" id="btn-export-sarif">&#8675; SARIF</button>
-      <button class="export-btn" id="btn-export-html">&#8675; HTML Report</button>
-      <button class="export-btn" id="btn-send-webhook">&#128276; Send Alert</button>
+      <button class="export-btn" id="btn-export-json"
+        data-tooltip="Download all findings as a JSON file">&#8675; JSON</button>
+      <button class="export-btn" id="btn-export-sarif"
+        data-tooltip="Download as SARIF — import into GitHub Code Scanning or VS Code"
+        data-tip-dir="left">&#8675; SARIF</button>
+      <button class="export-btn" id="btn-export-html"
+        data-tooltip="Generate a formatted HTML security report with compliance mappings">&#8675; HTML Report</button>
+      <button class="export-btn" id="btn-send-webhook"
+        data-tooltip="Send results to your Slack or Teams webhook (configure in Settings)"
+        data-tip-dir="left">&#128276; Send Alert</button>
     </div>
   </div>
   <div id="results-list"><div class="empty">Run a scan to see results.</div></div>
@@ -114,7 +139,9 @@
 <div class="pane" id="pane-history">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section-title" style="margin:0">Scan History</div>
-    <button class="clear-btn" id="btn-clear-history">Clear All</button>
+    <button class="clear-btn" id="btn-clear-history"
+      data-tooltip="Permanently delete all scan history"
+      data-tip-dir="left">Clear All</button>
   </div>
   <div id="history-list"><div class="empty">No scan history yet.</div></div>
 </div>
@@ -135,7 +162,8 @@
     <input type="checkbox" id="set-auto-webhook" style="width:auto;accent-color:#58a6ff">
     <label for="set-auto-webhook" style="display:inline;color:#c9d1d9;font-size:.84em">Auto-send on Critical findings</label>
   </div>
-  <button class="scan-btn" id="btn-save-settings" style="margin-top:6px">Save Settings</button>
+  <button class="scan-btn" id="btn-save-settings" style="margin-top:6px"
+    data-tooltip="Save organisation name and webhook URL to local storage">Save Settings</button>
   <div id="settings-status" style="margin-top:6px;font-size:.8em;color:#3fb950;text-align:center"></div>
 </div>
 
