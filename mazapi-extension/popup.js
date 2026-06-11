@@ -4,6 +4,9 @@ let _showAllEndpoints = false;
 let _lastResults      = [];
 let _lastScore        = 100;
 let _lastTarget       = "";
+let _lastChains       = [];   // correlated attack chains from the last scan
+let _livePaused       = false;
+let _liveTimer        = null;
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
 document.querySelectorAll(".tab").forEach(tab => {
@@ -16,6 +19,9 @@ document.querySelectorAll(".tab").forEach(tab => {
     if (tab.dataset.tab === "history")  renderHistory();
     if (tab.dataset.tab === "settings") loadSettings();
     if (tab.dataset.tab === "keys")     renderKeys();
+    if (tab.dataset.tab === "threats")  renderThreats();
+    if (tab.dataset.tab === "live")     { renderLive(); startLivePolling(); }
+    else stopLivePolling();
   });
 });
 
@@ -242,6 +248,7 @@ document.getElementById("btn-scan").addEventListener("click", () => {
     status.textContent = "";
     _lastResults = resp.results;
     _lastScore   = resp.score ?? Math.round((1 - resp.results.filter(r => r.vulnerable).length / resp.results.length) * 100);
+    _lastChains  = resp.chains || [];
     renderResults(resp.results, _lastScore, target);
     document.querySelector(".tab[data-tab='results']").click();
   });
@@ -466,6 +473,185 @@ document.getElementById("btn-clear-keys").addEventListener("click", () => {
   });
 });
 
+// ── Threats tab: score ring + attack-surface map + attack chains ──────────────
+const SEV_RANK = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
+function gradeFor(results) {
+  const vulns = results.filter(r => r.vulnerable);
+  const crit  = vulns.filter(r => r.severity === "CRITICAL").length;
+  const high  = vulns.filter(r => r.severity === "HIGH").length;
+  const med   = vulns.filter(r => r.severity === "MEDIUM").length;
+  const penalty = crit * 40 + high * 12 + med * 3;
+  if (crit > 0 || penalty >= 60) return "F";
+  if (penalty >= 30) return "D";
+  if (penalty >= 12) return "C";
+  if (penalty >= 4)  return "B";
+  if (penalty > 0)   return "A";
+  return "A+";
+}
+
+function renderThreats() {
+  const results = _lastResults || [];
+  const score   = _lastScore ?? 100;
+
+  // Animated ring: dashoffset 0 = full, CIRC = empty. Higher score → fuller, greener.
+  const CIRC = 351.86;
+  const arc  = document.getElementById("ring-arc");
+  const grade = results.length ? gradeFor(results) : "—";
+  const color = score >= 90 ? "#00c896" : score >= 70 ? "#f5a623" : "#ff4d6a";
+  // Force a reflow so the transition runs each time the tab opens
+  arc.style.strokeDashoffset = String(CIRC);
+  // eslint-disable-next-line no-unused-expressions
+  arc.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    arc.style.strokeDashoffset = String(CIRC * (1 - score / 100));
+    arc.style.stroke = color;
+  });
+  document.getElementById("ring-grade").textContent = grade;
+  document.getElementById("ring-grade").setAttribute("fill", color);
+  document.getElementById("ring-score").textContent = results.length ? `${score}%` : "";
+
+  // Severity count-up
+  const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 };
+  for (const r of results) if (r.vulnerable) counts[r.severity] = (counts[r.severity] || 0) + 1;
+  countUp("tc-crit", counts.CRITICAL);
+  countUp("tc-high", counts.HIGH);
+  countUp("tc-med",  counts.MEDIUM);
+  countUp("tc-low",  counts.LOW);
+
+  renderAttackMap();
+  renderChains();
+}
+
+function countUp(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const start = 0, dur = 600, t0 = performance.now();
+  function step(now) {
+    const p = Math.min(1, (now - t0) / dur);
+    el.textContent = Math.round(start + (target - start) * p);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Attack-surface map: endpoints as nodes around a centre, coloured by worst finding,
+// attack chains drawn as red edges between the endpoints they implicate. Plain SVG.
+function renderAttackMap() {
+  const box = document.getElementById("attack-map");
+  chrome.runtime.sendMessage({ type: "GET_SESSION" }, session => {
+    const eps = Object.keys(session?.endpoints || {}).slice(0, 10);
+    if (!eps.length) { box.innerHTML = '<div class="empty">No endpoints captured to map.</div>'; return; }
+
+    const W = 340, H = Math.max(150, 90 + eps.length * 14), cx = W / 2, cy = H / 2;
+    const R = Math.min(cx, cy) - 36;
+    const SEV_COLOR = { CRITICAL: "#ff4d6a", HIGH: "#f85149", MEDIUM: "#f5a623", LOW: "#58a6ff", none: "#2d3a4d" };
+
+    // worst severity touching each endpoint, from results that name it in evidence/actual
+    const worst = {};
+    for (const ep of eps) {
+      let w = "none";
+      for (const r of (_lastResults || [])) {
+        if (!r.vulnerable) continue;
+        const hay = `${r.actual || ""} ${r.evidence?.request?.url || ""}`;
+        if (hay.includes(ep.replace(/\{id\}/g, "")) && SEV_RANK[r.severity] > (SEV_RANK[w] || 0)) w = r.severity;
+      }
+      worst[ep] = w;
+    }
+
+    const pts = eps.map((ep, i) => {
+      const a = (i / eps.length) * 2 * Math.PI - Math.PI / 2;
+      return { ep, x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) };
+    });
+
+    // chain edges: connect first two endpoints that match a chain's evidence (best-effort visual)
+    const edges = [];
+    for (const ch of (_lastChains || [])) {
+      const touched = pts.filter(p => (ch.evidence || []).some(e => String(e).includes(p.ep.replace(/\{id\}/g, "")))).slice(0, 2);
+      if (touched.length === 2) edges.push([touched[0], touched[1]]);
+    }
+
+    const edgeSvg = edges.map(([a, b]) =>
+      `<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" stroke="#ff4d6a" stroke-width="1.4" stroke-dasharray="3 3" opacity=".7"/>`
+    ).join("");
+
+    const nodeSvg = pts.map(p => {
+      const c = SEV_COLOR[worst[p.ep]] || SEV_COLOR.none;
+      const label = (p.ep.length > 18 ? p.ep.slice(0, 17) + "…" : p.ep);
+      const ring = worst[p.ep] !== "none"
+        ? `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="9" fill="none" stroke="${c}" stroke-width="2" opacity=".55"/>`
+        : "";
+      return `${ring}<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${c}"><title>${p.ep} — ${worst[p.ep]}</title></circle>
+        <text class="node-label" x="${p.x.toFixed(1)}" y="${(p.y + (p.y < cy ? -10 : 16)).toFixed(1)}" text-anchor="middle">${label}</text>`;
+    }).join("");
+
+    box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">
+      <circle cx="${cx}" cy="${cy}" r="3" fill="#00d4ff"/><text class="node-label" x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#00d4ff">API</text>
+      ${pts.map(p => `<line x1="${cx}" y1="${cy}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#1a2230" stroke-width="1"/>`).join("")}
+      ${edgeSvg}${nodeSvg}
+    </svg>`;
+  });
+}
+
+function renderChains() {
+  const box = document.getElementById("chains-list");
+  const chains = _lastChains || [];
+  if (!chains.length) {
+    box.innerHTML = '<div class="empty">No correlated attack chains. Chains appear when findings combine into an exploit path.</div>';
+    return;
+  }
+  box.innerHTML = chains.map(c => `
+    <div class="chain-card sev-${c.severity}">
+      <div class="chain-hdr">
+        <span class="chain-title">&#9888; ${c.title}</span>
+        <span class="chain-sev">${c.severity}</span>
+      </div>
+      <div class="chain-narrative">${c.narrative}</div>
+      <div class="chain-evidence"><b>Chained from:</b>
+        <ul>${(c.evidence || []).map(e => `<li>${e}</li>`).join("")}</ul>
+      </div>
+    </div>`).join("");
+}
+
+// ── Live tab: real-time intercepted-request feed ──────────────────────────────
+function renderLive() {
+  if (_livePaused) return;
+  chrome.runtime.sendMessage({ type: "GET_LIVE_FEED" }, feed => {
+    const box = document.getElementById("live-feed");
+    if (!feed?.length) {
+      box.innerHTML = '<div class="empty">Browse the target — intercepted API requests stream here in real time.</div>';
+      return;
+    }
+    // newest at the bottom (terminal style); show last 80
+    box.innerHTML = feed.slice(-80).map(l => {
+      const flag = l.verdict === "suspicious"
+        ? '<span class="lv-flag" title="sensitive path or server error">&#9888;</span>'
+        : (l.verdict === "watch" ? '<span class="lv-flag" title="ID in path or missing auth">&#9679;</span>' : "");
+      const path = (l.path || "").length > 52 ? l.path.slice(0, 51) + "…" : (l.path || "");
+      return `<div class="live-line v-${l.verdict}">
+        <span class="lv-method">${l.method}</span>
+        <span class="lv-status">${l.status}</span>
+        <span class="lv-path" title="${l.path || ""}">${path}</span>${flag}
+      </div>`;
+    }).join("");
+    box.scrollTop = box.scrollHeight;
+  });
+}
+
+function startLivePolling() {
+  stopLivePolling();
+  _liveTimer = setInterval(() => { if (!_livePaused) renderLive(); }, 1500);
+}
+function stopLivePolling() {
+  if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
+}
+
+document.getElementById("btn-live-pause").addEventListener("click", () => {
+  _livePaused = !_livePaused;
+  document.getElementById("btn-live-pause").textContent = _livePaused ? "Resume" : "Pause";
+  document.getElementById("live-dot").classList.toggle("paused", _livePaused);
+});
+
 // ── History tab ───────────────────────────────────────────────────────────────
 function renderHistory() {
   chrome.runtime.sendMessage({ type: "GET_HISTORY" }, history => {
@@ -518,7 +704,7 @@ function renderHistory() {
   });
 }
 
-function loadHistoryResults(h) {
+function loadHistoryResults(h, allHistory) {
   // Populate the scan form fields so the user can rescan if they want
   document.getElementById("scan-target").value = h.target;
   // Load results into Results tab and switch to it
@@ -526,6 +712,29 @@ function loadHistoryResults(h) {
   _lastResults = h.results;
   _lastScore   = h.score;
   renderResults(h.results, h.score, h.target);
+
+  // Diff banner: NEW (regressions) vs FIXED relative to the previous scan of this target.
+  // The stored `regression` tags were computed against the prior scan at capture time.
+  const news  = (h.results || []).filter(r => r.regression === "NEW");
+  const fixes = (h.results || []).filter(r => r.regression === "FIXED");
+  const direction = fixes.length > news.length ? "improved"
+                  : news.length > fixes.length ? "regressed" : "unchanged";
+  const dirColor  = direction === "improved" ? "#00c896" : direction === "regressed" ? "#ff4d6a" : "#8b949e";
+  const banner = (news.length || fixes.length)
+    ? `<div class="diff-banner" style="border-color:${dirColor}">
+         <span style="color:${dirColor};font-weight:700">Security ${direction}</span>
+         ${fixes.length ? `<span style="color:#00c896">&#9660; ${fixes.length} fixed</span>` : ""}
+         ${news.length  ? `<span style="color:#ff4d6a">&#9650; ${news.length} new</span>`   : ""}
+       </div>`
+    : "";
+  const scoreArea = document.getElementById("score-area");
+  if (banner) scoreArea.insertAdjacentHTML("beforeend", banner);
+
+  // Recompute attack chains for this historical result set so the Threats tab stays in sync
+  chrome.runtime.sendMessage({ type: "CORRELATE_CHAINS", results: h.results }, chains => {
+    _lastChains = chains || [];
+  });
+
   document.querySelector(".tab[data-tab='results']").click();
 }
 

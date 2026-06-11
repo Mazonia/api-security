@@ -176,6 +176,13 @@ export class FindingsProvider implements vscode.TreeDataProvider<FileGroupItem |
         return this.groups.get(uri.fsPath)?.findings ?? [];
     }
 
+    /** Every finding across every tracked file (unfiltered — used for chain correlation & dashboard). */
+    getAllFindings(): ScanFinding[] {
+        const out: ScanFinding[] = [];
+        for (const { findings } of this.groups.values()) out.push(...findings);
+        return out;
+    }
+
     getTreeItem(el: FileGroupItem | FindingItem) { return el; }
 
     getChildren(el?: FileGroupItem | FindingItem): (FileGroupItem | FindingItem)[] {
@@ -189,6 +196,142 @@ export class FindingsProvider implements vscode.TreeDataProvider<FileGroupItem |
         }
         if (el instanceof FileGroupItem) {
             return el.findings.map(f => new FindingItem(f));
+        }
+        return [];
+    }
+}
+
+// ── Attack-chain correlation ────────────────────────────────────────────────────
+// Individual findings are dangerous; certain *combinations* are catastrophic. A chain
+// fires only when every one of its required predicates is satisfied somewhere in the
+// workspace finding set. Each chain pulls the specific findings that triggered it so
+// they can be shown as children and the user can jump straight to the code.
+
+export interface AttackChain {
+    id:        string;
+    title:     string;
+    narrative: string;          // "An attacker who found these could…"
+    severity:  'CRITICAL' | 'HIGH';
+    findings:  ScanFinding[];   // the concrete findings that satisfied this chain
+}
+
+// A predicate matches a finding by its category or label substring.
+type ChainPredicate = (f: ScanFinding) => boolean;
+
+interface ChainDef {
+    id:        string;
+    title:     string;
+    narrative: string;
+    severity:  'CRITICAL' | 'HIGH';
+    requires:  ChainPredicate[];   // every predicate must match at least one finding
+}
+
+const has = (...needles: string[]): ChainPredicate =>
+    (f) => needles.some(n => f.category.includes(n) || (f.label ?? '').toLowerCase().includes(n.toLowerCase()));
+
+const CHAIN_DEFS: ChainDef[] = [
+    {
+        id: 'account-takeover',
+        title: 'FULL ACCOUNT TAKEOVER',
+        narrative: 'Mass assignment lets an attacker set privilege fields (role, is_admin) on their own object, ' +
+                   'while a hardcoded/weak auth secret lets them mint or forge the token to reach it — together they grant full control of any account.',
+        severity: 'CRITICAL',
+        requires: [has('CWE-915', 'Mass Assignment'), has('CWE-798', 'CWE-321', 'JWT Hardcoded', 'Broken Authentication')],
+    },
+    {
+        id: 'data-breach',
+        title: 'DATA BREACH',
+        narrative: 'Verbose errors / stack traces reveal internal structure and an unauthenticated operational endpoint ' +
+                   'or hardcoded DB credential gives the attacker the access path — together they enable bulk exfiltration of records.',
+        severity: 'CRITICAL',
+        requires: [has('CWE-209', 'Stack Trace', 'CWE-532'), has('Unauthenticated Operational', 'Hardcoded DB', 'CWE-798')],
+    },
+    {
+        id: 'token-theft-xss',
+        title: 'TOKEN THEFT VIA XSS',
+        narrative: 'An auth token kept in localStorage is readable by any script on the page; combine that with a code-injection ' +
+                   'or prototype-pollution sink and an attacker can run JS that steals the token and impersonates the user.',
+        severity: 'HIGH',
+        requires: [has('Sensitive Token in Browser Storage', 'localStorage'), has('CWE-95', 'CWE-1321', 'eval', 'Prototype Pollution')],
+    },
+    {
+        id: 'ssrf-to-cloud',
+        title: 'SSRF → CLOUD CREDENTIAL THEFT',
+        narrative: 'A server-side request driven by user input can be pointed at the cloud metadata service (169.254.169.254); ' +
+                   'with TLS verification disabled the attacker can also MITM outbound calls — together they expose cloud IAM credentials.',
+        severity: 'CRITICAL',
+        requires: [has('CWE-918', 'SSRF'), has('CWE-295', 'certificate', 'CORS Wildcard', 'CWE-942')],
+    },
+    {
+        id: 'auth-bypass-escalation',
+        title: 'PRIVILEGE ESCALATION',
+        narrative: 'An unthrottled auth route enables credential stuffing to obtain any account, and an environment-gated ' +
+                   'security control means protections may be off in the reachable environment — together they yield admin access.',
+        severity: 'HIGH',
+        requires: [has('Auth Route Missing Rate Limiting', 'API4:2023'), has('Security Control Gated by Environment', 'CWE-1188', 'alg:none', 'Broken Authentication')],
+    },
+];
+
+/** Correlate a flat list of workspace findings into any attack chains they satisfy. */
+export function correlateChains(allFindings: ScanFinding[]): AttackChain[] {
+    const chains: AttackChain[] = [];
+    for (const def of CHAIN_DEFS) {
+        const matched: ScanFinding[] = [];
+        const satisfied = def.requires.every(pred => {
+            const hit = allFindings.find(pred);
+            if (hit) { matched.push(hit); return true; }
+            return false;
+        });
+        if (satisfied) {
+            // de-dupe in case one finding satisfied two predicates
+            const seen = new Set<ScanFinding>();
+            const unique = matched.filter(f => (seen.has(f) ? false : (seen.add(f), true)));
+            chains.push({ id: def.id, title: def.title, narrative: def.narrative, severity: def.severity, findings: unique });
+        }
+    }
+    return chains;
+}
+
+// ── Attack-chains tree provider (chain → constituent findings) ──────────────────
+
+class ChainParentItem extends vscode.TreeItem {
+    constructor(public readonly chain: AttackChain) {
+        super(`⚠ ${chain.title} (${chain.findings.length} findings)`, vscode.TreeItemCollapsibleState.Expanded);
+        this.description = chain.severity;
+        const md = new vscode.MarkdownString(undefined, true);
+        md.appendMarkdown(`### $(flame) ${chain.title}\n\n**Severity:** ${chain.severity}\n\n${chain.narrative}`);
+        this.tooltip  = md;
+        this.iconPath = new vscode.ThemeIcon('flame', new vscode.ThemeColor('errorForeground'));
+        this.contextValue = 'mazapi-chain';
+    }
+}
+
+export class ChainsProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+    private _onDidChangeTreeData = new vscode.EventEmitter<undefined>();
+    readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
+    private chains: AttackChain[] = [];
+
+    setChains(chains: AttackChain[]) {
+        this.chains = chains;
+        this._onDidChangeTreeData.fire(undefined);
+    }
+
+    getChainCount(): number { return this.chains.length; }
+
+    getTreeItem(el: vscode.TreeItem) { return el; }
+
+    getChildren(el?: vscode.TreeItem): vscode.TreeItem[] {
+        if (!el) {
+            if (!this.chains.length) {
+                const empty = new vscode.TreeItem('No attack chains detected');
+                empty.iconPath = new vscode.ThemeIcon('shield', new vscode.ThemeColor('charts.green'));
+                empty.tooltip  = 'An attack chain appears when two or more findings combine into a known exploit path.';
+                return [empty];
+            }
+            return this.chains.map(c => new ChainParentItem(c));
+        }
+        if (el instanceof ChainParentItem) {
+            return el.chain.findings.map(f => new FindingItem(f));
         }
         return [];
     }

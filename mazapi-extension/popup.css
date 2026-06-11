@@ -261,3 +261,90 @@ footer {
 }
 .key-masked code { color: #e3b341; font-family: monospace; font-size: .82em; letter-spacing: .03em; }
 .key-source { font-size: .72em; color: #8b949e; word-break: break-all; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   v2.1 — Threats + Live tabs. Design tokens:
+     bg #0a0e17 · surface #0f1623 · accent #00d4ff
+     danger #ff4d6a · warning #f5a623 · safe #00c896
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Smooth tab transition */
+.pane.active { animation: paneIn .15s ease; }
+@keyframes paneIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ── Threat hero: animated score ring + counts ── */
+.threat-hero { display: flex; gap: 16px; align-items: center; margin-bottom: 14px; }
+.ring-wrap { flex-shrink: 0; }
+#threat-ring .ring-track { stroke: #1a2230; }
+#threat-ring #ring-arc {
+  stroke: #00c896;
+  stroke-dasharray: 351.86;          /* 2πr, r=56 */
+  stroke-dashoffset: 351.86;
+  transition: stroke-dashoffset 1s cubic-bezier(.22,.61,.36,1), stroke .6s ease;
+}
+.ring-grade { font-size: 30px; font-weight: 800; fill: #e6edf3; }
+.ring-score { font-size: 12px; fill: #8b949e; }
+.threat-counts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1; }
+.tc {
+  background: #0f1623; border: 1px solid #1f2733; border-radius: 9px;
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 1px;
+}
+.tc-n { font-size: 1.3em; font-weight: 800; line-height: 1; }
+.tc-l { font-size: .66em; color: #8b949e; text-transform: uppercase; letter-spacing: .06em; }
+.tc[data-sev="CRITICAL"] .tc-n { color: #ff4d6a; }
+.tc[data-sev="HIGH"]     .tc-n { color: #f85149; }
+.tc[data-sev="MEDIUM"]   .tc-n { color: #f5a623; }
+.tc[data-sev="LOW"]      .tc-n { color: #58a6ff; }
+
+/* ── Attack-surface map (inline SVG node graph) ── */
+#attack-map { background: #0a0e17; border: 1px solid #1f2733; border-radius: 10px; overflow: hidden; }
+#attack-map svg { display: block; width: 100%; height: auto; }
+#attack-map .node-label { font-family: monospace; font-size: 8px; fill: #8b949e; }
+
+/* ── Attack-chain cards (glassmorphism + severity glow) ── */
+.chain-card {
+  position: relative; background: rgba(255,77,106,.06);
+  border: 1px solid rgba(255,77,106,.32); border-radius: 11px;
+  padding: 11px 13px; margin-bottom: 9px;
+  box-shadow: 0 0 0 1px rgba(255,77,106,.08), 0 6px 22px rgba(255,77,106,.10);
+  backdrop-filter: blur(3px);
+}
+.chain-card.sev-HIGH { background: rgba(248,81,73,.05); border-color: rgba(248,81,73,.3); box-shadow: 0 0 0 1px rgba(248,81,73,.08), 0 6px 22px rgba(248,81,73,.08); }
+.chain-hdr { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+.chain-title { font-weight: 800; font-size: .9em; color: #ff6b6b; letter-spacing: .02em; }
+.chain-card.sev-HIGH .chain-title { color: #f85149; }
+.chain-sev { margin-left: auto; font-size: .66em; font-weight: 800; padding: 1px 7px; border-radius: 20px; background: rgba(255,77,106,.16); color: #ff6b6b; }
+.chain-narrative { font-size: .78em; color: #c9d1d9; line-height: 1.5; margin-bottom: 6px; }
+.chain-evidence { font-size: .73em; color: #8b949e; }
+.chain-evidence b { color: #58a6ff; font-weight: 600; }
+.chain-evidence ul { margin: 3px 0 0; padding-left: 16px; }
+.chain-evidence li { margin: 1px 0; }
+
+/* ── Live request feed (terminal style) ── */
+.live-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #00c896; box-shadow: 0 0 6px #00c896; animation: livePulse 1.4s infinite; }
+.live-dot.paused { background: #8b949e; box-shadow: none; animation: none; }
+@keyframes livePulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.live-legend { display: flex; gap: 14px; font-size: .7em; color: #8b949e; margin-bottom: 8px; }
+.live-legend i.lg { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.live-legend i.lg.safe { background: #00c896; } .live-legend i.lg.watch { background: #f5a623; } .live-legend i.lg.suspicious { background: #ff4d6a; }
+.live-feed {
+  background: #060910; border: 1px solid #1f2733; border-radius: 9px;
+  padding: 8px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: .73em; max-height: 320px; overflow-y: auto; line-height: 1.55;
+}
+.live-line { display: flex; gap: 7px; padding: 1px 0; white-space: nowrap; }
+.live-line .lv-method { font-weight: 700; min-width: 46px; }
+.live-line .lv-status { color: #8b949e; min-width: 28px; }
+.live-line .lv-path { overflow: hidden; text-overflow: ellipsis; }
+.live-line.v-safe       .lv-path { color: #6ee7c0; }
+.live-line.v-watch      .lv-path { color: #f5c873; }
+.live-line.v-suspicious .lv-path { color: #ff8497; }
+.live-line .lv-flag { color: #ff4d6a; font-size: .9em; }
+
+/* ── History diff banner ── */
+.diff-banner {
+  display: flex; gap: 12px; align-items: center; justify-content: center;
+  background: #0f1623; border: 1px solid #1f2733; border-radius: 8px;
+  padding: 7px 10px; margin-bottom: 10px; font-size: .8em;
+}

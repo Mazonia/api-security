@@ -53,6 +53,11 @@ const COMPLIANCE_MAP: Record<string, Compliance> = {
     'API9:2023 - GraphQL Introspection Enabled':         { pci_dss: ['6.3.3'],          gdpr: ['Art. 32'],                iso27001: ['A.12.6.1','A.14.1.3'] },
     'CWE-614 - Cookie Missing Secure / HttpOnly Flag':   { pci_dss: ['6.2.4','8.3.1'], gdpr: ['Art. 32'],                iso27001: ['A.9.4.2','A.14.2.5'] },
     'CWE-312 - Sensitive Token in Browser Storage':      { pci_dss: ['3.4.1'],          gdpr: ['Art. 32'],                iso27001: ['A.9.4.2','A.18.1.3'] },
+    'API8:2023 - Unauthenticated Operational Endpoint':  { pci_dss: ['6.3.3','2.2.7'], gdpr: ['Art. 32'],                iso27001: ['A.12.6.1','A.13.1.3'] },
+    'CWE-1188 - Security Control Gated by Environment':   { pci_dss: ['6.3.3'],          gdpr: ['Art. 32'],                iso27001: ['A.14.1.3','A.12.1.4'] },
+    'CWE-208 - Timing Attack via Non-Constant-Time Comparison': { pci_dss: ['8.3.2'],  gdpr: ['Art. 32(1)(a)'],          iso27001: ['A.10.1.1','A.14.2.5'] },
+    'API4:2023 - Auth Route Missing Rate Limiting':      { pci_dss: ['8.3.4','6.3.1'], gdpr: ['Art. 32'],                iso27001: ['A.9.4.2','A.12.6.1'] },
+    'API9:2023 - Multiple API Versions Without Deprecation': { pci_dss: ['6.3.3'],     gdpr: ['Art. 32'],                iso27001: ['A.12.6.1','A.8.1.1'] },
 };
 
 function getCompliance(category: string): Compliance | undefined {
@@ -839,7 +844,7 @@ const URL_PATTERNS: { pattern: RegExp; severity: 'MEDIUM' | 'LOW'; category: str
     },
 ];
 
-const WEAK_AUTH_PATTERNS: { name: string; pattern: RegExp; severity: 'HIGH' | 'CRITICAL'; category: string; fix: string }[] = [
+const WEAK_AUTH_PATTERNS: { name: string; pattern: RegExp; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM'; category: string; fix: string }[] = [
     {
         name: 'MD5 password hashing',
         pattern: /md5\s*\(/gi,
@@ -1005,7 +1010,44 @@ const WEAK_AUTH_PATTERNS: { name: string; pattern: RegExp; severity: 'HIGH' | 'C
         category: 'CWE-312 - Sensitive Token in Browser Storage',
         fix: 'Store tokens in HttpOnly cookies, not localStorage — localStorage is readable by any JS on the page (XSS risk)',
     },
+    // ── New categories (request F) ─────────────────────────────────────────────
+    {
+        name: 'Unauthenticated health / metrics / actuator endpoint',
+        // Route registration for an ops endpoint — flag so the author confirms it is auth-gated
+        pattern: /(?:app\.(?:get|use)|router\.get|@(?:app\.)?(?:route|get))\s*\(\s*["'`]\/(?:health(?:z|check)?|metrics|status|actuator(?:\/[a-z]+)?|debug|info|env)\b/gi,
+        severity: 'MEDIUM',
+        category: 'API8:2023 - Unauthenticated Operational Endpoint',
+        fix: 'Gate /health, /metrics, /actuator behind auth or bind them to an internal-only interface — they leak version, config and dependency data',
+    },
+    {
+        name: 'Environment-gated security control (disabled outside production)',
+        // e.g. `if (process.env.NODE_ENV === 'production') app.use(helmet())` — control off in dev/test
+        pattern: /(?:process\.env\.NODE_ENV\s*(?:===?|!==?)\s*["']production["']|NODE_ENV\s*==\s*["']production["']|app\.get\(["']env["']\)\s*===?\s*["']production["'])/g,
+        severity: 'MEDIUM',
+        category: 'CWE-1188 - Security Control Gated by Environment',
+        fix: 'Apply security middleware (helmet, CSRF, rate limiting) in ALL environments; never gate protections behind NODE_ENV==="production"',
+    },
+    {
+        name: 'Non-constant-time comparison of secret / token / HMAC',
+        // == / === / !== comparing a token-like identifier — vulnerable to timing attacks
+        pattern: /(?:\b(?:token|secret|api[_-]?key|apikey|password|passwd|hmac|signature|sig|digest|mac)\b\s*(?:===?|!==?)|(?:===?|!==?)\s*\b(?:token|secret|api[_-]?key|apikey|password|passwd|hmac|signature|sig|digest|mac)\b)/gi,
+        severity: 'MEDIUM',
+        category: 'CWE-208 - Timing Attack via Non-Constant-Time Comparison',
+        fix: 'Compare secrets with crypto.timingSafeEqual (Node), hmac.compare_digest (Python), or MessageDigest.isEqual (Java) — never == / ===',
+    },
+    {
+        name: 'Authentication route without rate-limit middleware',
+        // login/register/token/reset route handler — flag so author confirms a limiter is attached
+        pattern: /(?:app|router)\.(?:post|put)\s*\(\s*["'`]\/(?:[a-z0-9/_-]*\/)?(?:login|signin|sign-in|register|signup|sign-up|token|auth|authenticate|reset[_-]?password|forgot[_-]?password|otp|verify)\b/gi,
+        severity: 'MEDIUM',
+        category: 'API4:2023 - Auth Route Missing Rate Limiting',
+        fix: 'Attach a rate limiter to auth routes: app.post("/login", rateLimit({ windowMs: 60000, max: 5 }), handler) — unthrottled auth enables credential stuffing',
+    },
 ];
+
+// API versioning is detected separately because it is a whole-file condition
+// (two different version prefixes coexisting), not a single-line regex match.
+const API_VERSION_RE = /["'`]\/(?:api\/)?v(\d+)(?:\/|["'`])/g;
 
 // ── Main scan function ────────────────────────────────────────────────────────
 
@@ -1013,7 +1055,7 @@ const WEAK_AUTH_PATTERNS: { name: string; pattern: RegExp; severity: 'HIGH' | 'C
 // or third-party vendor / minified files — skip soft heuristic patterns there
 function isSecurityToolingFile(fsPath: string): boolean {
     const p = fsPath.replace(/\\/g, '/');
-    return /(?:owasp_tests\/|testing.engine\/|generate_report\.py|report_generator\.py|demo\.py|evaluate\.py|\.claude\/|monitoring\/main\.py|\/test_[a-z]|_test\.py|\.min\.[jt]s$|\/static\/[^/]+\.js$|\/vendor\/)/i.test(p);
+    return /(?:owasp_tests\/|testing.engine\/|generate_report\.py|generate_training_data\.py|report_generator\.py|demo\.py|evaluate\.py|vulnbank\/|vulnerable-api\/|\.claude\/|monitoring\/main\.py|\/test_[a-z]|_test\.py|\.min\.[jt]s$|\/static\/[^/]+\.js$|\/vendor\/)/i.test(p);
 }
 
 // Pure config/env files — scan for real secrets but skip URL-as-endpoint heuristics
@@ -1026,6 +1068,46 @@ function isConfigFile(fsPath: string): boolean {
 // Lines that are clearly inside HTML/XML template strings — skip credential pattern there
 function isHtmlTemplateLine(line: string): boolean {
     return /^\s*<[a-zA-Z]/.test(line) || />\s*(?:SECRET_KEY|PASSWORD|TOKEN)\s*=/.test(line);
+}
+
+// ── Phase-2 context validator ──────────────────────────────────────────────────
+// The regex layer is fast but context-blind. After a pattern matches, we look at the
+// matched text and the surrounding ±2 lines and cancel the finding when the context
+// makes it a near-certain false positive. Returns true if the finding should be KEPT.
+
+const PLACEHOLDER_WORDS = /\b(?:example|placeholder|your[_-]?key[_-]?here|your[_-]?token|xxx+|dummy|sample|changeme|replace[_-]?me|todo|fixme|fake|test[_-]?key|<[a-z_]+>|\$\{[^}]+\}|\{\{[^}]+\}\}|process\.env|os\.environ|getenv)\b/i;
+
+function isTestPath(fsPath: string): boolean {
+    const p = fsPath.replace(/\\/g, '/');
+    return /(?:\/tests?\/|\/spec\/|\/__tests__\/|\.test\.[a-z]+$|\.spec\.[a-z]+$|_test\.[a-z]+$|test_[^/]+\.[a-z]+$|\.stories\.[a-z]+$|fixtures?\/|mocks?\/|\.example$|\.sample$)/i.test(p);
+}
+
+function passesContextValidation(
+    kind: FindingKind,
+    matchText: string,
+    lineText: string,
+    prevLine: string,
+    nextLine: string,
+    fsPath: string,
+): boolean {
+    // 1. Inside a comment (single-line // or #, or a block-comment continuation line *)
+    if (/^\s*(?:\/\/|#|\*|\/\*)/.test(lineText)) return false;
+
+    // 2. Test / fixture / mock / example files — high false-positive density, keep them quiet
+    if (isTestPath(fsPath)) return false;
+
+    // 3. The matched value (or its line) advertises itself as a placeholder / env reference
+    const window = `${prevLine}\n${lineText}\n${nextLine}`;
+    if (PLACEHOLDER_WORDS.test(matchText) || PLACEHOLDER_WORDS.test(lineText)) return false;
+    // A value that is literally pulled from the environment is not a hardcoded secret
+    if (/(?:process\.env|os\.environ|getenv|config\.get|import\.meta\.env|System\.getenv)/i.test(window)) return false;
+
+    // 4. URL-specific: cancel loopback / template / private-host URLs (these are not exposures)
+    if (kind === 'hardcoded-url' || kind === 'endpoint') {
+        if (/localhost|127\.0\.0\.1|0\.0\.0\.0|::1|\{[a-zA-Z_]+\}|\$\{|\{\{|%s|<[a-z]+>/i.test(matchText)) return false;
+    }
+
+    return true;
 }
 
 export function scanFileForIssues(
@@ -1052,15 +1134,21 @@ export function scanFileForIssues(
         return new vscode.Range(0, 0, 0, 0);
     }
 
+    // Surrounding-line helper for the Phase-2 context validator
+    const lineAt = (n: number) => (n >= 0 && n < lines.length ? lines[n] : '');
+
     // Check for hardcoded API keys / secrets (run on all files including tooling)
     for (const { name, service, pattern, severity, category, fix, useDiscovery } of KEY_PATTERNS) {
         pattern.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(text)) !== null) {
-            const line = lines[rangeOf(m, text).start.line] || '';
+            const ln = rangeOf(m, text).start.line;
+            const line = lines[ln] || '';
             // Skip HTML template strings and pure comment lines
             if (isHtmlTemplateLine(line)) continue;
             if (/^\s*(?:#|\/\/|\/\*)/.test(line)) continue;
+            // Phase-2: cancel placeholders, env references, test files, comments
+            if (!passesContextValidation('hardcoded-key', m[0], line, lineAt(ln - 1), lineAt(ln + 1), uri.fsPath)) continue;
             const rawVal = (m[1] || m[0]).replace(/^["'`]|["'`]$/g, '');
             // For generic patterns, try to identify service from surrounding context
             let resolvedService = service;
@@ -1095,8 +1183,12 @@ export function scanFileForIssues(
             while ((m = pattern.exec(text)) !== null) {
                 // Skip test/example domains and known infrastructure/schema registries
                 if (/(?:example\.com|evil\.com|attacker\.|test\.(?:com|org|net)|foo\.com|bar\.com|schemastore\.org|getpostman\.com|npmjs\.org|slack\.com|github\.com|githubusercontent\.com|shields\.io|owasp\.org)/i.test(m[0])) continue;
+                const uln  = rangeOf(m, text).start.line;
+                const ukind = category.toLowerCase().includes('endpoint') ? 'endpoint' : 'hardcoded-url';
+                // Phase-2: cancel loopback / templated URLs and comment/test contexts
+                if (!passesContextValidation(ukind, m[0], lines[uln] || '', lineAt(uln - 1), lineAt(uln + 1), uri.fsPath)) continue;
                 findings.push({
-                    kind:       category.toLowerCase().includes('endpoint') ? 'endpoint' : 'hardcoded-url',
+                    kind:       ukind,
                     message:    `Hardcoded URL: ${m[0].slice(0, 70)}`,
                     label:      m[0].slice(0, 60),
                     severity,
@@ -1116,10 +1208,13 @@ export function scanFileForIssues(
             pattern.lastIndex = 0;
             let m: RegExpExecArray | null;
             while ((m = pattern.exec(text)) !== null) {
-                const line = lines[rangeOf(m, text).start.line] || '';
+                const wln  = rangeOf(m, text).start.line;
+                const line = lines[wln] || '';
                 // Skip lines that are inside HTML template strings or comment-only lines
                 if (isHtmlTemplateLine(line)) continue;
                 if (/^\s*#/.test(line) || /^\s*\/\//.test(line)) continue;
+                // Phase-2: cancel comment/test/placeholder contexts
+                if (!passesContextValidation('weak-auth', m[0], line, lineAt(wln - 1), lineAt(wln + 1), uri.fsPath)) continue;
                 findings.push({
                     kind:       'weak-auth',
                     message:    `${name}: ${m[0].slice(0, 70)}`,
@@ -1176,6 +1271,36 @@ export function scanFileForIssues(
                 value:      m[0],
                 fix,
                 compliance: getCompliance(PII_CATEGORY),
+            });
+        }
+    }
+
+    // ── Whole-file: multiple API versions coexisting without a deprecation marker ──
+    // Two different /vN/ prefixes in one file usually means an older, less-hardened
+    // version is still being routed. Report once, anchored at the first older-version line.
+    if (!isTooling && !isConfig) {
+        API_VERSION_RE.lastIndex = 0;
+        const versions = new Map<number, vscode.Range>();
+        let vm: RegExpExecArray | null;
+        while ((vm = API_VERSION_RE.exec(text)) !== null) {
+            const v = parseInt(vm[1], 10);
+            if (!versions.has(v)) versions.set(v, rangeOf(vm, text));
+        }
+        const hasDeprecationNote = /\b(?:deprecat|sunset|end[_-]?of[_-]?life|@deprecated|legacy)\b/i.test(text);
+        if (versions.size >= 2 && !hasDeprecationNote) {
+            const sorted = [...versions.keys()].sort((a, b) => a - b);
+            const oldest = sorted[0];
+            const category = 'API9:2023 - Multiple API Versions Without Deprecation';
+            findings.push({
+                kind:       'weak-auth',
+                message:    `Multiple API versions in one file (v${sorted.join(', v')}) with no deprecation marker — older versions are a common shadow-API attack surface`,
+                label:      `Coexisting API versions: v${sorted.join(', v')}`,
+                severity:   'MEDIUM',
+                category,
+                range:      versions.get(oldest)!,
+                uri,
+                fix:        'Document a deprecation/sunset policy for older versions, or remove them. Ensure every active version enforces the same authn/authz controls.',
+                compliance: getCompliance(category),
             });
         }
     }

@@ -39,10 +39,16 @@ def _extract(record: dict) -> np.ndarray:
     ]])
 
 
+# Only surface ML-driven anomalies at or above this confidence. Rule-based hits
+# (BOLA, /debug, /admin, 429) are always surfaced — they are deterministic, not probabilistic.
+MIN_CONFIDENCE = 0.7
+
+
 class AnomalyDetector:
-    def __init__(self) -> None:
+    def __init__(self, min_confidence: float = MIN_CONFIDENCE) -> None:
         self._iso = None
         self._rf  = None
+        self.min_confidence = min_confidence
         self._load()
 
     def _load(self) -> None:
@@ -64,20 +70,21 @@ class AnomalyDetector:
         path   = record.get("path", "")
         status = record.get("status_code", 200)
 
-        # Rule-based layer — fires first for unambiguous patterns
+        # Rule-based layer — fires first for unambiguous patterns. These are deterministic,
+        # so they carry confidence 1.0 and are always surfaced regardless of min_confidence.
         if record.get("bola_suspected"):
             reason = "bola_object_accessed" if status == 200 else "bola_attempt_detected"
-            return {"anomaly": True, "score": -0.8, "reason": reason, "model": "rule"}
+            return {"anomaly": True, "score": -0.8, "confidence": 1.0, "reason": reason, "model": "rule"}
         if "/debug" in path:
-            return {"anomaly": True, "score": -0.9, "reason": "debug_endpoint_access", "model": "rule"}
+            return {"anomaly": True, "score": -0.9, "confidence": 1.0, "reason": "debug_endpoint_access", "model": "rule"}
         if "/admin" in path:
-            return {"anomaly": True, "score": -0.7, "reason": "admin_endpoint_access", "model": "rule"}
+            return {"anomaly": True, "score": -0.7, "confidence": 1.0, "reason": "admin_endpoint_access", "model": "rule"}
         if status == 429:
-            return {"anomaly": True, "score": -0.5, "reason": "rate_limit_triggered", "model": "rule"}
+            return {"anomaly": True, "score": -0.5, "confidence": 1.0, "reason": "rate_limit_triggered", "model": "rule"}
 
         features = _extract(record)
 
-        # IsolationForest score
+        # IsolationForest score + anomaly flag
         iso_anomaly = False
         iso_score   = 0.0
         if self._iso is not None:
@@ -87,16 +94,39 @@ class AnomalyDetector:
             except Exception:
                 pass
 
-        # RandomForest classification (supervised)
+        # RandomForest classification + probability (supervised)
         rf_anomaly = False
+        rf_proba   = 0.0
         if self._rf is not None:
             try:
                 rf_anomaly = bool(self._rf.predict(features)[0] == 1)
+                if hasattr(self._rf, "predict_proba"):
+                    proba = self._rf.predict_proba(features)[0]
+                    # P(attack): index of class label 1 if available, else last column
+                    classes = list(getattr(self._rf, "classes_", [0, 1]))
+                    idx = classes.index(1) if 1 in classes else len(proba) - 1
+                    rf_proba = float(proba[idx])
             except Exception:
                 pass
 
-        # Ensemble: anomaly if either model flags it
-        anomaly = iso_anomaly or rf_anomaly
+        # ── Confidence (0..1) ────────────────────────────────────────────────────
+        # RandomForest contributes its calibrated P(attack). IsolationForest's
+        # decision_function is unbounded around 0 (negative = more anomalous); squash
+        # it to 0..1 with a logistic so the two models combine on the same scale.
+        iso_conf = 1.0 / (1.0 + np.exp(8.0 * iso_score)) if self._iso is not None else 0.0
+        if self._rf is not None and self._iso is not None:
+            confidence = 0.65 * rf_proba + 0.35 * iso_conf     # supervised weighted higher
+        elif self._rf is not None:
+            confidence = rf_proba
+        else:
+            confidence = iso_conf
+        confidence = float(max(0.0, min(1.0, confidence)))
+
+        ml_anomaly = iso_anomaly or rf_anomaly
+        # Gate: only surface ML anomalies we are confident about; below the threshold we
+        # report normal to keep false positives down (the whole point of the gate).
+        anomaly = ml_anomaly and confidence >= self.min_confidence
+
         model_used = (
             "if+rf" if (iso_anomaly and rf_anomaly)
             else ("rf" if rf_anomaly else ("if" if iso_anomaly else "none"))
@@ -114,12 +144,16 @@ class AnomalyDetector:
                 reason = "ml_classified_attack"
             else:
                 reason = "unusual_pattern"
+        elif ml_anomaly:
+            # flagged by a model but below threshold — record why it was suppressed
+            reason = "low_confidence_suppressed"
 
         return {
-            "anomaly":  anomaly,
-            "score":    round(iso_score, 4),
-            "reason":   reason,
-            "model":    model_used,
+            "anomaly":    anomaly,
+            "score":      round(iso_score, 4),
+            "confidence": round(confidence, 4),
+            "reason":     reason,
+            "model":      model_used,
         }
 
 

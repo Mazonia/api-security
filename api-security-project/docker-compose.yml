@@ -15,6 +15,18 @@ services:
     volumes:
       - ./reports:/reports
 
+  vulnbank:
+    build: ./vulnbank
+    container_name: vulnbank
+    ports:
+      - "8002:8002"
+    networks:
+      - api-net
+    environment:
+      - ENV=vulnerable
+      # API10 lesson: third-party identity provider URL injected via env, unvalidated.
+      - IDENTITY_PROVIDER_URL=http://identity-partner.internal/verify
+
   hardened-api:
     build: ./hardened-api
     container_name: hardened-api

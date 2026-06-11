@@ -55,6 +55,15 @@
         "command": "mazapi.scanWorkspace",
         "title": "MazAPI: Scan Entire Workspace",
         "icon": "$(run-all)"
+      },
+      {
+        "command": "mazapi.openDashboard",
+        "title": "MazAPI: Open Security Dashboard",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "mazapi.showFix",
+        "title": "MazAPI: Show Quick Fix for Finding"
       }
     ],
     "menus": {
@@ -80,6 +89,16 @@
           "command": "mazapi.filter.reset",
           "when": "view == mazapi.findings && mazapi.filterActive",
           "group": "navigation@3"
+        },
+        {
+          "command": "mazapi.openDashboard",
+          "when": "view == mazapi.findings",
+          "group": "navigation@0"
+        },
+        {
+          "command": "mazapi.scanWorkspace",
+          "when": "view == mazapi.chains",
+          "group": "navigation@1"
         }
       ]
     },
@@ -125,6 +144,7 @@
     "views": {
       "mazapi": [
         { "id": "mazapi.findings",  "name": "Findings" },
+        { "id": "mazapi.chains",    "name": "Attack Chains" },
         { "id": "mazapi.endpoints", "name": "Detected Endpoints" }
       ]
     }

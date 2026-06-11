@@ -54,6 +54,12 @@
   <button class="tab" data-tab="results"
     data-tooltip="View findings with severity, compliance tags and evidence"
     data-tip-dir="down">Results</button>
+  <button class="tab" data-tab="threats"
+    data-tooltip="Threat score, attack-surface map and correlated attack chains"
+    data-tip-dir="down">&#128293; Threats</button>
+  <button class="tab" data-tab="live"
+    data-tooltip="Real-time feed of intercepted requests, flagged as they happen"
+    data-tip-dir="down">&#9673; Live</button>
   <button class="tab" data-tab="history"
     data-tooltip="Previous scans — click any entry to view its results"
     data-tip-dir="down">History</button>
@@ -133,6 +139,51 @@
     </div>
   </div>
   <div id="results-list"><div class="empty">Run a scan to see results.</div></div>
+</div>
+
+<!-- ── Tab: Threats (score ring + attack-surface map + attack chains) ──────── -->
+<div class="pane" id="pane-threats">
+  <div class="threat-hero">
+    <div class="ring-wrap">
+      <svg id="threat-ring" width="132" height="132" viewBox="0 0 132 132" aria-label="Threat score">
+        <circle class="ring-track" cx="66" cy="66" r="56" fill="none" stroke-width="12"/>
+        <circle id="ring-arc" cx="66" cy="66" r="56" fill="none" stroke-width="12"
+                stroke-linecap="round" transform="rotate(-90 66 66)"/>
+        <text id="ring-grade" x="66" y="62" text-anchor="middle" class="ring-grade">—</text>
+        <text id="ring-score" x="66" y="84" text-anchor="middle" class="ring-score"></text>
+      </svg>
+    </div>
+    <div class="threat-counts" id="threat-counts">
+      <div class="tc" data-sev="CRITICAL"><span class="tc-n" id="tc-crit">0</span><span class="tc-l">Critical</span></div>
+      <div class="tc" data-sev="HIGH"><span class="tc-n" id="tc-high">0</span><span class="tc-l">High</span></div>
+      <div class="tc" data-sev="MEDIUM"><span class="tc-n" id="tc-med">0</span><span class="tc-l">Medium</span></div>
+      <div class="tc" data-sev="LOW"><span class="tc-n" id="tc-low">0</span><span class="tc-l">Low</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Attack Surface</div>
+  <div id="attack-map"><div class="empty">Run a scan to map the attack surface.</div></div>
+
+  <div class="section-title" style="margin-top:12px">Attack Chains</div>
+  <div id="chains-list"><div class="empty">No correlated attack chains. Chains appear when findings combine into an exploit path.</div></div>
+</div>
+
+<!-- ── Tab: Live (real-time intercepted-request feed) ─────────────────────── -->
+<div class="pane" id="pane-live">
+  <div class="live-bar">
+    <span class="section-title" style="margin:0">Live Request Feed</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <span class="live-dot" id="live-dot"></span>
+      <button class="clear-btn" id="btn-live-pause"
+        data-tooltip="Pause / resume the live feed" data-tip-dir="left">Pause</button>
+    </div>
+  </div>
+  <div class="live-legend">
+    <span><i class="lg safe"></i> safe</span>
+    <span><i class="lg watch"></i> watch</span>
+    <span><i class="lg suspicious"></i> suspicious</span>
+  </div>
+  <div id="live-feed" class="live-feed"><div class="empty">Browse the target — intercepted API requests stream here in real time.</div></div>
 </div>
 
 <!-- ── Tab 4: History ─────────────────────────────────────────────────────── -->

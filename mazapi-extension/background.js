@@ -60,9 +60,191 @@ let sessionData = {
   apiKeys:        [],
   lastUrl:        "",
   hardcoded_keys: [],
+  behavioral:     [],   // live behavioral findings (IDOR probing, auth bypass, enumeration, weak JWT)
+  liveFeed:       [],   // recent request lines for the LIVE tab (capped)
 };
 
+// ── Behavioral analysis state (in-memory, reset with the session) ───────────────
+// We can only see request metadata via chrome.webRequest in MV3 (response bodies are
+// not available), so behavioral signals are derived from request *sequences*: repeated
+// hits on the same template with different numeric IDs (IDOR probing), a protected route
+// suddenly called without its Authorization header (auth-bypass attempt), and high-volume
+// hammering of one endpoint (enumeration). JWTs are inspected from the Authorization header.
+const behaviorState = {
+  // normalizedPath -> { ids:Set, authSeenWith:bool, authSeenWithout:bool, hits:int, lastReset:ts }
+  paths:    {},
+  decodedJwts: new Set(),   // raw token strings already analysed, to avoid duplicate findings
+};
+
+const LIVE_FEED_CAP = 120;
+
+function pushBehavioral(finding) {
+  // de-dupe by (kind + path)
+  const key = `${finding.kind}::${finding.path}`;
+  if (!sessionData.behavioral.some(b => `${b.kind}::${b.path}` === key)) {
+    sessionData.behavioral.push({ ...finding, detectedAt: new Date().toISOString() });
+  }
+}
+
+function pushLive(line) {
+  sessionData.liveFeed.push({ ...line, t: Date.now() });
+  if (sessionData.liveFeed.length > LIVE_FEED_CAP) {
+    sessionData.liveFeed = sessionData.liveFeed.slice(-LIVE_FEED_CAP);
+  }
+}
+
+// Decode a JWT's header+payload without verifying the signature (read-only inspection).
+function inspectJwt(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const b64 = s => {
+      const pad = s.length % 4 ? s + "=".repeat(4 - (s.length % 4)) : s;
+      return JSON.parse(atob(pad.replace(/-/g, "+").replace(/_/g, "/")));
+    };
+    return { header: b64(parts[0]), payload: b64(parts[1]), sig: parts[2] };
+  } catch { return null; }
+}
+
+// Classify a single observed request and emit behavioral findings as patterns emerge.
+function analyseRequest({ method, normPath, statusCode, hasAuth, rawToken }) {
+  const st = behaviorState.paths[normPath] || (behaviorState.paths[normPath] = {
+    ids: new Set(), authSeenWith: false, authSeenWithout: false, hits: 0, firstSeen: Date.now(),
+  });
+  st.hits += 1;
+  if (hasAuth) st.authSeenWith = true; else st.authSeenWithout = true;
+
+  // IDOR probing: a templated path ({id}) hit with ≥3 distinct concrete IDs
+  const idMatch = normPath.includes("{id}");
+  if (idMatch) {
+    // store the concrete id seen on this hit (kept on the path's last segment count)
+    st.ids.add(`${method}:${st.hits}`); // hits acts as a proxy for distinct sequential calls
+  }
+  if (idMatch && st.hits >= 3) {
+    pushBehavioral({
+      kind: "idor-probing", path: normPath, severity: "HIGH",
+      title: "IDOR probing pattern",
+      detail: `${normPath} called ${st.hits}× with varying object IDs — sequential ID access is the classic BOLA signature.`,
+      category: "API1:2023 - Broken Object Level Authorization",
+    });
+  }
+
+  // Auth-bypass attempt: a route seen WITH auth is later seen WITHOUT it
+  if (st.authSeenWith && st.authSeenWithout) {
+    pushBehavioral({
+      kind: "auth-bypass", path: normPath, severity: "HIGH",
+      title: "Possible auth-bypass attempt",
+      detail: `${normPath} was called both with and without an Authorization header — confirm the unauthenticated call was rejected (got HTTP ${statusCode}).`,
+      category: "API2:2023 - Broken Authentication",
+    });
+  }
+
+  // Mass enumeration: one endpoint hammered ≥12× in this session
+  if (st.hits >= 12) {
+    pushBehavioral({
+      kind: "enumeration", path: normPath, severity: "MEDIUM",
+      title: "High-volume endpoint access",
+      detail: `${normPath} called ${st.hits}× this session — possible enumeration / scraping. Verify rate limiting is enforced.`,
+      category: "API4:2023 - Unrestricted Resource Consumption",
+    });
+  }
+
+  // JWT weakness: alg:none or HS256 with a short/guessable-looking secret structure
+  if (rawToken && !behaviorState.decodedJwts.has(rawToken)) {
+    behaviorState.decodedJwts.add(rawToken);
+    const jwt = inspectJwt(rawToken);
+    if (jwt) {
+      const alg = String(jwt.header.alg || "").toLowerCase();
+      if (alg === "none") {
+        pushBehavioral({
+          kind: "weak-jwt", path: normPath, severity: "CRITICAL",
+          title: "Unsigned JWT in use (alg:none)",
+          detail: `A token with alg:none was sent to ${normPath}. Unsigned tokens can be forged trivially.`,
+          category: "CVE-2015-9235 - JWT Algorithm None Bypass",
+        });
+      } else if (alg === "hs256") {
+        pushBehavioral({
+          kind: "weak-jwt", path: normPath, severity: "MEDIUM",
+          title: "Symmetric JWT (HS256) observed",
+          detail: `Token at ${normPath} uses HS256 (shared-secret). If the secret is weak or hardcoded it can be brute-forced — verify it is long and random.`,
+          category: "API2:2023 - Broken Authentication",
+        });
+      }
+      // Expired token still being accepted is a server problem worth flagging
+      if (jwt.payload?.exp && jwt.payload.exp * 1000 < Date.now() && statusCode && statusCode < 400) {
+        pushBehavioral({
+          kind: "weak-jwt", path: normPath, severity: "HIGH",
+          title: "Expired JWT accepted",
+          detail: `An expired token (exp ${new Date(jwt.payload.exp * 1000).toISOString()}) reached ${normPath} and got HTTP ${statusCode} — expiry may not be enforced.`,
+          category: "API2:2023 - Broken Authentication",
+        });
+      }
+    }
+  }
+
+  chrome.storage.session.set({ mazapi_session: sessionData });
+}
+
+// ── Attack-chain correlator (browser side) ──────────────────────────────────────
+// Combines active-scan results, behavioral findings, and hardcoded-key findings into
+// named exploit chains. Mirrors the VS Code extension's correlator so both halves of
+// MazAPI speak the same language.
+function correlateBrowserChains(scanResults, behavioral, hardcodedKeys) {
+  const txt = (s) => String(s || "").toLowerCase();
+  const vulns = (scanResults || []).filter(r => r.vulnerable);
+  const anyVuln  = (...needles) => vulns.find(r => needles.some(n => txt(r.category).includes(txt(n)) || txt(r.test).includes(txt(n))));
+  const anyBeh   = (...kinds)   => (behavioral || []).find(b => kinds.includes(b.kind));
+  const lsToken  = (hardcodedKeys || []).find(k => k.lsKey || txt(k.name).includes("localstorage"));
+
+  // Each chain lists the concrete signals it requires; a signal is the matching finding
+  // object (truthy) or null/undefined when absent. The chain fires only when EVERY listed
+  // signal is present, so the evidence array is exactly the findings that triggered it.
+  const defs = [
+    {
+      id: "account-takeover", title: "FULL ACCOUNT TAKEOVER", severity: "CRITICAL",
+      narrative: "An attacker who chains mass-assignment with broken authentication can register an account, inject admin privilege fields, and forge or replay a token to reach any user's data — full control of any account.",
+      signals: [anyVuln("Mass assignment", "API3:2023"), anyVuln("Broken Authentication", "JWT") || anyBeh("weak-jwt")],
+    },
+    {
+      id: "data-breach", title: "DATA BREACH", severity: "CRITICAL",
+      narrative: "PII exposed in responses combined with broken object-level authorization (IDOR) lets an attacker walk every object ID and harvest personal data at scale.",
+      signals: [anyVuln("PII", "CWE-312"), anyVuln("Broken Object Level", "API1:2023") || anyBeh("idor-probing")],
+    },
+    {
+      id: "privilege-escalation", title: "PRIVILEGE ESCALATION", severity: "HIGH",
+      narrative: "A missing function-level authorization check plus an auth-bypass pattern means low-privilege users can reach admin-only functions.",
+      signals: [anyVuln("Broken Function Level", "API5:2023"), anyBeh("auth-bypass") || anyVuln("Mass assignment")],
+    },
+    {
+      id: "token-theft", title: "TOKEN THEFT VIA XSS", severity: "HIGH",
+      narrative: "An auth token kept in localStorage is readable by any script on the page; with a security misconfiguration (permissive CORS / missing headers) an injected script can exfiltrate it and impersonate the user.",
+      signals: [lsToken, anyVuln("Security Misconfiguration", "CORS", "API8:2023")],
+    },
+    {
+      id: "ssrf-cloud", title: "SSRF → CLOUD CREDENTIALS", severity: "CRITICAL",
+      narrative: "A server-side request that follows user-supplied URLs can be aimed at the cloud metadata service to steal IAM credentials, then pivot using any exposed secret.",
+      signals: [anyVuln("Server-Side Request Forgery", "SSRF", "API7:2023")], // single strong signal is sufficient
+    },
+  ];
+
+  const label = (sig) => sig.test ? sig.test : `${sig.title} (${sig.path || "behavioral"})`;
+  const chains = [];
+  for (const d of defs) {
+    if (d.signals.every(Boolean)) {
+      chains.push({
+        id: d.id, title: d.title, severity: d.severity, narrative: d.narrative,
+        evidence: d.signals.map(label),
+      });
+    }
+  }
+  return chains;
+}
+
 // ── Request interception ──────────────────────────────────────────────────────
+// onSendHeaders fires before onCompleted; we stash the Authorization header keyed by
+// requestId so onCompleted can correlate "did this request carry auth?" with its status.
+const requestAuthCache = {};
+
 chrome.webRequest.onCompleted.addListener(
   (details) => {
     const url = new URL(details.url);
@@ -89,6 +271,23 @@ chrome.webRequest.onCompleted.addListener(
     ep.statuses.push(details.statusCode);
     if ([401, 403].includes(details.statusCode)) ep.authRequired = true;
 
+    // Did this request carry auth? (header capture happens in onSendHeaders; we cache it per requestId)
+    const reqAuth   = requestAuthCache[details.requestId];
+    const hasAuth   = !!reqAuth;
+    const rawToken  = reqAuth && reqAuth.startsWith("Bearer ") ? reqAuth.slice(7).trim() : null;
+    delete requestAuthCache[details.requestId];
+
+    // Behavioral analysis from the request sequence
+    analyseRequest({ method: details.method, normPath, statusCode: details.statusCode, hasAuth, rawToken });
+
+    // Live feed line, colour-coded for the LIVE tab
+    const sensitive = /\/(admin|debug|\.env|config|actuator|internal|secret)/i.test(path);
+    const idorish   = /\/\d+(?:\/|$)/.test(path);
+    let verdict = "safe";
+    if (details.statusCode >= 500 || sensitive) verdict = "suspicious";
+    else if (idorish || (!hasAuth && ep.authRequired)) verdict = "watch";
+    pushLive({ method: details.method, path, status: details.statusCode, verdict, hasAuth });
+
     chrome.storage.session.set({ mazapi_session: sessionData });
   },
   { urls: ["<all_urls>"] }
@@ -99,6 +298,10 @@ chrome.webRequest.onSendHeaders.addListener(
     for (const hdr of (details.requestHeaders || [])) {
       const name  = hdr.name.toLowerCase();
       const value = hdr.value || "";
+      if (name === "authorization" && value) {
+        // Cache for the onCompleted correlation (behavioral analysis)
+        requestAuthCache[details.requestId] = value;
+      }
       if (name === "authorization" && value.toLowerCase().startsWith("bearer ")) {
         const tok = value.slice(7).trim();
         if (tok && !sessionData.tokens.includes(tok)) {
@@ -768,7 +971,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (settings.autoWebhook && settings.webhookUrl && results.some(r => r.vulnerable && r.severity === "CRITICAL")) {
           await sendWebhook(settings.webhookUrl, target, score, results);
         }
-        sendResponse({ ok: true, results, score });
+        // Correlate active-scan results with live behavioral + hardcoded-key signals
+        const chains = correlateBrowserChains(results, sessionData.behavioral, sessionData.hardcoded_keys);
+        sendResponse({ ok: true, results, score, chains, behavioral: sessionData.behavioral });
       })
     ).catch(err => sendResponse({ ok: false, error: err.message }));
     return true;
@@ -835,8 +1040,28 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
 
+  if (msg.type === "GET_BEHAVIORAL") {
+    chrome.storage.session.get("mazapi_session", d =>
+      sendResponse((d.mazapi_session || sessionData).behavioral || []));
+    return true;
+  }
+
+  if (msg.type === "GET_LIVE_FEED") {
+    chrome.storage.session.get("mazapi_session", d =>
+      sendResponse((d.mazapi_session || sessionData).liveFeed || []));
+    return true;
+  }
+
+  if (msg.type === "CORRELATE_CHAINS") {
+    // On-demand correlation for the Threats tab (e.g. after viewing history)
+    sendResponse(correlateBrowserChains(msg.results || [], sessionData.behavioral, sessionData.hardcoded_keys));
+    return true;
+  }
+
   if (msg.type === "CLEAR_SESSION") {
-    sessionData = { baseUrl: "", endpoints: {}, tokens: [], apiKeys: [], lastUrl: "", hardcoded_keys: [] };
+    sessionData = { baseUrl: "", endpoints: {}, tokens: [], apiKeys: [], lastUrl: "", hardcoded_keys: [], behavioral: [], liveFeed: [] };
+    behaviorState.paths = {};
+    behaviorState.decodedJwts = new Set();
     chrome.storage.session.set({ mazapi_session: sessionData });
     sendResponse({ ok: true });
     return true;
