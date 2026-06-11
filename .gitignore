@@ -64,6 +64,9 @@ desktop.ini
 *.suo
 *.user
 
+# Claude Code local config (machine-specific tool permissions — not project code)
+.claude/
+
 # Temporary probe scripts
 api-security-project/probe_site.py
 
