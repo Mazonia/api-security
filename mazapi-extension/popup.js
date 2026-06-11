@@ -19,6 +19,52 @@ document.querySelectorAll(".tab").forEach(tab => {
   });
 });
 
+// ── JWT decoder — shows algorithm, expiry, and key claims inline ──────────────
+function decodeJWT(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return '';
+    const pad  = s => s + '='.repeat((4 - s.length % 4) % 4);
+    const hdr  = JSON.parse(atob(pad(parts[0].replace(/-/g, '+').replace(/_/g, '/'))));
+    const pay  = JSON.parse(atob(pad(parts[1].replace(/-/g, '+').replace(/_/g, '/'))));
+    const alg  = hdr.alg || '?';
+    const now  = Math.floor(Date.now() / 1000);
+    const exp  = pay.exp;
+    const iat  = pay.iat;
+    const sub  = pay.sub || pay.user_id || pay.userId || pay.email || '';
+    const iss  = pay.iss || '';
+
+    const ALG_COLOR = alg === 'none' ? '#f85149' : alg.startsWith('HS') ? '#e3b341' : '#3fb950';
+    const algWarn   = alg === 'none' ? ' ⚠ CRITICAL: alg=none bypass risk!' : alg.startsWith('HS') ? ' (symmetric)' : '';
+    let expHtml = '';
+    if (exp) {
+      const diff = exp - now;
+      if (diff < 0) {
+        expHtml = `<span style="color:#f85149">&#10007; Expired ${Math.abs(Math.round(diff/60))} min ago</span>`;
+      } else if (diff < 300) {
+        expHtml = `<span style="color:#e3b341">&#9888; Expires in ${Math.round(diff/60)} min</span>`;
+      } else {
+        const d = new Date(exp * 1000);
+        expHtml = `<span style="color:#3fb950">&#10003; Valid until ${d.toLocaleTimeString()}</span>`;
+      }
+    } else {
+      expHtml = '<span style="color:#f85149">&#9888; No expiry (exp claim missing)</span>';
+    }
+
+    const rows = [
+      `<tr><td style="color:#8b949e;padding-right:8px">alg</td><td style="color:${ALG_COLOR};font-weight:700">${alg}${algWarn}</td></tr>`,
+      expHtml ? `<tr><td style="color:#8b949e">exp</td><td>${expHtml}</td></tr>` : '',
+      sub ? `<tr><td style="color:#8b949e">sub</td><td style="color:#c9d1d9">${String(sub).slice(0, 40)}</td></tr>` : '',
+      iss ? `<tr><td style="color:#8b949e">iss</td><td style="color:#c9d1d9">${String(iss).slice(0, 40)}</td></tr>` : '',
+    ].filter(Boolean).join('');
+
+    return `<div style="background:#0d1117;border:1px solid #21262d;border-radius:4px;padding:6px 8px;margin-top:4px;font-size:.75em">
+      <div style="color:#58a6ff;font-weight:600;margin-bottom:4px">&#128273; JWT Decoded</div>
+      <table style="border-collapse:collapse;width:100%">${rows}</table>
+    </div>`;
+  } catch (_) { return ''; }
+}
+
 // ── Load session from background ──────────────────────────────────────────────
 function loadSession() {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
@@ -62,8 +108,9 @@ function renderDiscovered(session, activeTabUrl = "") {
   if (session.tokens?.length) {
     const tok   = session.tokens[0];
     const short = tok.length > 60 ? tok.slice(0, 60) + "…" : tok;
-    tokenArea.innerHTML = `<div class="token-label">Bearer Token (captured)</div><div class="token-box" title="${tok}">${short}</div>`;
     document.getElementById("scan-token").value = tok;
+    const jwtInfo = decodeJWT(tok);
+    tokenArea.innerHTML = `<div class="token-label">Bearer Token (captured)</div><div class="token-box" title="${tok}">${short}</div>${jwtInfo}`;
   } else if (session.apiKeys?.length) {
     const k = session.apiKeys[0];
     tokenArea.innerHTML = `<div class="token-label">${k.header}</div><div class="token-box">${k.value}</div>`;
@@ -109,11 +156,15 @@ function renderDiscovered(session, activeTabUrl = "") {
   }
 
   // Render endpoint list with show/hide toggle
+  const API_DOC_RE = /\/(swagger(?:-ui)?|api[-_]?docs?|openapi|redoc|graphql|playground|voyager|altair|graphiql)\b/i;
   const visibleEps = _showAllEndpoints ? eps : eps.slice(0, 20);
   const epRows = visibleEps.map(([path, data]) => {
     const methods  = (data.methods || []).map(m => `<span class="badge badge-${m.toLowerCase()}">${m}</span>`).join("");
     const authNote = data.authRequired ? '<span style="color:#e3b341;font-size:.77em"> &#128274; auth required</span>' : "";
-    return `<div class="endpoint-item"><div class="endpoint-path">${path}</div><div class="endpoint-meta">${methods}${authNote}</div></div>`;
+    const docWarn  = API_DOC_RE.test(path)
+      ? '<span style="color:#f85149;font-size:.77em" title="API documentation endpoint exposed — disable in production"> &#9888; docs exposed</span>'
+      : "";
+    return `<div class="endpoint-item"><div class="endpoint-path">${path}</div><div class="endpoint-meta">${methods}${authNote}${docWarn}</div></div>`;
   }).join("");
 
   const toggleBtn = eps.length > 20

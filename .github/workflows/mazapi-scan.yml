@@ -1,0 +1,110 @@
+name: MazAPI Security Scan
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  secret-scan:
+    name: Scan for hardcoded secrets & API keys
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: mazapi-vscode
+
+      - name: Compile scanner
+        run: npm run compile
+        working-directory: mazapi-vscode
+
+      - name: Run MazAPI secret scanner
+        id: scan
+        run: |
+          node - <<'EOF'
+          const fs   = require('fs');
+          const path = require('path');
+          const { scanFileForIssues } = require('./mazapi-vscode/out/scanner');
+
+          const EXTS  = new Set(['.js','.ts','.py','.json','.yml','.yaml','.env','.cfg','.ini','.toml']);
+          const SKIP  = new RegExp('node_modules|.git|__pycache__|dist|build|/out/|mazapi-vscode/out');
+
+          function walk(dir) {
+            let files = [];
+            for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+              const full = path.join(dir, ent.name);
+              if (ent.isDirectory() && !SKIP.test(full)) files = files.concat(walk(full));
+              else if (ent.isFile() && EXTS.has(path.extname(ent.name))) files.push(full);
+            }
+            return files;
+          }
+
+          const { createRequire } = require('module');
+          // Stub vscode since it's not available in CI
+          const Module = require('module');
+          const _origLoad = Module._load;
+          Module._load = function(request, ...args) {
+            if (request === 'vscode') return {
+              Uri: { file: p => ({ fsPath: p }) },
+              Range: function(l1,c1,l2,c2) { return {start:{line:l1,character:c1},end:{line:l2,character:c2}}; },
+            };
+            return _origLoad.apply(this, [request, ...args]);
+          };
+
+          const { scanFileForIssues } = require('./mazapi-vscode/out/scanner');
+          const { Uri, Range } = require('vscode');
+
+          let criticals = 0, highs = 0, total = 0;
+          const report = [];
+
+          for (const file of walk('.')) {
+            const text = fs.readFileSync(file, 'utf8');
+            const ext  = path.extname(file).slice(1);
+            const langMap = { js:'javascript', ts:'typescript', py:'python', json:'json', yml:'yaml', yaml:'yaml' };
+            const lang = langMap[ext] || 'plaintext';
+            const uri  = { fsPath: file };
+            let findings;
+            try { findings = scanFileForIssues(text, lang, uri); } catch { continue; }
+            for (const f of findings) {
+              if (f.kind === 'endpoint') continue;
+              total++;
+              if (f.severity === 'CRITICAL') criticals++;
+              if (f.severity === 'HIGH') highs++;
+              report.push(`${f.severity.padEnd(8)} ${file}:${(f.range?.start?.line ?? 0)+1}  ${f.label || f.message}`);
+            }
+          }
+
+          if (report.length) {
+            console.log('\n=== MazAPI Security Scan Results ===');
+            report.forEach(l => console.log(l));
+            console.log(`\nTotal: ${total} findings  |  CRITICAL: ${criticals}  |  HIGH: ${highs}`);
+          } else {
+            console.log('MazAPI: No security issues found.');
+          }
+
+          // Fail the build if any CRITICAL findings
+          if (criticals > 0) {
+            console.error(`\n[FAIL] ${criticals} CRITICAL finding(s) — fix hardcoded secrets before merging.`);
+            process.exit(1);
+          }
+          EOF
+
+      - name: Upload scan report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mazapi-scan-report
+          path: mazapi-scan-*.json
+          if-no-files-found: ignore

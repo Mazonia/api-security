@@ -314,6 +314,30 @@
     })
     .slice(0, 6);
 
+  // 3. Scan localStorage for tokens stored insecurely
+  (function scanLocalStorage() {
+    const SENSITIVE_LS_KEYS = /^(?:token|jwt|access[_-]?token|id[_-]?token|refresh[_-]?token|auth|bearer|session)/i;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !SENSITIVE_LS_KEYS.test(key)) continue;
+        const val = localStorage.getItem(key) || '';
+        if (val.length < 10) continue;
+        if (!seen.has('ls:' + key)) {
+          seen.add('ls:' + key);
+          allKeys.push({
+            name:         'Auth Token in localStorage (insecure)',
+            service:      'Browser localStorage',
+            value:        val,
+            maskedValue:  maskKey(val),
+            source:       `localStorage["${key}"] @ ${location.href}`,
+            lsKey:        key,
+          });
+        }
+      }
+    } catch (_) {}
+  })();
+
   function sendKeys() {
     if (allKeys.length) {
       chrome.runtime.sendMessage({ type: 'CONTENT_FINDINGS', keys: allKeys, url: location.href });
