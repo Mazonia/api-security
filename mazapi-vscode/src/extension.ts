@@ -1,10 +1,27 @@
 import * as vscode from 'vscode';
+import { execFile } from 'child_process';
+import * as path from 'path';
 import { scanFileForIssues, ScanFinding } from './scanner';
 import { MazAPIPanel } from './panel';
 import {
     EndpointsProvider, FindingsProvider, ChainsProvider, correlateChains,
     FindingsFilter, DEFAULT_FILTER, isDefaultFilter,
 } from './treeview';
+
+// Is this .env file actually committed/tracked by git? A tracked .env with secrets is a
+// real exposure; a gitignored one is the correct home for them. `git ls-files --error-unmatch`
+// exits 0 only when the path is tracked. Non-.env files never need this (returns false fast).
+function isEnvTrackedByGit(uri: vscode.Uri): Promise<boolean> {
+    const fsPath = uri.fsPath;
+    if (!/(?:^|[\\/])\.env(?:\.[a-z]+)?$/i.test(fsPath)) return Promise.resolve(false);
+    const folder = vscode.workspace.getWorkspaceFolder(uri);
+    const cwd = folder ? folder.uri.fsPath : path.dirname(fsPath);
+    return new Promise((resolve) => {
+        execFile('git', ['ls-files', '--error-unmatch', fsPath], { cwd }, (err) => {
+            resolve(!err); // exit 0 (no err) ⇒ tracked ⇒ committed
+        });
+    });
+}
 
 let findingsProvider: FindingsProvider;
 let endpointsProvider: EndpointsProvider;
@@ -147,7 +164,8 @@ export function activate(context: vscode.ExtensionContext) {
                     for (let i = 0; i < files.length; i++) {
                         progress.report({ increment: (i / files.length) * 100 });
                         const doc = await vscode.workspace.openTextDocument(files[i]);
-                        const findings = scanFileForIssues(doc.getText(), doc.languageId, doc.uri);
+                        const envCommitted = await isEnvTrackedByGit(doc.uri);
+                        const findings = scanFileForIssues(doc.getText(), doc.languageId, doc.uri, envCommitted);
                         allFindings.push(...findings);
                         applyDiagnostics(doc.uri, findings);
                     }
@@ -448,7 +466,8 @@ function updateStatusBar(issueCount: number) {
 }
 
 async function runFileScan(doc: vscode.TextDocument, silent = false) {
-    const findings = scanFileForIssues(doc.getText(), doc.languageId, doc.uri);
+    const envCommitted = await isEnvTrackedByGit(doc.uri);
+    const findings = scanFileForIssues(doc.getText(), doc.languageId, doc.uri, envCommitted);
     applyDiagnostics(doc.uri, findings);
 
     // Per-file update: findings from other open files are preserved

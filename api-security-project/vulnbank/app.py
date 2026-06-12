@@ -19,7 +19,7 @@ import json
 import hmac
 import hashlib
 
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, render_template_string
 
 app = Flask(__name__)
 
@@ -274,9 +274,186 @@ def lab():
     })
 
 
+LAB_UI = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VulnBank Lab</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d1117;color:#c9d1d9;font-family:'Segoe UI',system-ui,sans-serif;padding:24px}
+  h1{color:#58a6ff;font-size:1.6rem;margin-bottom:4px}
+  .subtitle{color:#8b949e;font-size:.9rem;margin-bottom:24px}
+  .creds{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 18px;margin-bottom:28px;font-size:.85rem}
+  .creds b{color:#58a6ff}
+  .creds code{background:#0d1117;padding:2px 6px;border-radius:4px;color:#e6edf3}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .card-head{display:flex;align-items:center;gap:10px}
+  .badge{font-size:.7rem;font-weight:700;padding:3px 8px;border-radius:12px;text-transform:uppercase;white-space:nowrap}
+  .CRITICAL{background:#3d1a1a;color:#f85149;border:1px solid #f85149}
+  .HIGH{background:#2d1f00;color:#e3b341;border:1px solid #e3b341}
+  .MEDIUM{background:#122335;color:#58a6ff;border:1px solid #58a6ff}
+  .card-id{font-size:.72rem;color:#8b949e;font-weight:600}
+  .card-name{font-size:.95rem;font-weight:600;color:#e6edf3}
+  .card-desc{font-size:.83rem;color:#8b949e;line-height:1.5}
+  .card-hint{font-size:.8rem;color:#3fb950;background:#0f2318;border-left:3px solid #3fb950;padding:7px 10px;border-radius:0 6px 6px 0}
+  .card-mazapi{font-size:.78rem;color:#bc8cff;background:#1a1030;border-left:3px solid #bc8cff;padding:7px 10px;border-radius:0 6px 6px 0}
+  .endpoint{font-family:monospace;font-size:.8rem;background:#0d1117;border:1px solid #30363d;padding:5px 10px;border-radius:6px;color:#79c0ff;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .try-btn{background:#1f6feb;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .try-btn:hover{background:#388bfd}
+  .response-box{display:none;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:.75rem;color:#e6edf3;white-space:pre-wrap;max-height:220px;overflow-y:auto}
+  .response-box.visible{display:block}
+  .status-ok{color:#3fb950}
+  .status-err{color:#f85149}
+  label{font-size:.78rem;color:#8b949e}
+  input[type=text]{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:.8rem;margin-top:3px}
+  input[type=text]:focus{outline:none;border-color:#58a6ff}
+  .token-row{display:flex;gap:8px;align-items:flex-end;margin-top:4px}
+  .token-row input{flex:1}
+  .login-hint{font-size:.72rem;color:#8b949e;margin-top:2px}
+</style>
+</head>
+<body>
+<h1>VulnBank Lab</h1>
+<p class="subtitle">Intentionally vulnerable API — OWASP API Security Top 10 (2023) practice target for MazAPI</p>
+
+<div class="creds">
+  <b>Credentials:</b>&nbsp;
+  alice / <code>alice123</code> &nbsp;|&nbsp;
+  bob / <code>bob123</code> &nbsp;|&nbsp;
+  carol / <code>carol123</code> (admin) &nbsp;|&nbsp;
+  backdoor: <code>admin123</code> works on any account
+</div>
+
+<div style="margin-bottom:18px">
+  <label>Bearer token (paste after logging in via API2, used by any challenge that needs auth)
+    <div class="token-row">
+      <input type="text" id="global-token" placeholder="eyJ...">
+    </div>
+  </label>
+  <div class="login-hint">Quick-login: use the "Try it" button on API2 to get a token, then paste it here.</div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const BASE = "http://localhost:8002";
+const CHALLENGES = {{ challenges|tojson }};
+
+const PREFILLS = {
+  "API1": [{label:"Account ID", key:"account_id", default:"1001"}],
+  "API2": [{label:"Username", key:"username", default:"alice"},{label:"Password", key:"password", default:"admin123"}],
+  "API3": [],
+  "API4": [],
+  "API5": [{label:"User ID to delete", key:"user_id", default:"2"}],
+  "API6": [{label:"From account", key:"from", default:"1001"},{label:"To account", key:"to", default:"1002"},{label:"Amount", key:"amount", default:"50"}],
+  "API7": [{label:"URL to fetch", key:"url", default:"http://169.254.169.254/latest/meta-data/"}],
+  "API8": [],
+  "API9": [{label:"Account ID", key:"account_id", default:"1003"}],
+  "API10": [{label:"Name", key:"name", default:"Alice Test"},{label:"ID number", key:"id_number", default:"GH-1234567"}],
+};
+
+function token() { return document.getElementById("global-token").value.trim(); }
+
+async function fire(id) {
+  const box = document.getElementById("resp-"+id);
+  box.className = "response-box visible";
+  box.textContent = "Loading\\u2026";
+
+  const hdrs = {"Content-Type":"application/json"};
+  if (token()) hdrs["Authorization"] = "Bearer " + token();
+
+  const inputs = PREFILLS[id] || [];
+  const vals = {};
+  inputs.forEach(f => { vals[f.key] = document.getElementById(id+"-"+f.key).value; });
+
+  let url = BASE, method = "GET", body = null;
+
+  try {
+    if (id === "API1") { url = BASE+"/accounts/"+vals.account_id; }
+    else if (id === "API2") {
+      url = BASE+"/auth/login"; method = "POST";
+      body = JSON.stringify({username:vals.username, password:vals.password});
+    }
+    else if (id === "API3") { url = BASE+"/users/profile"; }
+    else if (id === "API4") { url = BASE+"/transactions/export"; }
+    else if (id === "API5") { url = BASE+"/admin/users/"+vals.user_id+"?admin=true"; method = "DELETE"; }
+    else if (id === "API6") {
+      url = BASE+"/transfer"; method = "POST";
+      body = JSON.stringify({from:vals.from, to:vals.to, amount:parseFloat(vals.amount)});
+    }
+    else if (id === "API7") {
+      url = BASE+"/webhook/test"; method = "POST";
+      body = JSON.stringify({url:vals.url});
+    }
+    else if (id === "API8") { url = BASE+"/health"; }
+    else if (id === "API9") { url = BASE+"/api/v1/accounts/"+vals.account_id; }
+    else if (id === "API10") {
+      url = BASE+"/verify/identity"; method = "POST";
+      body = JSON.stringify({name:vals.name, id_number:vals.id_number});
+    }
+
+    const opts = {method, headers:hdrs};
+    if (body) opts.body = body;
+    const r = await fetch(url, opts);
+    const data = await r.json().catch(() => r.text());
+    const label = r.ok ? "\\u2705 "+r.status : "\\u274c "+r.status;
+    box.innerHTML = '<span class="'+(r.ok?"status-ok":"status-err")+'">'+label+'</span>\\n'+JSON.stringify(data,null,2);
+
+    // Auto-paste token if this was a login
+    if (id === "API2" && data.token) {
+      document.getElementById("global-token").value = data.token;
+      box.innerHTML += "\\n\\n// Token saved to the field above ^";
+    }
+  } catch(e) {
+    box.innerHTML = '<span class="status-err">Error: '+e.message+'</span>';
+  }
+}
+
+CHALLENGES.forEach(c => {
+  const inputs = PREFILLS[c.id] || [];
+  const inputsHtml = inputs.map(f => `
+    <label>${f.label}
+      <input type="text" id="${c.id}-${f.key}" value="${f.default}">
+    </label>`).join("");
+
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="card-head">
+      <span class="badge ${c.severity}">${c.severity}</span>
+      <span class="card-id">${c.id}</span>
+    </div>
+    <div class="card-name">${c.name}</div>
+    <div class="card-desc">${c.description}</div>
+    <div class="endpoint">
+      <span>${c.endpoint}</span>
+      <button class="try-btn" data-id="${c.id}">Try it</button>
+    </div>
+    ${inputsHtml}
+    <div class="card-hint">Hint: ${c.hint}</div>
+    <div class="card-mazapi">MazAPI: ${c.mazapi}</div>
+    <pre class="response-box" id="resp-${c.id}"></pre>
+  `;
+  document.getElementById("grid").appendChild(card);
+  // Attach the handler in JS (not inline onclick) so quotes in the data never break it.
+  card.querySelector(".try-btn").addEventListener("click", () => fire(c.id));
+});
+</script>
+</body>
+</html>"""
+
+
+@app.route("/lab/ui", methods=["GET"])
+def lab_ui():
+    return render_template_string(LAB_UI, challenges=LAB_CHALLENGES)
+
+
 @app.route("/", methods=["GET"])
 def index():
-    return jsonify({"service": "VulnBank API", "lab": "/lab", "challenges": len(LAB_CHALLENGES)})
+    return jsonify({"service": "VulnBank API", "lab": "/lab", "lab_ui": "/lab/ui", "challenges": len(LAB_CHALLENGES)})
 
 
 @app.route("/health", methods=["GET"])
