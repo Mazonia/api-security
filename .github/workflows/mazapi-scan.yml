@@ -36,7 +36,6 @@ jobs:
           node - <<'EOF'
           const fs   = require('fs');
           const path = require('path');
-          const { scanFileForIssues } = require('./mazapi-vscode/out/scanner');
 
           const EXTS  = new Set(['.js','.ts','.py','.json','.yml','.yaml','.env','.cfg','.ini','.toml']);
           const SKIP  = new RegExp('node_modules|.git|__pycache__|dist|build|/out/|mazapi-vscode/out');

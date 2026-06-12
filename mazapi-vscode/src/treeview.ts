@@ -27,6 +27,9 @@ export function isDefaultFilter(f: FindingsFilter): boolean {
 
 // Icon per finding kind
 function findingIcon(f: ScanFinding): vscode.ThemeIcon {
+    if (f.isGitignoredEnv) {
+        return new vscode.ThemeIcon('key', new vscode.ThemeColor('charts.green'));
+    }
     const isCritical = f.severity === 'CRITICAL' || f.severity === 'HIGH';
     const color = new vscode.ThemeColor(isCritical ? 'errorForeground' : 'editorWarning.foreground');
     switch (f.kind) {
@@ -47,12 +50,15 @@ class FindingItem extends vscode.TreeItem {
         if (finding.kind === 'hardcoded-key' && finding.maskedValue) {
             label = `${finding.label}  ${finding.maskedValue}`;
         }
+        if (finding.isGitignoredEnv) {
+            label = `[SECURE] ${label}`;
+        }
         super(label, vscode.TreeItemCollapsibleState.None);
 
         // file:line in the description column
         if (finding.uri && finding.range) {
             const filename = path.basename(finding.uri.fsPath);
-            this.description = `${filename}:${finding.range.start.line + 1}`;
+            this.description = `${filename}:${finding.range.start.line + 1}` + (finding.isGitignoredEnv ? ' (safely in .env)' : '');
         }
 
         // Rich tooltip: service name, severity, masked key, fix
@@ -98,15 +104,23 @@ class FileGroupItem extends vscode.TreeItem {
         const filename = path.basename(fileUri.fsPath);
         super(filename, vscode.TreeItemCollapsibleState.Expanded);
 
-        const severe = findings.filter(f => f.severity === 'CRITICAL' || f.severity === 'HIGH').length;
-        this.description = `${findings.length} issue${findings.length !== 1 ? 's' : ''}` +
-                           (severe ? ` · ${severe} critical/high` : '');
-        this.tooltip     = fileUri.fsPath;
-        this.resourceUri = fileUri;
-        this.iconPath    = new vscode.ThemeIcon(
-            severe ? 'error' : 'warning',
-            new vscode.ThemeColor(severe ? 'errorForeground' : 'editorWarning.foreground')
-        );
+        const allSecure = findings.every(f => f.isGitignoredEnv);
+        const severe = findings.filter(f => (f.severity === 'CRITICAL' || f.severity === 'HIGH') && !f.isGitignoredEnv).length;
+        
+        if (allSecure) {
+            this.description = `${findings.length} secret${findings.length !== 1 ? 's' : ''} (safely in .env)`;
+            this.iconPath = new vscode.ThemeIcon('shield', new vscode.ThemeColor('charts.green'));
+        } else {
+            this.description = `${findings.length} issue${findings.length !== 1 ? 's' : ''}` +
+                               (severe ? ` · ${severe} critical/high` : '');
+            this.iconPath = new vscode.ThemeIcon(
+                severe ? 'error' : 'warning',
+                new vscode.ThemeColor(severe ? 'errorForeground' : 'editorWarning.foreground')
+            );
+        }
+        
+        this.tooltip      = fileUri.fsPath;
+        this.resourceUri  = fileUri;
         this.contextValue = 'mazapi-file-group';
     }
 }

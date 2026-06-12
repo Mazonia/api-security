@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-58a6ff?style=flat-square" alt="v1.0.0"/>
+  <img src="https://img.shields.io/badge/version-1.0.2-58a6ff?style=flat-square" alt="v1.0.2"/>
   <img src="https://img.shields.io/badge/VS%20Code-%5E1.85.0-007ACC?style=flat-square&logo=visualstudiocode" alt="VS Code"/>
   <img src="https://img.shields.io/badge/OWASP-API%20Top%2010-e06c00?style=flat-square" alt="OWASP"/>
   <img src="https://img.shields.io/badge/compliance-PCI--DSS%20%7C%20GDPR%20%7C%20ISO%2027001-3fb950?style=flat-square" alt="Compliance"/>
@@ -67,7 +67,7 @@ npm run compile
 # 3. Package as VSIX (requires @vscode/vsce)
 npm install -g @vscode/vsce
 vsce package --no-dependencies
-# → produces mazapi-scanner-1.0.0.vsix
+# → produces mazapi-scanner-1.0.2.vsix
 
 # 4. In your IDE: Ctrl+Shift+P → "Extensions: Install from VSIX…"
 #    Select the .vsix file and reload when prompted

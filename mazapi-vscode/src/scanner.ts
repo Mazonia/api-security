@@ -21,6 +21,7 @@ export interface ScanFinding {
     value?: string;
     fix?: string;
     compliance?: Compliance;
+    isGitignoredEnv?: boolean;
 }
 
 const COMPLIANCE_MAP: Record<string, Compliance> = {
@@ -434,8 +435,8 @@ const KEY_PATTERNS: {
         },
         {
             name: 'Resend API Key',
-            service: 'Resend (email)',
-            pattern: /re_[A-Za-z0-9][A-Za-z0-9_-]{12,}/g,
+            service: 'Resend',
+            pattern: /\bre_[A-Za-z0-9_-]{32,48}\b/g,
             severity: 'CRITICAL',
             category: 'CWE-798 - Hardcoded Credentials',
             fix: 'Revoke at resend.com/api-keys and use RESEND_API_KEY env var',
@@ -556,15 +557,7 @@ const KEY_PATTERNS: {
             category: 'CWE-798 - Hardcoded Credentials',
             fix: 'Revoke at app.brevo.com/settings/keys/api and use BREVO_API_KEY env var',
         },
-        {
-            name: 'Resend API Key',
-            service: 'Resend',
-            // "re_" is a common variable prefix; require string-literal context
-            pattern: /["'`](re_[A-Za-z0-9]{24})["'`]/g,
-            severity: 'CRITICAL',
-            category: 'CWE-798 - Hardcoded Credentials',
-            fix: 'Revoke at resend.com/api-keys and use RESEND_API_KEY env var',
-        },
+
         // ── Payments ──────────────────────────────────────────────────────────────
         {
             name: 'Square Access Token',
@@ -1116,6 +1109,11 @@ function looksLikeSecret(val: string): boolean {
     // A recognised vendor prefix (re_, gsk_, sk-, key-, tok_, …) is itself strong evidence —
     // these are deliberately low-entropy-tolerant so short vendor keys aren't missed.
     if (hasSecretPrefix(v)) return v.length >= 12;
+    // Kebab/snake-case identifiers (cache keys, queue names, feature flags, slugs) are
+    // readable words joined by - or _, all lower-case. Real secrets are random tokens, not
+    // words — e.g. "facilitator-offline-write-queue-v1" is a queue key, not a credential.
+    const segs = v.split(/[-_]/);
+    if (segs.length >= 3 && !/[A-Z]/.test(v) && segs.every(s => /^[a-z]{1,16}[0-9]{0,3}$/.test(s))) return false;
     const h = shannonEntropy(v);
     // base64-ish secrets sit ~4.0–6.0 bits/char; English words sit < 3.5
     const hasMixedCase = /[a-z]/.test(v) && /[A-Z]/.test(v);
@@ -1182,8 +1180,7 @@ export function scanFileForIssues(
     langId: string,
     uri: vscode.Uri,
     // True when this file is an .env that IS tracked by git (i.e. committed — a real
-    // exposure). When false, secrets in an .env are suppressed: a gitignored .env is the
-    // correct home for secrets. Non-.env files ignore this flag entirely.
+    // exposure). When false, secrets in an .env are not flagged as errors.
     envCommitted: boolean = false
 ): ScanFinding[] {
     const findings: ScanFinding[] = [];
@@ -1191,8 +1188,7 @@ export function scanFileForIssues(
     const isTooling = isSecurityToolingFile(uri.fsPath);
     const isConfig = isConfigFile(uri.fsPath);
     const isEnv = isEnvFile(uri.fsPath);
-    // In a gitignored (uncommitted) .env, secrets are expected — stay silent on them.
-    const suppressEnvSecrets = isEnv && !envCommitted;
+    const isGitignoredEnv = isEnv && !envCommitted;
 
     function rangeOf(match: RegExpExecArray, source: string): vscode.Range {
         let pos = 0, lineNum = 0;
@@ -1222,12 +1218,6 @@ export function scanFileForIssues(
         while ((m = pattern.exec(text)) !== null) {
             const ln = rangeOf(m, text).start.line;
             const line = lines[ln] || '';
-            // Skip HTML template strings and pure comment lines
-            if (isHtmlTemplateLine(line)) continue;
-            if (/^\s*(?:#|\/\/|\/\*)/.test(line)) continue;
-            // A gitignored .env is the correct home for secrets — don't flag them there.
-            if (suppressEnvSecrets) continue;
-            // Phase-2: cancel placeholders, env references, test files, comments.
             // In .env files the "env reference" rule is skipped — the value IS the secret.
             if (!isEnv && !passesContextValidation('hardcoded-key', m[0], line, lineAt(ln - 1), lineAt(ln + 1), uri.fsPath)) continue;
             if (isEnv && PLACEHOLDER_WORDS.test(m[0])) continue;
@@ -1247,7 +1237,9 @@ export function scanFileForIssues(
             }
             findings.push({
                 kind: 'hardcoded-key',
-                message: `${name} detected — service: ${resolvedService}`,
+                message: isGitignoredEnv 
+                    ? `${name} detected in gitignored .env — service: ${resolvedService} (Not flagged as error)` 
+                    : `${name} detected — service: ${resolvedService}`,
                 label: name,
                 service: resolvedService,
                 maskedValue: maskKey(rawVal),
@@ -1256,8 +1248,11 @@ export function scanFileForIssues(
                 range: rangeOf(m, text),
                 uri,
                 value: rawVal,
-                fix,
+                fix: isGitignoredEnv 
+                    ? 'This secret is stored in a gitignored .env file, which is correct. No action required.' 
+                    : fix,
                 compliance: getCompliance(category),
+                isGitignoredEnv,
             });
         }
     }
@@ -1266,8 +1261,8 @@ export function scanFileForIssues(
     // Named patterns above only catch *known* key shapes (sk-…, FLWSECK-…, etc.). This
     // catches custom/unknown secrets: `MY_SERVICE_TOKEN = "a8Kd…"`, `db_pass: 'X9f…'`, or
     // a bare `SECRET=…` line in a committed .env. The context validator + looksLikeSecret()
-    // keep the noise down. Skipped in tooling files and gitignored .env files.
-    if (!isTooling && !suppressEnvSecrets) {
+    // keep the noise down. Skipped in tooling files.
+    if (!isTooling) {
         // <name> = "<value>"  |  <name>: '<value>'  |  ENV_STYLE=value (no quotes, .env)
         const ASSIGN_RE = isEnv
             ? /^\s*([A-Z][A-Z0-9_]{2,})\s*=\s*["']?([^"'\s#]{20,200})["']?\s*$/gm
@@ -1296,7 +1291,9 @@ export function scanFileForIssues(
             const sev: 'CRITICAL' | 'HIGH' = (nameSuggestsSecret || prefixed) ? 'CRITICAL' : 'HIGH';
             findings.push({
                 kind: 'hardcoded-key',
-                message: `High-entropy secret assigned to "${varName}" — looks like a hardcoded credential`,
+                message: isGitignoredEnv
+                    ? `High-entropy secret assigned to "${varName}" in gitignored .env (Not flagged as error)`
+                    : `High-entropy secret assigned to "${varName}" — looks like a hardcoded credential`,
                 label: 'High-entropy secret',
                 service: 'Unknown service (entropy-detected)',
                 maskedValue: maskKey(val),
@@ -1305,10 +1302,13 @@ export function scanFileForIssues(
                 range: rangeOf(em, text),
                 uri,
                 value: val,
-                fix: isEnv
-                    ? 'This .env file is committed to git. Add it to .gitignore and rotate every secret it contains.'
-                    : `Move "${varName}" to an environment variable or secrets manager and rotate the value.`,
+                fix: isGitignoredEnv
+                    ? 'This secret is stored in a gitignored .env file, which is correct. No action required.'
+                    : (isEnv
+                        ? 'This .env file is committed to git. Add it to .gitignore and rotate every secret it contains.'
+                        : `Move "${varName}" to an environment variable or secrets manager and rotate the value.`),
                 compliance: getCompliance('CWE-798 - Hardcoded Credentials'),
+                isGitignoredEnv,
             });
             reportedKeyAt.add(`${eln}:${val}`);
         }
@@ -1349,6 +1349,10 @@ export function scanFileForIssues(
             while ((m = pattern.exec(text)) !== null) {
                 const wln = rangeOf(m, text).start.line;
                 const line = lines[wln] || '';
+                // In .env / config files, DEBUG=true (and similar flags) is legitimate
+                // configuration, not an in-code misconfiguration — the recommended fix for the
+                // in-code version is literally to control it via an environment variable.
+                if (isConfig && name === 'Debug / verbose mode enabled in code') continue;
                 // Skip lines that are inside HTML template strings or comment-only lines
                 if (isHtmlTemplateLine(line)) continue;
                 if (/^\s*#/.test(line) || /^\s*\/\//.test(line)) continue;
@@ -1395,7 +1399,9 @@ export function scanFileForIssues(
         },
     ];
     const PII_CATEGORY = 'CWE-312 - PII / Sensitive Data Pattern in Code';
-    for (const { name, pattern, fix } of (isTooling ? [] : PII_CODE_PATTERNS)) {
+    // Config/env files (.env, docker-compose, settings.json) legitimately hold values like
+    // an admin email or contact address — that is configuration, not PII hardcoded in code.
+    for (const { name, pattern, fix } of (isTooling || isConfig ? [] : PII_CODE_PATTERNS)) {
         pattern.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = pattern.exec(text)) !== null) {

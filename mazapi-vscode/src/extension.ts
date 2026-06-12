@@ -413,7 +413,7 @@ function commentPrefix(langId: string): string {
 
 // ── Letter grade from the severity mix of currently-visible findings ───────────
 function computeGrade(findings: ScanFinding[]): { grade: string; color: string } {
-    const real = findings.filter(f => f.kind !== 'endpoint');
+    const real = findings.filter(f => f.kind !== 'endpoint' && !f.isGitignoredEnv);
     const crit = real.filter(f => f.severity === 'CRITICAL').length;
     const high = real.filter(f => f.severity === 'HIGH').length;
     const med  = real.filter(f => f.severity === 'MEDIUM').length;
@@ -492,9 +492,9 @@ async function runFileScan(doc: vscode.TextDocument, silent = false) {
 }
 
 function applyDiagnostics(uri: vscode.Uri, findings: ScanFinding[]) {
-    // Endpoints go in the tree panel only — don't pollute the Problems panel with informational URLs
+    // Endpoints and gitignored env secrets go in the tree panel only — don't pollute the Problems panel
     const diagnostics: vscode.Diagnostic[] = findings
-        .filter(f => f.kind !== 'endpoint')
+        .filter(f => f.kind !== 'endpoint' && !f.isGitignoredEnv)
         .map(f => {
             const range = f.range ?? new vscode.Range(0, 0, 0, 0);
             const sev = f.severity === 'CRITICAL' || f.severity === 'HIGH'
@@ -555,12 +555,12 @@ class DashboardPanel {
     private static render(findings: ScanFinding[], chainCount: number, forExport = false): string {
         const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const counts = {
-            CRITICAL: findings.filter(f => f.severity === 'CRITICAL').length,
-            HIGH:     findings.filter(f => f.severity === 'HIGH').length,
-            MEDIUM:   findings.filter(f => f.severity === 'MEDIUM').length,
-            LOW:      findings.filter(f => f.severity === 'LOW').length,
+            CRITICAL: findings.filter(f => f.severity === 'CRITICAL' && !f.isGitignoredEnv).length,
+            HIGH:     findings.filter(f => f.severity === 'HIGH' && !f.isGitignoredEnv).length,
+            MEDIUM:   findings.filter(f => f.severity === 'MEDIUM' && !f.isGitignoredEnv).length,
+            LOW:      findings.filter(f => f.severity === 'LOW' && !f.isGitignoredEnv).length,
         };
-        const total = findings.length;
+        const total = findings.filter(f => !f.isGitignoredEnv).length;
         const { grade } = computeGrade(findings);
         const SEV_COLOR: Record<string, string> = { CRITICAL: '#ff4d6a', HIGH: '#f85149', MEDIUM: '#f5a623', LOW: '#58a6ff' };
 
@@ -594,16 +594,22 @@ class DashboardPanel {
 
         const rows = findings
             .slice()
-            .sort((a, b) => ({ CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[b.severity] - { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[a.severity]))
+            .sort((a, b) => {
+                const aRank = a.isGitignoredEnv ? 0 : ({ CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[a.severity] ?? 0);
+                const bRank = b.isGitignoredEnv ? 0 : ({ CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[b.severity] ?? 0);
+                return bRank - aRank;
+            })
             .map(f => {
                 const file = f.uri ? f.uri.fsPath.split(/[\\/]/).pop() : '';
                 const line = (f.range?.start.line ?? 0) + 1;
-                const rank = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[f.severity];
+                const rank = f.isGitignoredEnv ? 0 : ({ CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }[f.severity] ?? 0);
                 const click = !forExport && f.uri
                     ? `data-fs="${esc(f.uri.fsPath)}" data-line="${f.range?.start.line ?? 0}" class="clickable"`
                     : '';
+                const sevColor = f.isGitignoredEnv ? '#3fb950' : (SEV_COLOR[f.severity] ?? '#8b949e');
+                const sevLabel = f.isGitignoredEnv ? `SECURE (${f.severity})` : f.severity;
                 return `<tr ${click} data-sev="${rank}">
-                    <td><span class="sev" style="color:${SEV_COLOR[f.severity]}">${f.severity}</span></td>
+                    <td><span class="sev" style="color:${sevColor}">${sevLabel}</span></td>
                     <td>${esc(f.label ?? f.message.slice(0, 60))}</td>
                     <td class="kind">${esc(f.kind)}</td>
                     <td class="cat">${esc(f.category)}</td>
