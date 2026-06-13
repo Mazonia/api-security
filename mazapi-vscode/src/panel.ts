@@ -198,6 +198,7 @@ details pre{background:var(--vscode-textBlockQuote-background);border:1px solid 
 </svg>
 <h1 style="margin:0">MazAPI Scanner</h1>
 </div>
+<div style="color:#3fb950;font-size:.8em;margin:-4px 0 12px;line-height:1.5">&#128274; Runs entirely on your machine. No user data is stored remotely or sent to any MazAPI server. The only requests made are the security tests sent to the target you choose to scan.</div>
 <div class="field"><label>Target URL</label><input id="target" value="${target}" placeholder="https://api.example.com"></div>
 <div class="field"><label>Bearer Token (optional)</label><input id="token" placeholder="eyJhbGciOiJIUzI1NiIs…"></div>
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">

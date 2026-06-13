@@ -749,19 +749,34 @@ function loadSettings() {
     document.getElementById("set-orgname").value       = s.orgName || "";
     document.getElementById("set-webhook").value       = s.webhookUrl || "";
     document.getElementById("set-auto-webhook").checked = !!s.autoWebhook;
+    document.getElementById("set-monitor-url").value     = s.monitorUrl || "http://localhost:9000";
+    document.getElementById("set-link-dashboard").checked = !!s.linkDashboard;
   });
 }
 
 document.getElementById("btn-save-settings").addEventListener("click", () => {
   const settings = {
-    orgName:     document.getElementById("set-orgname").value.trim(),
-    webhookUrl:  document.getElementById("set-webhook").value.trim(),
-    autoWebhook: document.getElementById("set-auto-webhook").checked,
+    orgName:       document.getElementById("set-orgname").value.trim(),
+    webhookUrl:    document.getElementById("set-webhook").value.trim(),
+    autoWebhook:   document.getElementById("set-auto-webhook").checked,
+    monitorUrl:    document.getElementById("set-monitor-url").value.trim() || "http://localhost:9000",
+    linkDashboard: document.getElementById("set-link-dashboard").checked,
   };
   chrome.runtime.sendMessage({ type: "SAVE_SETTINGS", settings }, () => {
     const st = document.getElementById("settings-status");
     st.textContent = "&#10003; Settings saved";
     setTimeout(() => { st.textContent = ""; }, 2000);
+  });
+});
+
+// Open the live monitoring dashboard for the current target. The dashboard is served
+// from the user's own machine (localhost by default), so this never leaves the device.
+document.getElementById("btn-open-dashboard").addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, s => {
+    const base = (((s && s.monitorUrl) || document.getElementById("set-monitor-url").value || "http://localhost:9000")).replace(/\/+$/, "");
+    const site = (document.getElementById("scan-target")?.value || _lastTarget || "").trim();
+    const url  = base + "/extension/live" + (site ? "?site=" + encodeURIComponent(site) : "");
+    chrome.tabs.create({ url });
   });
 });
 

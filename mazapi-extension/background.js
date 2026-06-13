@@ -327,7 +327,7 @@ const SETTINGS_KEY = "mazapi_settings";
 const FP_KEY       = "mazapi_fp";
 
 const getHistory        = () => new Promise(r => chrome.storage.local.get(HISTORY_KEY,  d => r(d[HISTORY_KEY]  || [])));
-const getSettings       = () => new Promise(r => chrome.storage.local.get(SETTINGS_KEY, d => r(d[SETTINGS_KEY] || { webhookUrl: "", orgName: "", autoWebhook: false })));
+const getSettings       = () => new Promise(r => chrome.storage.local.get(SETTINGS_KEY, d => r(d[SETTINGS_KEY] || { webhookUrl: "", orgName: "", autoWebhook: false, monitorUrl: "http://localhost:9000", linkDashboard: false })));
 const saveSettings      = s  => new Promise(r => chrome.storage.local.set({ [SETTINGS_KEY]: s }, r));
 const getFalsePositives = () => new Promise(r => chrome.storage.local.get(FP_KEY, d => r(d[FP_KEY] || {})));
 
@@ -409,6 +409,33 @@ async function sendWebhook(webhookUrl, target, score, results) {
       signal: AbortSignal.timeout(8000),
     });
   } catch { /* non-fatal */ }
+}
+
+// ── Live dashboard link ─────────────────────────────────────────────────────────
+// Optional: when the user links a site to their LOCAL monitoring dashboard, push a
+// compact summary of each completed scan so it can be watched live at
+// <monitorUrl>/extension/live. monitorUrl defaults to http://localhost:9000, so this
+// traffic stays on the user's own machine and nothing is sent to any external server.
+async function sendToMonitor(monitorUrl, target, score, results) {
+  if (!monitorUrl) return;
+  const vulns = results.filter(r => r.vulnerable);
+  const payload = {
+    site:      target,
+    target,
+    score,
+    criticals: vulns.filter(r => r.severity === "CRITICAL").length,
+    highs:     vulns.filter(r => r.severity === "HIGH").length,
+    total:     results.length,
+    findings:  vulns.map(({ severity, test, category }) => ({ severity, test, category })),
+  };
+  try {
+    await fetch(monitorUrl.replace(/\/+$/, "") + "/extension/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch { /* non-fatal: dashboard may be offline */ }
 }
 
 // ── SARIF generator ───────────────────────────────────────────────────────────
@@ -970,6 +997,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         const settings = await getSettings();
         if (settings.autoWebhook && settings.webhookUrl && results.some(r => r.vulnerable && r.severity === "CRITICAL")) {
           await sendWebhook(settings.webhookUrl, target, score, results);
+        }
+        // Push to the linked local monitoring dashboard, if the user enabled it.
+        if (settings.linkDashboard && settings.monitorUrl) {
+          await sendToMonitor(settings.monitorUrl, target, score, results);
         }
         // Correlate active-scan results with live behavioral + hardcoded-key signals
         const chains = correlateBrowserChains(results, sessionData.behavioral, sessionData.hardcoded_keys);

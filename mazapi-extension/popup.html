@@ -34,7 +34,7 @@
       <circle cx="100" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
       <circle cx="120" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
     </svg>
-    MazAPI <span>v2.0</span>
+    MazAPI <span>v2.1</span>
   </div>
   <button class="clear-btn" id="btn-clear"
     data-tooltip="Clear all captured endpoints, tokens and keys for this session"
@@ -213,12 +213,26 @@
     <input type="checkbox" id="set-auto-webhook" style="width:auto;accent-color:#58a6ff">
     <label for="set-auto-webhook" style="display:inline;color:#c9d1d9;font-size:.84em">Auto-send on Critical findings</label>
   </div>
-  <button class="scan-btn" id="btn-save-settings" style="margin-top:6px"
-    data-tooltip="Save organisation name and webhook URL to local storage">Save Settings</button>
+
+  <div class="section-title" style="margin-top:12px">Live Monitoring Dashboard</div>
+  <div class="field">
+    <label>Local Dashboard URL</label>
+    <input type="text" id="set-monitor-url" placeholder="http://localhost:9000">
+  </div>
+  <div class="field" style="display:flex;align-items:center;gap:8px">
+    <input type="checkbox" id="set-link-dashboard" style="width:auto;accent-color:#58a6ff">
+    <label for="set-link-dashboard" style="display:inline;color:#c9d1d9;font-size:.84em">Stream this site's scans to the dashboard</label>
+  </div>
+  <button class="export-btn" id="btn-open-dashboard" style="width:100%;margin-top:2px"
+    data-tooltip="Open the live results dashboard for the current target — served from your own machine">&#9673; Open Live Dashboard</button>
+
+  <button class="scan-btn" id="btn-save-settings" style="margin-top:8px"
+    data-tooltip="Save settings to local storage on this machine">Save Settings</button>
   <div id="settings-status" style="margin-top:6px;font-size:.8em;color:#3fb950;text-align:center"></div>
 </div>
 
-<footer>MazAPI Scanner v2.0 &middot; OWASP &middot; MITRE &middot; CWE &middot; PCI-DSS &middot; GDPR</footer>
+<footer>MazAPI Scanner v2.1 &middot; OWASP &middot; MITRE &middot; CWE &middot; PCI-DSS &middot; GDPR<br>
+<span style="color:#3fb950">Runs 100% on your machine. No user data is stored remotely or sent to any MazAPI server.</span></footer>
 
 <script src="popup.js"></script>
 </body>

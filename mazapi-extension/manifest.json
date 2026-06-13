@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "MazAPI Scanner",
-  "version": "1.0.0",
-  "description": "Automatic API security scanner. Captures API calls on every page visited and runs OWASP/CWE/MITRE vulnerability tests — no backend required.",
+  "version": "1.1.0",
+  "description": "Automatic API security scanner. Captures API calls on every page visited and runs OWASP/CWE/MITRE vulnerability tests — no backend required. Runs entirely on your machine; no user data leaves the device.",
   "author": "Team One — UMaT Ghana",
 
   "permissions": [

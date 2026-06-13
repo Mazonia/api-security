@@ -77,6 +77,102 @@ async def _log(rec: dict) -> None:
         await db.commit()
 
 
+# ── Browser-extension live link ────────────────────────────────────────────────
+# The MazAPI browser extension runs every scan locally on the user's machine. When a
+# user links a website to this dashboard, the extension POSTs a compact summary of each
+# completed scan here so it can be watched live. This is NOT an external service: the
+# dashboard runs on the user's own computer (localhost), so nothing leaves the machine.
+from collections import deque as _deque
+
+_EXT_EVENTS: "_deque[dict]" = _deque(maxlen=500)
+_EXT_SEQ = {"n": 0}
+
+_EXT_LIVE_HTML = """<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MazAPI - Live Extension Results</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,'Segoe UI',sans-serif;background:#0d1117;color:#c9d1d9;padding:24px;max-width:980px;margin:0 auto}
+h1{color:#58a6ff;font-size:1.3em;margin-bottom:4px}
+.sub{color:#8b949e;font-size:.85em;margin-bottom:16px}
+.bar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+select{background:#161b22;border:1px solid #30363d;color:#c9d1d9;padding:7px 10px;border-radius:6px;font-size:.85em}
+.dot{width:9px;height:9px;border-radius:50%;background:#3fb950;display:inline-block;animation:pulse 1.5s infinite;margin-right:6px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.card .top{display:flex;justify-content:space-between;font-size:.8em;color:#8b949e;margin-bottom:6px}
+.score{font-weight:700}
+.f{font-size:.82em;padding:3px 0;border-top:1px solid #21262d}
+.sev{display:inline-block;min-width:64px;font-weight:700}
+.CRITICAL{color:#f85149}.HIGH{color:#f0883e}.MEDIUM{color:#d29922}.LOW{color:#3fb950}
+.empty{color:#8b949e;text-align:center;padding:40px}
+.disc{margin-top:24px;padding:12px 14px;border:1px solid #21262d;border-radius:8px;color:#8b949e;font-size:.76em;line-height:1.5}
+.disc b{color:#3fb950}
+</style></head><body>
+<h1>MazAPI Live Results</h1>
+<div class="sub"><span class="dot"></span>Streaming scan results from your browser extension. Everything stays on this machine.</div>
+<div class="bar"><label>Site:</label><select id="site" onchange="changeSite()"><option value="">All linked sites</option></select><span id="status" class="sub"></span></div>
+<div id="list"><div class="empty">Waiting for scans. Run a scan in the MazAPI extension with dashboard linking enabled.</div></div>
+<div class="disc"><b>Privacy:</b> MazAPI has no server of its own and collects no telemetry or analytics. Every scan runs locally in your browser, results are stored only on this machine, and this dashboard is served from your own computer (localhost). No user data is stored remotely or leaves your machine. The only outbound requests MazAPI makes are the security tests sent to the target you choose to scan.</div>
+<script>
+var params=new URLSearchParams(location.search);
+var site=params.get('site')||'';var since=0;var seenSites={};
+function changeSite(){site=document.getElementById('site').value;since=0;document.getElementById('list').innerHTML='<div class="empty">Waiting for scans...</div>';}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function render(ev){var list=document.getElementById('list');if(list.querySelector('.empty'))list.innerHTML='';
+var fh=(ev.findings||[]).map(function(f){return '<div class="f"><span class="sev '+esc(f.severity)+'">'+esc(f.severity)+'</span> '+esc(f.test||f.label||f.message||'')+(f.category?' <span style="color:#6e7681">['+esc(f.category)+']</span>':'')+'</div>';}).join('');
+var col=ev.score>=80?'#3fb950':ev.score>=50?'#d29922':'#f85149';
+var card=document.createElement('div');card.className='card';
+card.innerHTML='<div class="top"><span>'+esc(ev.target)+'</span><span>'+esc(ev.ts)+'</span></div>'+
+'<div><span class="score" style="color:'+col+'">Score '+esc(ev.score)+'%</span> &middot; <span class="CRITICAL">'+esc(ev.criticals)+' critical</span> &middot; <span class="HIGH">'+esc(ev.highs)+' high</span></div>'+fh;
+list.insertBefore(card,list.firstChild);}
+function poll(){fetch('/extension/live/data?site='+encodeURIComponent(site)+'&since='+since).then(function(r){return r.json();}).then(function(d){
+var sel=document.getElementById('site');(d.sites||[]).forEach(function(s){if(!seenSites[s]){seenSites[s]=1;var o=document.createElement('option');o.value=s;o.textContent=s;if(s===site)o.selected=true;sel.appendChild(o);}});
+(d.events||[]).forEach(function(ev){since=Math.max(since,ev.id);render(ev);});
+document.getElementById('status').textContent='Last update '+new Date().toLocaleTimeString();
+}).catch(function(){document.getElementById('status').textContent='Dashboard offline';});}
+poll();setInterval(poll,3000);
+</script></body></html>"""
+
+
+@app.post("/extension/ingest")
+async def extension_ingest(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "invalid JSON"}, status_code=400)
+    findings = body.get("findings") or []
+    if not isinstance(findings, list):
+        findings = []
+    _EXT_SEQ["n"] += 1
+    site = str(body.get("site") or body.get("target") or "unknown")[:200]
+    event = {
+        "id":        _EXT_SEQ["n"],
+        "ts":        datetime.utcnow().strftime("%H:%M:%S"),
+        "site":      site,
+        "target":    str(body.get("target") or site)[:300],
+        "score":     body.get("score"),
+        "criticals": int(body.get("criticals") or 0),
+        "highs":     int(body.get("highs") or 0),
+        "total":     int(body.get("total") or len(findings)),
+        "findings":  findings[:100],
+    }
+    _EXT_EVENTS.append(event)
+    return {"ok": True, "id": event["id"]}
+
+
+@app.get("/extension/live/data")
+async def extension_live_data(site: str = "", since: int = 0):
+    evs = [e for e in _EXT_EVENTS if (not site or e["site"] == site) and e["id"] > since]
+    sites = sorted({e["site"] for e in _EXT_EVENTS})
+    return {"events": evs, "sites": sites, "latest": _EXT_SEQ["n"]}
+
+
+@app.get("/extension/live", response_class=HTMLResponse, include_in_schema=False)
+async def extension_live():
+    return _EXT_LIVE_HTML
+
+
 # ── internal monitor API (ALL before the /{path:path} catch-all) ───────────────
 
 @app.get("/monitor/stats")
@@ -2488,6 +2584,7 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
     </svg>
     <h1>MazAPI Scanner</h1>
     <p class="sub">Multi-standard API vulnerability scanner — OWASP API Top 10, MITRE ATT&amp;CK, CWE. Four-step wizard, 15 test categories, no source code needed.</p>
+    <p class="sub" style="color:#3fb950;font-size:.82em;margin-top:6px">&#128274; Runs entirely on your machine. No user data is stored remotely or sent to any MazAPI server. The only requests made are the security tests sent to the target you choose to scan.</p>
   </div>
 
   <!-- Wizard step indicator -->
