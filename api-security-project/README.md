@@ -2,6 +2,8 @@
 
 A live, interactive API security demonstration framework covering six OWASP API Security Top 10:2023 vulnerabilities. Runs entirely in Docker with no internet required during demos.
 
+This project features a modernized **Emerald Cyber Green** and **Vivid Indigo** theme with full dark/light mode toggle support across the monitoring dashboard, scan results, Shop App target, and VulnBank interfaces.
+
 **University of Mines and Technology (UMaT), Ghana — CY384 Network and Application Security**
 
 ---

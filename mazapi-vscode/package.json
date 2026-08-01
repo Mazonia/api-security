@@ -6,7 +6,7 @@
   "publisher": "MazAPI",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Mazonia/mazapi"
+    "url": "https://github.com/Mazonia/api-security"
   },
   "engines": {
     "vscode": "^1.85.0"
