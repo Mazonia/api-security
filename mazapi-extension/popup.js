@@ -1,4 +1,4 @@
-// MazAPI Scanner — Popup Script v2.0
+// MazAPI Scanner — Popup Script v2.2
 
 let _showAllEndpoints = false;
 let _lastResults      = [];
@@ -7,6 +7,34 @@ let _lastTarget       = "";
 let _lastChains       = [];   // correlated attack chains from the last scan
 let _livePaused       = false;
 let _liveTimer        = null;
+
+// ── Theme system ───────────────────────────────────────────────────────────────
+(function initTheme() {
+  chrome.storage.local.get('mazapiTheme', ({ mazapiTheme }) => {
+    const theme = mazapiTheme || 'dark';
+    applyTheme(theme);
+  });
+})();
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const icon  = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (theme === 'light') {
+    if (icon)  icon.textContent  = '🌙';
+    if (label) label.textContent = 'Dark';
+  } else {
+    if (icon)  icon.textContent  = '☀️';
+    if (label) label.textContent = 'Light';
+  }
+}
+
+document.getElementById('btn-theme').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  chrome.storage.local.set({ mazapiTheme: next });
+});
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
 document.querySelectorAll(".tab").forEach(tab => {

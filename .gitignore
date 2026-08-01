@@ -72,3 +72,7 @@ api-security-project/probe_site.py
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Temporary node binaries
+node.zip
+node_env/

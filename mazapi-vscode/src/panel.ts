@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+﻿import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -140,180 +140,318 @@ export class MazAPIPanel {
     private _getHtml(target: string): string {
         return `<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* ── Design tokens ── */
+:root {
+  --bg:     var(--vscode-editor-background);
+  --sur:    var(--vscode-editorWidget-background, #161b22);
+  --bdr:    var(--vscode-widget-border, #30363d);
+  --txt:    var(--vscode-foreground);
+  --txt2:   var(--vscode-descriptionForeground);
+  --accent: var(--vscode-textLink-foreground, #58a6ff);
+  --accdim: rgba(88,166,255,.12);
+  --green:  #34d399;
+  --red:    #f87171;
+  --amber:  #fbbf24;
+  --radius: 9px;
+  --radius-sm: 5px;
+  --shadow: 0 2px 10px rgba(0,0,0,.25);
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--vscode-font-family);background:var(--vscode-editor-background);color:var(--vscode-foreground);padding:20px;font-size:13px}
-h1{font-size:1.1em;margin-bottom:16px;color:var(--vscode-textLink-foreground)}
-.field{margin-bottom:12px}
-.field label{display:block;font-size:.85em;color:var(--vscode-descriptionForeground);margin-bottom:4px}
-.field input{width:100%;background:var(--vscode-input-background);border:1px solid var(--vscode-input-border);color:var(--vscode-input-foreground);padding:6px 8px;border-radius:3px;font-family:inherit;font-size:.9em}
-button{background:var(--vscode-button-background);color:var(--vscode-button-foreground);border:none;border-radius:3px;padding:8px 18px;cursor:pointer;font-size:.9em;font-family:inherit}
-button:hover{background:var(--vscode-button-hoverBackground)}
-button:disabled{opacity:.5;cursor:not-allowed}
-.btn-sec{background:transparent;color:var(--vscode-textLink-foreground);border:1px solid var(--vscode-textLink-foreground);margin-left:6px;padding:6px 12px}
-.btn-sec:hover{background:var(--vscode-textLink-activeForeground);color:#fff}
-#status{margin-top:10px;font-size:.85em;color:var(--vscode-descriptionForeground)}
-.result{border-left:3px solid;padding:10px 12px;margin-bottom:6px;border-radius:0 4px 4px 0}
-.result.vuln{border-color:#f85149;background:rgba(248,81,73,.08)}
-.result.safe{border-color:#3fb950;background:rgba(63,185,80,.08)}
-.result-title{font-weight:600;font-size:.9em}
-.result-cat{font-size:.78em;color:var(--vscode-descriptionForeground);margin-top:2px}
-.result-detail{font-size:.82em;margin-top:4px}
-.compliance{font-size:.74em;color:var(--vscode-descriptionForeground);margin-top:5px}
-.comp-chip{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid rgba(88,166,255,.3);border-radius:3px;padding:1px 5px;margin-right:3px}
-details summary{font-size:.75em;color:#58a6ff;cursor:pointer;margin-top:5px}
-details pre{background:var(--vscode-textBlockQuote-background);border:1px solid var(--vscode-widget-border);border-radius:3px;padding:6px;font-size:.73em;white-space:pre-wrap;margin-top:4px;word-break:break-all}
-.score{font-size:1.8em;font-weight:700;text-align:center;padding:10px 0}
-.export-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.reg-badge{display:inline-block;border:1px solid;border-radius:3px;padding:1px 5px;font-size:.72em;font-weight:700;margin-left:6px;vertical-align:middle}
+body{
+  font-family:'Inter',var(--vscode-font-family),sans-serif;
+  background:var(--bg);color:var(--txt);
+  padding:20px 22px;font-size:13px;
+  line-height:1.5;
+}
+/* ── Header ── */
+.maz-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:18px;
+}
+.maz-brand{display:flex;align-items:center;gap:10px}
+.maz-brand h1{font-size:1.15em;font-weight:800;color:var(--accent);letter-spacing:-.01em;margin:0}
+.maz-brand .ver{
+  font-size:.7em;font-weight:500;color:var(--txt2);
+  background:var(--accdim);border:1px solid rgba(88,166,255,.25);
+  border-radius:20px;padding:1px 8px;
+}
+/* Theme toggle */
+.theme-btn{
+  background:var(--sur);border:1px solid var(--bdr);color:var(--txt2);
+  border-radius:20px;padding:4px 12px;cursor:pointer;font-size:.8em;
+  font-family:inherit;display:flex;align-items:center;gap:5px;
+  transition:all .18s ease;
+}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+/* Privacy note */
+.privacy{
+  background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.2);
+  border-radius:var(--radius-sm);padding:7px 11px;font-size:.78em;
+  color:var(--green);margin-bottom:16px;display:flex;align-items:center;gap:6px;
+}
+/* ── Form ── */
+.field{margin-bottom:11px}
+.field label{display:block;font-size:.8em;color:var(--txt2);margin-bottom:4px;font-weight:500}
+.field input{
+  width:100%;background:var(--vscode-input-background);
+  border:1px solid var(--vscode-input-border,var(--bdr));
+  color:var(--vscode-input-foreground,var(--txt));
+  padding:7px 10px;border-radius:var(--radius-sm);
+  font-family:inherit;font-size:.9em;
+  transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accdim)}
+/* ── Action bar ── */
+.action-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.btn-primary{
+  background:linear-gradient(135deg,#0ea5e9,#6366f1);
+  color:#fff;border:none;border-radius:var(--radius-sm);
+  padding:9px 20px;cursor:pointer;font-size:.9em;font-weight:700;
+  font-family:inherit;box-shadow:0 2px 10px rgba(14,165,233,.3);
+  transition:opacity .15s,transform .15s;
+}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-sec{
+  background:var(--accdim);color:var(--accent);
+  border:1px solid rgba(88,166,255,.3);border-radius:var(--radius-sm);
+  padding:7px 13px;cursor:pointer;font-size:.82em;font-weight:600;
+  font-family:inherit;transition:all .15s;
+}
+.btn-sec:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-sec:disabled{opacity:.38;cursor:not-allowed}
+/* ── Status ── */
+#status{font-size:.84em;color:var(--txt2);padding:6px 0}
+.spinner{
+  display:inline-block;width:12px;height:12px;
+  border:2px solid var(--bdr);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .65s linear infinite;vertical-align:middle;margin-right:5px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ── Stat cards ── */
+.stat-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:10px;margin-bottom:18px;
+}
+.stat-card{
+  background:var(--sur);border:1px solid var(--bdr);
+  border-radius:var(--radius);padding:12px 10px;text-align:center;
+  box-shadow:var(--shadow);transition:border-color .15s;
+}
+.stat-card:hover{border-color:var(--accent)}
+.stat-num{font-size:1.6em;font-weight:800;line-height:1}
+.stat-lbl{font-size:.7em;color:var(--txt2);margin-top:4px;font-weight:500}
+/* ── Score ring ── */
+.score-wrap{text-align:center;padding:8px 0 14px}
+.score-val{font-size:2.4em;font-weight:800}
+.score-sub{font-size:.8em;color:var(--txt2);margin-top:3px}
+/* ── Result cards ── */
+.result{
+  border-left:3px solid var(--bdr);padding:11px 14px;
+  margin-bottom:7px;border-radius:0 var(--radius) var(--radius) 0;
+  background:var(--sur);box-shadow:var(--shadow);
+  transition:box-shadow .15s;
+}
+.result:hover{box-shadow:0 4px 18px rgba(0,0,0,.3)}
+.result.vuln{border-color:var(--red);background:rgba(248,113,113,.06)}
+.result.safe{border-color:var(--green);background:rgba(52,211,153,.05)}
+.res-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:4px}
+.res-title{font-weight:700;font-size:.9em;flex:1}
+.result.vuln .res-title{color:var(--red)}
+.result.safe .res-title{color:var(--green)}
+.sev-pill{
+  font-size:.68em;font-weight:800;padding:2px 8px;border-radius:20px;
+  white-space:nowrap;margin-top:1px;
+}
+.sev-CRITICAL{background:rgba(239,68,68,.18);color:#ef4444}
+.sev-HIGH    {background:rgba(248,113,113,.18);color:var(--red)}
+.sev-MEDIUM  {background:rgba(251,191,36,.15);color:var(--amber)}
+.sev-LOW     {background:rgba(88,166,255,.15);color:var(--accent)}
+.res-cat{font-size:.76em;color:var(--txt2);margin-bottom:3px}
+.res-detail{font-size:.82em;margin-bottom:6px;color:var(--txt)}
+.compliance{font-size:.73em;color:var(--txt2);line-height:1.8;margin-top:4px}
+.comp-chip{
+  background:var(--accdim);color:var(--accent);
+  border:1px solid rgba(88,166,255,.28);
+  border-radius:3px;padding:1px 5px;margin-right:3px;font-weight:600;font-size:.92em;
+}
+.reg-badge{
+  display:inline-block;border:1px solid;border-radius:4px;
+  padding:1px 6px;font-size:.7em;font-weight:700;margin-left:5px;vertical-align:middle;
+}
+details summary{font-size:.77em;color:var(--accent);cursor:pointer;margin-top:5px}
+details pre{
+  background:rgba(0,0,0,.18);border:1px solid var(--bdr);border-radius:var(--radius-sm);
+  padding:7px;font-size:.72em;white-space:pre-wrap;margin-top:5px;
+  word-break:break-all;color:var(--txt);font-family:'SF Mono',Consolas,monospace;
+}
 </style></head><body>
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="36" height="36" style="flex-shrink:0;border-radius:8px">
-  <defs>
-    <linearGradient id="ppr" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
-    <linearGradient id="pwv" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00d4ff" stop-opacity="0"/><stop offset="20%" stop-color="#00d4ff"/><stop offset="80%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/></linearGradient>
-    <filter id="pgl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    <filter id="psg"><feGaussianBlur stdDeviation="1.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  </defs>
-  <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="url(#ppr)" fill-opacity="0.14"/>
-  <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="none" stroke="url(#ppr)" stroke-width="2.5" filter="url(#pgl)"/>
-  <polygon points="100,44 143,69 143,119 100,144 57,119 57,69" fill="none" stroke="url(#ppr)" stroke-width="0.8" opacity="0.22"/>
-  <circle cx="100" cy="44" r="3" fill="#00d4ff" opacity="0.45"/>
-  <circle cx="143" cy="69" r="2.5" fill="#7c3aed" opacity="0.45"/>
-  <circle cx="143" cy="119" r="2.5" fill="#7c3aed" opacity="0.45"/>
-  <circle cx="100" cy="144" r="3" fill="#00d4ff" opacity="0.45"/>
-  <circle cx="57" cy="119" r="2.5" fill="#7c3aed" opacity="0.45"/>
-  <circle cx="57" cy="69" r="2.5" fill="#7c3aed" opacity="0.45"/>
-  <circle cx="68"  cy="65" r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#psg)"/>
-  <circle cx="100" cy="96" r="5.5" fill="#00d4ff" opacity="0.8" filter="url(#psg)"/>
-  <circle cx="132" cy="65" r="5.5" fill="#00d4ff" opacity="0.9" filter="url(#psg)"/>
-  <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="#dde3ec" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="url(#ppr)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
-  <path d="M70,145 L80,135 L90,152 L100,135 L110,152 L120,135 L130,145" fill="none" stroke="url(#pwv)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" filter="url(#psg)"/>
-  <circle cx="80" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
-  <circle cx="90" cy="152" r="2" fill="#00d4ff" opacity="0.55"/>
-  <circle cx="100" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
-  <circle cx="110" cy="152" r="2" fill="#00d4ff" opacity="0.55"/>
-  <circle cx="120" cy="135" r="2.5" fill="#00d4ff" opacity="0.9"/>
-</svg>
-<h1 style="margin:0">MazAPI Scanner</h1>
+<!-- Header -->
+<div class="maz-header">
+  <div class="maz-brand">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="34" height="34" style="flex-shrink:0;border-radius:8px">
+      <defs>
+        <linearGradient id="ppr" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
+        <filter id="pgl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="url(#ppr)" fill-opacity="0.14"/>
+      <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="none" stroke="url(#ppr)" stroke-width="2.5" filter="url(#pgl)"/>
+      <circle cx="68"  cy="65"  r="5.5" fill="#00d4ff" opacity="0.9"/>
+      <circle cx="100" cy="96"  r="5.5" fill="#00d4ff" opacity="0.8"/>
+      <circle cx="132" cy="65"  r="5.5" fill="#00d4ff" opacity="0.9"/>
+      <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="url(#ppr)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1>MazAPI Scanner</h1>
+    <span class="ver">v2.2</span>
+  </div>
+  <button class="theme-btn" id="btn-theme">☀️ <span id="theme-label">Light</span></button>
 </div>
-<div style="color:#3fb950;font-size:.8em;margin:-4px 0 12px;line-height:1.5">&#128274; Runs entirely on your machine. No user data is stored remotely or sent to any MazAPI server. The only requests made are the security tests sent to the target you choose to scan.</div>
+
+<div class="privacy">🔒 Runs entirely on your machine. No telemetry. Only outbound traffic is the security tests you run.</div>
+
 <div class="field"><label>Target URL</label><input id="target" value="${target}" placeholder="https://api.example.com"></div>
-<div class="field"><label>Bearer Token (optional)</label><input id="token" placeholder="eyJhbGciOiJIUzI1NiIs…"></div>
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-  <button id="btn-scan">&#9654; Run Full Scan</button>
-  <button class="btn-sec" id="btn-sarif" disabled>&#8675; SARIF</button>
-  <button class="btn-sec" id="btn-html" disabled>&#8675; HTML</button>
-  <button class="btn-sec" id="btn-webhook" disabled>&#128276;</button>
+<div class="field"><label>Bearer Token (optional)</label><input id="token" type="password" placeholder="eyJhbGciOiJIUzI1NiIs…"></div>
+
+<div class="action-bar">
+  <button class="btn-primary" id="btn-scan">▶ Run Full Scan</button>
+  <button class="btn-sec" id="btn-sarif" disabled>↓ SARIF</button>
+  <button class="btn-sec" id="btn-html"  disabled>↓ HTML</button>
+  <button class="btn-sec" id="btn-webhook" disabled>🔔 Alert</button>
 </div>
 <div id="status"></div>
-<div id="results" style="margin-top:16px"></div>
+<div id="results" style="margin-top:14px"></div>
+
 <script>
 const vscode = acquireVsCodeApi();
 let _data = null;
+let _theme = 'dark';
 
-document.getElementById('btn-scan').addEventListener('click', () => {
-  const target = document.getElementById('target').value.trim();
-  const token  = document.getElementById('token').value.trim();
-  if (!target) { document.getElementById('status').textContent = 'Enter a target URL'; return; }
-  vscode.postMessage({ type: 'runScan', target, token });
+// ── Theme toggle ─────────────────────────────────────────────────────
+function applyTheme(t) {
+  _theme = t;
+  document.body.style.setProperty('--sur',    t==='light'?'#f0f4fa':'var(--vscode-editorWidget-background,#161b22)');
+  document.body.style.setProperty('--bdr',    t==='light'?'#c8d5e6':'var(--vscode-widget-border,#30363d)');
+  document.body.style.setProperty('--accdim', t==='light'?'rgba(2,132,199,.10)':'rgba(88,166,255,.12)');
+  document.getElementById('btn-theme').innerHTML = t==='light'?'🌙 Dark':'☀️ Light';
+}
+document.getElementById('btn-theme').addEventListener('click',()=>{
+  applyTheme(_theme==='dark'?'light':'dark');
 });
 
-document.getElementById('btn-sarif').addEventListener('click', () => {
-  if (_data) vscode.postMessage({ type: 'exportSARIF', data: _data });
+// ── Scan actions ─────────────────────────────────────────────────────
+document.getElementById('btn-scan').addEventListener('click',()=>{
+  const target=document.getElementById('target').value.trim();
+  const token =document.getElementById('token').value.trim();
+  if(!target){document.getElementById('status').textContent='Enter a target URL';return;}
+  vscode.postMessage({type:'runScan',target,token});
 });
+document.getElementById('btn-sarif').addEventListener('click',()=>{if(_data)vscode.postMessage({type:'exportSARIF',data:_data});});
+document.getElementById('btn-html').addEventListener('click',()=>{if(!_data)return;vscode.postMessage({type:'exportHTML',html:buildHTMLReport(_data)});});
+document.getElementById('btn-webhook').addEventListener('click',()=>{if(_data)vscode.postMessage({type:'sendWebhook',data:_data});});
 
-document.getElementById('btn-html').addEventListener('click', () => {
-  if (!_data) return;
-  const html = buildHTMLReport(_data);
-  vscode.postMessage({ type: 'exportHTML', html });
-});
-
-document.getElementById('btn-webhook').addEventListener('click', () => {
-  // prompt() is blocked in VS Code webviews — URL comes from mazapi.webhookUrl setting
-  if (_data) vscode.postMessage({ type: 'sendWebhook', data: _data });
-});
-
-window.addEventListener('message', e => {
-  const msg = e.data;
-  if (msg.type === 'requestHtml') {
-    if (_data) vscode.postMessage({ type: 'exportHTML', html: buildHTMLReport(_data) });
-    return;
+window.addEventListener('message',e=>{
+  const msg=e.data;
+  if(msg.type==='requestHtml'){if(_data)vscode.postMessage({type:'exportHTML',html:buildHTMLReport(_data)});return;}
+  const status=document.getElementById('status');
+  const results=document.getElementById('results');
+  if(msg.type==='scanStarted'){
+    status.innerHTML='<span class="spinner"></span>Scanning… (up to 120 s)';
+    results.innerHTML='';
+    document.getElementById('btn-scan').disabled=true;
+    ['btn-sarif','btn-html','btn-webhook'].forEach(id=>document.getElementById(id).disabled=true);
   }
-  const status  = document.getElementById('status');
-  const results = document.getElementById('results');
-  if (msg.type === 'scanStarted') {
-    status.textContent = 'Scanning… (up to 120 seconds)';
-    results.innerHTML  = '';
-    document.getElementById('btn-scan').disabled = true;
-    ['btn-sarif','btn-html','btn-webhook'].forEach(id => document.getElementById(id).disabled = true);
+  if(msg.type==='scanError'){
+    status.textContent='⚠ '+msg.message+' — is the MazAPI backend running at localhost:9000?';
+    document.getElementById('btn-scan').disabled=false;
   }
-  if (msg.type === 'scanError') {
-    status.textContent = 'Error: ' + msg.message + ' — is the MazAPI backend running at localhost:9000?';
-    document.getElementById('btn-scan').disabled = false;
-  }
-  if (msg.type === 'scanResult') {
-    document.getElementById('btn-scan').disabled = false;
-    ['btn-sarif','btn-html','btn-webhook'].forEach(id => document.getElementById(id).disabled = false);
-    status.textContent = '';
-    _data = msg.data;
-    const d  = msg.data;
-    const sc = d.score ?? 0;
-    const color = sc >= 90 ? '#3fb950' : sc >= 70 ? '#e3b341' : '#f85149';
-    let html = '<div class="score" style="color:'+color+'">'+sc+'%<span style="font-size:.4em;color:var(--vscode-descriptionForeground);margin-left:8px">Security Score</span></div>';
-    html += '<p style="text-align:center;font-size:.82em;color:var(--vscode-descriptionForeground);margin-bottom:14px">'+(d.total_vulnerable||0)+' vulnerabilities / '+(d.total_tests||0)+' tests</p>';
-    const REG_COLOR = { NEW: '#f85149', RECURRING: '#e3b341', FIXED: '#3fb950' };
-    const SEV_COLOR = { CRITICAL: '#ff6b6b', HIGH: '#f85149', MEDIUM: '#e3b341', LOW: '#58a6ff' };
-    for (const cat of (d.categories||[])) {
-      const comp = cat.compliance;
-      for (const t of (cat.tests||[])) {
-        const sev   = SEV_COLOR[t.severity] || '#8b949e';
-        const regBadge = t.regression ? \`<span class="reg-badge" style="color:\${REG_COLOR[t.regression]};border-color:\${REG_COLOR[t.regression]}">\${t.regression}</span>\` : '';
-        const compHtml = comp ? \`<div class="compliance">
-          <span class="comp-chip">PCI-DSS</span>\${(comp.pci_dss||[]).join(', ')} &nbsp;
-          <span class="comp-chip">GDPR</span>\${(comp.gdpr||[]).join(', ')} &nbsp;
+  if(msg.type==='scanResult'){
+    document.getElementById('btn-scan').disabled=false;
+    ['btn-sarif','btn-html','btn-webhook'].forEach(id=>document.getElementById(id).disabled=false);
+    status.textContent='';
+    _data=msg.data;
+    const d=msg.data;
+    const sc=d.score??0;
+    const sc_color=sc>=90?'#34d399':sc>=70?'#fbbf24':'#f87171';
+    const vuln=d.total_vulnerable||0;const total=d.total_tests||0;
+    const safe=total-vuln;
+    let html=\`<div class="score-wrap">
+      <div class="score-val" style="color:\${sc_color}">\${sc}%</div>
+      <div class="score-sub">Security Score</div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-num" style="color:#f87171">\${vuln}</div><div class="stat-lbl">Vulnerable</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:#34d399">\${safe}</div><div class="stat-lbl">Secure</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--accent)">\${total}</div><div class="stat-lbl">Total Tests</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:\${sc_color}">\${sc}%</div><div class="stat-lbl">Score</div></div>
+    </div>\`;
+    const REG_COLOR={NEW:'#f87171',RECURRING:'#fbbf24',FIXED:'#34d399'};
+    for(const cat of(d.categories||[])){
+      const comp=cat.compliance;
+      for(const t of(cat.tests||[])){
+        const sev=t.severity||'';
+        const regBadge=t.regression?\`<span class="reg-badge" style="color:\${REG_COLOR[t.regression]};border-color:\${REG_COLOR[t.regression]}">\${t.regression}</span>\`:'';
+        const compHtml=comp?\`<div class="compliance">
+          <span class="comp-chip">PCI-DSS</span>\${(comp.pci_dss||[]).join(', ')}&nbsp;
+          <span class="comp-chip">GDPR</span>\${(comp.gdpr||[]).join(', ')}&nbsp;
           <span class="comp-chip">ISO 27001</span>\${(comp.iso27001||[]).join(', ')}
-        </div>\` : '';
-        const evHtml = t.evidence ? \`<details><summary>Evidence</summary><pre>\${t.evidence.request.method} \${t.evidence.request.url}\${t.evidence.request.body?'\\nBody: '+t.evidence.request.body:''}\\n→ HTTP \${t.evidence.response.status}\${t.evidence.response.snippet?'\\n'+t.evidence.response.snippet:''}</pre></details>\` : '';
-        const cls = t.vulnerable ? 'vuln' : 'safe';
-        html += \`<div class="result \${cls}">
-          <div class="result-title" style="color:\${t.vulnerable?sev:'#3fb950'}">\${t.vulnerable?'✗':'✓'} \${t.test}\${regBadge}</div>
-          <div class="result-cat">\${cat.category} &nbsp;<span style="color:\${sev};font-size:.82em;font-weight:700">\${t.severity}</span></div>
-          <div class="result-detail">\${t.actual}</div>
+        </div>\`:'';
+        const evHtml=t.evidence?\`<details><summary>Evidence</summary><pre>\${t.evidence.request.method} \${t.evidence.request.url}\${t.evidence.request.body?'\\nBody: '+t.evidence.request.body:''}\\n→ HTTP \${t.evidence.response.status}\${t.evidence.response.snippet?'\\n'+t.evidence.response.snippet:''}</pre></details>\`:'';
+        const cls=t.vulnerable?'vuln':'safe';
+        html+=\`<div class="result \${cls}">
+          <div class="res-hdr">
+            <div class="res-title">\${t.vulnerable?'✗':'✓'} \${t.test}\${regBadge}</div>
+            <span class="sev-pill sev-\${sev}">\${sev}</span>
+          </div>
+          <div class="res-cat">\${cat.category}</div>
+          <div class="res-detail">\${t.actual}</div>
           \${compHtml}\${evHtml}
         </div>\`;
       }
     }
-    results.innerHTML = html;
+    results.innerHTML=html;
   }
 });
 
-function buildHTMLReport(d) {
-  const sc = d.score ?? 0;
-  const color = sc >= 90 ? '#3fb950' : sc >= 70 ? '#e3b341' : '#f85149';
-  const SEV_COLOR = { CRITICAL: '#ff6b6b', HIGH: '#f85149', MEDIUM: '#e3b341', LOW: '#58a6ff' };
-  let rows = '';
-  for (const cat of (d.categories || [])) {
-    const comp = cat.compliance;
-    for (const t of (cat.tests || [])) {
-      const sev = SEV_COLOR[t.severity] || '#8b949e';
-      const compHtml = comp ? \`<div style="font-size:.77em;color:#8b949e;margin-top:6px"><b style="color:#58a6ff">Compliance:</b> PCI-DSS \${(comp.pci_dss||[]).join(', ')} | GDPR \${(comp.gdpr||[]).join(', ')} | ISO 27001 \${(comp.iso27001||[]).join(', ')}</div>\` : '';
-      rows += \`<div style="border-left:3px solid \${t.vulnerable?sev:'#30363d'};padding:10px 14px;margin-bottom:8px;border-radius:0 6px 6px 0;background:\${t.vulnerable?'rgba(248,81,73,.04)':'rgba(63,185,80,.04)'}">
-        <div style="display:flex;justify-content:space-between"><span style="font-weight:600;color:\${t.vulnerable?sev:'#3fb950'}">\${t.vulnerable?'✗':'✓'} \${t.test}</span><span style="font-size:.78em;color:\${sev};font-weight:700">\${t.severity}</span></div>
-        <div style="font-size:.78em;color:#8b949e;margin-top:2px">\${cat.category}</div>
-        <div style="font-size:.82em;margin-top:4px">\${t.actual}</div>
+function buildHTMLReport(d){
+  const sc=d.score??0;
+  const sc_color=sc>=90?'#34d399':sc>=70?'#fbbf24':'#f87171';
+  let rows='';
+  for(const cat of(d.categories||[])){
+    const comp=cat.compliance;
+    for(const t of(cat.tests||[])){
+      const sev=t.severity||'';
+      const compHtml=comp?\`<div style="font-size:.77em;color:#8b949e;margin-top:6px"><b style="color:#58a6ff">Compliance:</b> PCI-DSS \${(comp.pci_dss||[]).join(', ')} | GDPR \${(comp.gdpr||[]).join(', ')} | ISO 27001 \${(comp.iso27001||[]).join(', ')}</div>\`:'';
+      const sevColor=sev==='CRITICAL'?'#ef4444':sev==='HIGH'?'#f87171':sev==='MEDIUM'?'#fbbf24':'#58a6ff';
+      rows+=\`<div style="border-left:3px solid \${t.vulnerable?sevColor:'#30363d'};padding:11px 15px;margin-bottom:8px;border-radius:0 8px 8px 0;background:\${t.vulnerable?'rgba(248,113,113,.05)':'rgba(52,211,153,.04)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-weight:700;color:\${t.vulnerable?sevColor:'#34d399'}">\${t.vulnerable?'✗':'✓'} \${t.test}</span>
+          <span style="font-size:.72em;font-weight:800;padding:2px 9px;border-radius:20px;background:rgba(88,166,255,.12);color:\${sevColor}">\${sev}</span>
+        </div>
+        <div style="font-size:.78em;color:#8b949e;margin-bottom:3px">\${cat.category}</div>
+        <div style="font-size:.83em">\${t.actual}</div>
         \${compHtml}
       </div>\`;
     }
   }
-  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MazAPI Report</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui;background:#0d1117;color:#c9d1d9;padding:28px}</style></head><body>'
-    + \`<div style="text-align:center;margin-bottom:24px"><h1 style="color:#58a6ff;font-size:1.8em">MazAPI Security Report</h1><p style="color:#8b949e">\${d.target} | \${new Date().toLocaleString()}</p></div>\`
-    + \`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">\`
-    + [['Score',sc+'%',color],['Vulnerable',(d.total_vulnerable||0),'#f85149'],['Secure',((d.total_tests||0)-(d.total_vulnerable||0)),'#3fb950'],['Tests',(d.total_tests||0),'#58a6ff']].map(([l,v,c]) =>
-        \`<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;text-align:center"><div style="font-size:1.8em;font-weight:700;color:\${c}">\${v}</div><div style="font-size:.78em;color:#8b949e;margin-top:4px">\${l}</div></div>\`
-      ).join('') + '</div>' + rows + '<div style="text-align:center;padding:16px;color:#8b949e;font-size:.78em;border-top:1px solid #21262d;margin-top:20px">MazAPI Scanner — CY384, UMaT Ghana</div></body></html>';
+  return \`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MazAPI Report — \${d.target||''}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Inter',system-ui;background:#0d1117;color:#c9d1d9;padding:30px 32px}h1{color:#58a6ff;font-size:1.7em;font-weight:800;margin-bottom:6px}.sub{color:#8b949e;font-size:.88em;margin-bottom:22px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px;text-align:center}.card-n{font-size:1.9em;font-weight:800;line-height:1}.card-l{font-size:.73em;color:#8b949e;margin-top:5px}.footer{text-align:center;padding:18px;color:#8b949e;font-size:.76em;border-top:1px solid #21262d;margin-top:22px}</style>
+  </head><body>
+  <h1>MazAPI Security Report</h1>
+  <div class="sub">\${d.target||''} &nbsp;·&nbsp; \${new Date().toLocaleString()}</div>
+  <div class="grid">
+    <div class="card"><div class="card-n" style="color:\${sc_color}">\${sc}%</div><div class="card-l">Score</div></div>
+    <div class="card"><div class="card-n" style="color:#f87171">\${d.total_vulnerable||0}</div><div class="card-l">Vulnerable</div></div>
+    <div class="card"><div class="card-n" style="color:#34d399">\${(d.total_tests||0)-(d.total_vulnerable||0)}</div><div class="card-l">Secure</div></div>
+    <div class="card"><div class="card-n" style="color:#58a6ff">\${d.total_tests||0}</div><div class="card-l">Tests</div></div>
+  </div>
+  \${rows}
+  <div class="footer">MazAPI Scanner v2.2 — CY384, UMaT Ghana &nbsp;·&nbsp; Runs locally, no remote telemetry</div>
+  </body></html>\`;
 }
 </script></body></html>`;
-    }
+}
 }

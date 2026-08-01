@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>MazAPI Scanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -36,9 +39,15 @@
     </svg>
     MazAPI <span>v2.1</span>
   </div>
-  <button class="clear-btn" id="btn-clear"
-    data-tooltip="Clear all captured endpoints, tokens and keys for this session"
-    data-tip-dir="left">Clear</button>
+  <div class="header-actions">
+    <button class="theme-toggle" id="btn-theme" aria-label="Toggle theme">
+      <span class="theme-icon" id="theme-icon">☀️</span>
+      <span id="theme-label">Light</span>
+    </button>
+    <button class="clear-btn" id="btn-clear"
+      data-tooltip="Clear all captured endpoints, tokens and keys for this session"
+      data-tip-dir="left">Clear</button>
+  </div>
 </header>
 
 <div class="tabs">
@@ -231,8 +240,9 @@
   <div id="settings-status" style="margin-top:6px;font-size:.8em;color:#3fb950;text-align:center"></div>
 </div>
 
-<footer>MazAPI Scanner v2.1 &middot; OWASP &middot; MITRE &middot; CWE &middot; PCI-DSS &middot; GDPR<br>
-<span style="color:#3fb950">Runs 100% on your machine. No user data is stored remotely or sent to any MazAPI server.</span></footer>
+<footer>MazAPI Scanner v2.2 &middot; OWASP &middot; MITRE &middot; CWE &middot; PCI-DSS &middot; GDPR
+  <span class="privacy-note">🔒 Runs 100% on your machine. No telemetry. No remote servers.</span>
+</footer>
 
 <script src="popup.js"></script>
 </body>

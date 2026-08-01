@@ -6,6 +6,20 @@
 <script src="/static/chart.min.js"></script>
 <style>
 :root{--bg:#0d1117;--surf:#161b22;--surf2:#1c2128;--border:#30363d;--text:#c9d1d9;--muted:#8b949e;--red:#f85149;--green:#3fb950;--blue:#58a6ff;--yellow:#e3b341;--purple:#bc8cff;--orange:#ffa657;--sidebar:240px;--sidebar-collapsed:60px}
+[data-theme="light"]{
+  --bg:#f0f4fa;
+  --surf:#ffffff;
+  --surf2:#eaf0fb;
+  --border:#d1daea;
+  --text:#1a2740;
+  --muted:#5a6e8a;
+  --red:#dc2626;
+  --green:#059669;
+  --blue:#0284c7;
+  --yellow:#d97706;
+  --purple:#7c3aed;
+  --orange:#ea580c;
+}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px}
 
@@ -268,6 +282,7 @@ tr:hover td{background:var(--surf2);cursor:pointer}
     <div id="page-title">Overview</div>
     <div class="header-right">
       <span id="last-updated" style="font-size:.8em;color:var(--muted)">—</span>
+      <button class="btn" id="theme-toggle-btn" onclick="toggleDashboardTheme()">☀️ Light</button>
       <button class="btn" id="reset-btn" onclick="resetLogs()"
         style="color:var(--red);border-color:rgba(248,81,73,.4);background:rgba(248,81,73,.08)">
         &#8856; Reset Logs
@@ -1500,6 +1515,27 @@ function renderComparisonResult(data) {
     <span style="font-size:.8em;color:var(--muted)">Saved as ${data.json_file}</span>`;
   document.getElementById('cmp-result').style.display = 'block';
 }
+
+function toggleDashboardTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyDashboardTheme(next);
+  localStorage.setItem('dashboardTheme', next);
+}
+
+function applyDashboardTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    btn.innerHTML = theme === 'light' ? '🌙 Dark' : '☀️ Light';
+  }
+}
+
+// Initialize theme on DOM load
+(function initDashboardTheme() {
+  const saved = localStorage.getItem('dashboardTheme') || 'dark';
+  applyDashboardTheme(saved);
+})();
 
 window.addEventListener('DOMContentLoaded', () => {
   fetchAll();
