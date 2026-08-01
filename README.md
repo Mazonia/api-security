@@ -44,7 +44,7 @@ The browser extension allows you to inspect APIs, intercept tokens, detect keys,
 3. Click **Load unpacked** in the top-left corner.
 4. Select the unpacked directory:
    ```
-   c:\Users\Mazonia\Desktop\cyberlab work II\api-security-main\mazapi-extension\
+   c:\Users\username\Desktop\cyberlab work II\api-security-main\mazapi-extension\
    ```
 5. Click the extension icon to view captured calls and toggle between Dark/Light mode.
 
@@ -58,6 +58,6 @@ Run fully-fledged black-box security scans from the comfort of your editor.
 3. Type and select **`Extensions: Install from VSIX...`**.
 4. Browse and select the packaged VSIX package:
    ```
-   c:\Users\Mazonia\Desktop\cyberlab work II\api-security-main\mazapi-vscode\mazapi-scanner-1.0.3.vsix
+   c:\Users\username\Desktop\cyberlab work II\api-security-main\mazapi-vscode\mazapi-scanner-1.0.3.vsix
    ```
 5. The extension sidebar view is now loaded. Configure your target endpoint, optional authentication bearer tokens, and trigger a scan.
