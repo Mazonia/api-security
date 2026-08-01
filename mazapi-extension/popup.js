@@ -247,10 +247,48 @@ document.getElementById("btn-openapi").addEventListener("click", () => {
 
 // ── Run Scan ──────────────────────────────────────────────────────────────────
 document.getElementById("btn-scan").addEventListener("click", () => {
-  const target    = document.getElementById("scan-target").value.trim();
-  const token     = document.getElementById("scan-token").value.trim();
-  const authEp    = document.getElementById("scan-auth-ep").value.trim();
+// ── Port Auto-Detection & Dashboard Link ─────────────────────────────────────
+document.getElementById("btn-detect-port")?.addEventListener("click", () => {
+  const statusEl = document.getElementById("port-detect-status");
+  const inputEl  = document.getElementById("scan-monitor-url");
+  if (statusEl) statusEl.textContent = "Detecting active MazAPI ports...";
+  chrome.runtime.sendMessage({ type: "DETECT_PORT" }, resp => {
+    if (resp?.ok) {
+      if (inputEl) inputEl.value = resp.url;
+      if (statusEl) statusEl.textContent = "✓ " + resp.message;
+    } else {
+      if (statusEl) statusEl.textContent = "⚠ " + (resp?.message || "No dashboard found");
+    }
+  });
+});
+
+// ── Check active background scan status ──────────────────────────────────────
+function checkActiveScanStatus() {
+  chrome.runtime.sendMessage({ type: "GET_SCAN_STATUS" }, scan => {
+    if (!scan || scan.status === "idle") return;
+    const btn    = document.getElementById("btn-scan");
+    const status = document.getElementById("scan-status");
+    if (scan.status === "running") {
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Scanning in Background...'; }
+      if (status) status.textContent = `Active scan running for ${scan.target} (safe to close/minimize)...`;
+    } else if (scan.status === "done" && scan.results?.length) {
+      if (btn) { btn.disabled = false; btn.innerHTML = "&#9654; Run Full Scan"; }
+      if (status) status.textContent = "";
+      _lastResults = scan.results;
+      _lastScore   = scan.score;
+      _lastTarget  = scan.target;
+      _lastChains  = scan.chains || [];
+      renderResults(scan.results, scan.score, scan.target);
+    }
+  });
+}
+
+document.getElementById("btn-scan").addEventListener("click", () => {
+  const target     = document.getElementById("scan-target").value.trim();
+  const token      = document.getElementById("scan-token").value.trim();
+  const authEp     = document.getElementById("scan-auth-ep").value.trim();
   const protected_ = document.getElementById("scan-protected").value.trim();
+  const monitorUrl = document.getElementById("scan-monitor-url")?.value.trim() || "http://localhost:9000";
 
   if (!target) { alert("Enter a target URL first."); return; }
 
@@ -258,13 +296,14 @@ document.getElementById("btn-scan").addEventListener("click", () => {
   const btn    = document.getElementById("btn-scan");
   const status = document.getElementById("scan-status");
   btn.disabled    = true;
-  btn.innerHTML   = '<span class="spinner"></span> Scanning…';
-  status.textContent = "Running all test categories…";
+  btn.innerHTML   = '<span class="spinner"></span> Scanning in Background…';
+  status.textContent = "Scan running in background (safe to close or minimize extension)...";
 
   chrome.runtime.sendMessage({
     type: "RUN_SCAN",
     target,
     token: token || null,
+    monitorUrl,
     options: { authEndpoint: authEp || null, protectedPath: protected_ || null },
   }, resp => {
     btn.disabled    = false;
@@ -281,6 +320,8 @@ document.getElementById("btn-scan").addEventListener("click", () => {
     document.querySelector(".tab[data-tab='results']").click();
   });
 });
+
+checkActiveScanStatus();
 
 // ── Render Results ────────────────────────────────────────────────────────────
 function renderResults(results, score, target) {

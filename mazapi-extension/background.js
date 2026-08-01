@@ -987,7 +987,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === "RUN_SCAN") {
-    const { target, token, options } = msg;
+    const { target, token, options, monitorUrl } = msg;
+    const scanState = { status: "running", target, score: 0, results: [], chains: [], startedAt: Date.now() };
+    chrome.storage.local.set({ mazapi_active_scan: scanState });
+
     getLastScan(target).then(lastScan =>
       runScan(target, token, options).then(async raw => {
         const results = addRegressionTags(raw, lastScan);
@@ -998,15 +1001,34 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (settings.autoWebhook && settings.webhookUrl && results.some(r => r.vulnerable && r.severity === "CRITICAL")) {
           await sendWebhook(settings.webhookUrl, target, score, results);
         }
-        // Push to the linked local monitoring dashboard, if the user enabled it.
-        if (settings.linkDashboard && settings.monitorUrl) {
-          await sendToMonitor(settings.monitorUrl, target, score, results);
+        // Push to the linked local monitoring dashboard if specified or enabled
+        const activeMonitorUrl = monitorUrl || settings.monitorUrl || "http://localhost:9000";
+        if (settings.linkDashboard || monitorUrl) {
+          await sendToMonitor(activeMonitorUrl, target, score, results);
         }
-        // Correlate active-scan results with live behavioral + hardcoded-key signals
+        // Correlate active-scan results
         const chains = correlateBrowserChains(results, sessionData.behavioral, sessionData.hardcoded_keys);
+        const finalState = { status: "done", target, score, results, chains, finishedAt: Date.now() };
+        await chrome.storage.local.set({ mazapi_active_scan: finalState });
         sendResponse({ ok: true, results, score, chains, behavioral: sessionData.behavioral });
       })
-    ).catch(err => sendResponse({ ok: false, error: err.message }));
+    ).catch(async err => {
+      const errState = { status: "error", target, error: err.message };
+      await chrome.storage.local.set({ mazapi_active_scan: errState });
+      sendResponse({ ok: false, error: err.message });
+    });
+    return true;
+  }
+
+  if (msg.type === "GET_SCAN_STATUS") {
+    chrome.storage.local.get("mazapi_active_scan", d => {
+      sendResponse(d.mazapi_active_scan || { status: "idle" });
+    });
+    return true;
+  }
+
+  if (msg.type === "DETECT_PORT") {
+    detectActivePort().then(res => sendResponse(res));
     return true;
   }
 
@@ -1103,4 +1125,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 async function getLastScan(target) {
   const history = await getHistory();
   return history.find(h => h.target === target) || null;
+}
+
+async function detectActivePort() {
+  const candidatePorts = [9000, 8000, 8001, 8002, 9001, 5000, 3000];
+  for (const port of candidatePorts) {
+    try {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch(`http://localhost:${port}/monitor/health`, { signal: controller.signal });
+      clearTimeout(tid);
+      if (res.ok) {
+        return { ok: true, port, url: `http://localhost:${port}`, message: `MazAPI Dashboard active on port ${port}` };
+      }
+    } catch (_) {}
+  }
+  return { ok: false, message: "No active MazAPI Dashboard detected on standard ports (9000, 8000, etc.)" };
 }

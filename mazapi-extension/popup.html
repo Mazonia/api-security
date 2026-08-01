@@ -125,6 +125,14 @@
     <label>Protected Path (JWT test)</label>
     <input type="text" id="scan-protected" placeholder="auto-detected from captured traffic">
   </div>
+  <div class="field">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <label style="margin:0">Live Dashboard Link &amp; Port</label>
+      <button type="button" id="btn-detect-port" class="export-btn" style="padding:2px 8px;font-size:.72em" data-tooltip="Auto-detects active MazAPI dashboard port (9000, 8000, etc.)">🔍 Auto-Detect Port</button>
+    </div>
+    <input type="text" id="scan-monitor-url" placeholder="http://localhost:9000" value="http://localhost:9000">
+    <div id="port-detect-status" style="font-size:.73em;color:var(--accent);margin-top:3px"></div>
+  </div>
   <button class="scan-btn" id="btn-scan"
     data-tooltip="Tests BOLA, broken auth, rate limiting, JWT flaws, CORS, SSRF, mass assignment and more">&#9654; Run Full Scan</button>
   <div id="scan-status" style="margin-top:8px;font-size:.8em;color:#8b949e;text-align:center"></div>
