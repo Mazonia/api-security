@@ -1,4 +1,4 @@
-﻿import * as vscode from 'vscode';
+import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -146,18 +146,19 @@ export class MazAPIPanel {
 /* ── Design tokens ── */
 :root {
   --bg:     var(--vscode-editor-background);
-  --sur:    var(--vscode-editorWidget-background, #161b22);
-  --bdr:    var(--vscode-widget-border, #30363d);
-  --txt:    var(--vscode-foreground);
-  --txt2:   var(--vscode-descriptionForeground);
-  --accent: var(--vscode-textLink-foreground, #58a6ff);
-  --accdim: rgba(88,166,255,.12);
-  --green:  #34d399;
-  --red:    #f87171;
-  --amber:  #fbbf24;
-  --radius: 9px;
-  --radius-sm: 5px;
-  --shadow: 0 2px 10px rgba(0,0,0,.25);
+  --sur:    var(--vscode-editorWidget-background, #111827);
+  --bdr:    var(--vscode-widget-border, #1f293d);
+  --txt:    var(--vscode-foreground, #f3f4f6);
+  --txt2:   var(--vscode-descriptionForeground, #9ca3af);
+  --accent: #10b981;
+  --accdim: rgba(16,185,129,.12);
+  --green:  #10b981;
+  --red:    #f43f5e;
+  --amber:  #f59e0b;
+  --indigo: #6366f1;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 4px 16px rgba(0,0,0,.3);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{
@@ -207,10 +208,10 @@ body{
 /* ── Action bar ── */
 .action-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .btn-primary{
-  background:linear-gradient(135deg,#0ea5e9,#6366f1);
-  color:#fff;border:none;border-radius:var(--radius-sm);
+  background:linear-gradient(135deg,#10b981,#6366f1);
+  color:#fff;border:none;border-radius:20px;
   padding:9px 20px;cursor:pointer;font-size:.9em;font-weight:700;
-  font-family:inherit;box-shadow:0 2px 10px rgba(14,165,233,.3);
+  font-family:inherit;box-shadow:0 2px 10px rgba(16,185,129,.3);
   transition:opacity .15s,transform .15s;
 }
 .btn-primary:hover{opacity:.88;transform:translateY(-1px)}

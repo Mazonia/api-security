@@ -83,87 +83,156 @@ _TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>API Security Test Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
+:root {
+  --bg: #090d16;
+  --surface: #111827;
+  --surface2: #1f293d;
+  --border: rgba(255,255,255,0.08);
+  --border-glow: rgba(99,102,241,0.25);
+  --text: #f3f4f6;
+  --text-muted: #9ca3af;
+  --emerald: #10b981;
+  --emerald-dim: rgba(16,185,129,0.12);
+  --indigo: #6366f1;
+  --indigo-dim: rgba(99,102,241,0.12);
+  --rose: #f43f5e;
+  --rose-dim: rgba(244,63,94,0.12);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.12);
+  --purple: #8b5cf6;
+  --radius: 12px;
+  --radius-sm: 6px;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#0d1117;color:#c9d1d9}
-.header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:40px;text-align:center}
-.header h1{color:#58a6ff;font-size:2.4em;margin-bottom:8px}
-.header p{color:#8b949e}
-.detail-badge{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid rgba(88,166,255,.4);padding:4px 12px;border-radius:6px;font-size:.5em;font-weight:700;vertical-align:middle;margin-left:10px;text-transform:uppercase;letter-spacing:.06em}
-.container{max-width:1200px;margin:0 auto;padding:30px}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:22px;text-align:center}
-.card .num{font-size:2.4em;font-weight:700}
-.card .lbl{color:#8b949e;font-size:.85em;margin-top:6px}
-.red{color:#f85149}.green{color:#3fb950}.blue{color:#58a6ff}.yellow{color:#e3b341}
-.charts{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px}
-.cbox{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px}
-.cbox h3{color:#58a6ff;margin-bottom:14px;font-size:1em}
-.cat{background:#161b22;border:1px solid #30363d;border-radius:10px;margin-bottom:18px}
-.cat-hdr{padding:18px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-.cat-hdr h2{font-size:1.1em;color:#e6edf3}
-.badge{padding:4px 12px;border-radius:20px;font-size:.82em;font-weight:700}
-.bv{background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149}
-.bs{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid #3fb950}
-.sev-CRITICAL{background:rgba(188,30,30,.2);color:#ff6b6b;border:1px solid #ff6b6b}
-.sev-HIGH{background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149}
-.sev-MEDIUM{background:rgba(227,179,65,.15);color:#e3b341;border:1px solid #e3b341}
-.sev-LOW{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid #58a6ff}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;padding-bottom:40px}
+.header{
+  background:linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #090d16 100%);
+  padding:48px 24px;text-align:center;border-bottom:1px solid var(--border);
+  box-shadow:0 10px 30px rgba(0,0,0,0.5);position:relative;overflow:hidden;
+}
+.header::before{
+  content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+  background:radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 60%);
+  pointer-events:none;
+}
+.header h1{
+  color:#fff;font-size:2.5em;font-weight:800;letter-spacing:-0.02em;margin-bottom:8px;
+  display:inline-flex;align-items:center;gap:12px;
+}
+.header p{color:var(--text-muted);font-size:0.95em;font-weight:500}
+.header p span{color:var(--emerald);font-weight:600}
+.detail-badge{
+  background:var(--indigo-dim);color:var(--indigo);border:1px solid rgba(99,102,241,0.4);
+  padding:4px 12px;border-radius:20px;font-size:0.45em;font-weight:700;
+  vertical-align:middle;text-transform:uppercase;letter-spacing:0.08em;
+}
+.container{max-width:1240px;margin:0 auto;padding:36px 24px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:32px}
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:24px 18px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.2);
+  transition:transform 0.2s, border-color 0.2s;position:relative;overflow:hidden;
+}
+.card:hover{transform:translateY(-2px);border-color:var(--border-glow)}
+.card::top-line{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.card .num{font-size:2.6em;font-weight:800;line-height:1}
+.card .lbl{color:var(--text-muted);font-size:0.78em;font-weight:600;margin-top:8px;text-transform:uppercase;letter-spacing:0.06em}
+.red{color:var(--rose)}.green{color:var(--emerald)}.indigo{color:var(--indigo)}.yellow{color:var(--amber)}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:36px}
+.cbox{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:24px;box-shadow:0 4px 20px rgba(0,0,0,0.2);
+}
+.cbox h3{color:var(--text);font-weight:700;margin-bottom:18px;font-size:1.05em;display:flex;align-items:center;gap:8px}
+.cbox h3::before{content:'';display:inline-block;width:4px;height:16px;background:var(--emerald);border-radius:2px}
+.cat{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  margin-bottom:24px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.25);
+  transition:border-color 0.2s;
+}
+.cat:hover{border-color:var(--border-glow)}
+.cat-hdr{
+  padding:20px 24px;border-bottom:1px solid var(--border);background:var(--surface2);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+}
+.cat-hdr h2{font-size:1.15em;font-weight:700;color:#fff}
+.badge{padding:4px 12px;border-radius:20px;font-size:0.78em;font-weight:700;letter-spacing:0.03em}
+.bv{background:var(--rose-dim);color:var(--rose);border:1px solid rgba(244,63,94,0.4)}
+.bs{background:var(--emerald-dim);color:var(--emerald);border:1px solid rgba(16,185,129,0.4)}
+.sev-CRITICAL{background:rgba(244,63,94,0.2);color:#fb7185;border:1px solid var(--rose)}
+.sev-HIGH{background:var(--rose-dim);color:var(--rose);border:1px solid rgba(244,63,94,0.5)}
+.sev-MEDIUM{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,0.5)}
+.sev-LOW{background:var(--indigo-dim);color:var(--indigo);border:1px solid rgba(99,102,241,0.5)}
 table{width:100%;border-collapse:collapse}
-th{background:#0d1117;padding:11px 14px;text-align:left;font-size:.8em;color:#8b949e;text-transform:uppercase;letter-spacing:.04em}
-td{padding:11px 14px;border-top:1px solid #21262d;font-size:.87em;word-break:break-word}
-code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.88em}
-.vY{color:#f85149;font-weight:700}.vN{color:#3fb950}
-.sC{color:#f85149;font-weight:700}.sH{color:#e3b341}.sM{color:#58a6ff}.sL{color:#8b949e}
-.cve-panel{padding:18px 20px;border-top:1px solid #21262d;background:#0d1117}
-.cve-panel h4{color:#8b949e;font-size:.8em;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
-.cve-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
-.cve-badge{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:4px 10px;font-size:.8em;font-family:monospace;color:#58a6ff;text-decoration:none}
-.cve-badge:hover{border-color:#58a6ff}
-.owasp-link{font-size:.82em;color:#8b949e;text-decoration:none;margin-left:auto}
-.owasp-link:hover{color:#58a6ff}
-.vuln-desc{font-size:.87em;color:#8b949e;margin-bottom:14px;line-height:1.5}
-.fixes h5{font-size:.82em;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;margin-bottom:8px}
-.fixes ol{padding-left:18px}
-.fixes li{font-size:.85em;color:#c9d1d9;line-height:1.6;padding:3px 0}
-.fixes li code{color:#79c0ff}
-.no-cve{font-size:.82em;color:#8b949e;padding:14px 20px}
-/* ── Detailed mode blocks ── */
-.detail-section{padding:18px 20px;border-top:2px solid #1c2128;background:#0a0d10}
-.impact-block{margin-bottom:18px}
-.impact-block h4{color:#e3b341;font-size:.8em;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;display:flex;align-items:center;gap:6px}
-.impact-block h4::before{content:'⚠';font-style:normal}
-.impact-block p{font-size:.86em;color:#c9d1d9;line-height:1.65}
-.poc-block{margin-bottom:18px}
-.poc-block h5{font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;margin-bottom:8px}
-.poc-block ol{padding-left:18px}
-.poc-block li{font-size:.84em;color:#c9d1d9;line-height:1.7;padding:3px 0}
-.code-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.code-pane{}
-.code-label{font-size:.72em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:4px 10px;display:inline-block;border-radius:4px 4px 0 0}
-.code-label.vuln-lbl{background:rgba(248,81,73,.15);color:#f85149;border:1px solid rgba(248,81,73,.3);border-bottom:none}
-.code-label.fix-lbl{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid rgba(63,185,80,.3);border-bottom:none}
-pre.code-pre{background:#0d1117;border:1px solid #21262d;border-radius:0 6px 6px 6px;padding:14px;font-size:.82em;font-family:Consolas,'Courier New',monospace;color:#c9d1d9;overflow-x:auto;white-space:pre;margin:0;line-height:1.6}
-.footer{text-align:center;padding:28px;color:#8b949e;font-size:.82em;border-top:1px solid #21262d;margin-top:32px}
+th{
+  background:rgba(0,0,0,0.3);padding:12px 18px;text-align:left;
+  font-size:0.76em;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.07em;
+}
+td{padding:13px 18px;border-top:1px solid var(--border);font-size:0.88em;word-break:break-word}
+code{font-family:'Fira Code','SF Mono',monospace;background:rgba(0,0,0,0.4);color:#60a5fa;padding:3px 8px;border-radius:4px;font-size:0.86em}
+.vY{color:var(--rose);font-weight:700}.vN{color:var(--emerald);font-weight:600}
+.sC{color:var(--rose);font-weight:700}.sH{color:var(--amber);font-weight:600}.sM{color:var(--indigo)}.sL{color:var(--text-muted)}
+.cve-panel{padding:22px 24px;border-top:1px solid var(--border);background:rgba(0,0,0,0.25)}
+.cve-panel h4{color:var(--text-muted);font-size:0.78em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px}
+.cve-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center}
+.cve-badge{
+  background:var(--indigo-dim);border:1px solid rgba(99,102,241,0.3);border-radius:6px;
+  padding:5px 12px;font-size:0.82em;font-family:'Fira Code',monospace;color:var(--indigo);
+  text-decoration:none;transition:all 0.15s;
+}
+.cve-badge:hover{background:var(--indigo);color:#fff}
+.owasp-link{font-size:0.84em;color:var(--emerald);text-decoration:none;margin-left:auto;font-weight:600}
+.owasp-link:hover{text-decoration:underline}
+.vuln-desc{font-size:0.9em;color:var(--text-muted);margin-bottom:16px;line-height:1.6}
+.fixes h5{font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:10px}
+.fixes ol{padding-left:20px}
+.fixes li{font-size:0.88em;color:var(--text);line-height:1.7;padding:3px 0}
+.fixes li code{color:var(--emerald)}
+.no-cve{font-size:0.85em;color:var(--text-muted);padding:18px 24px}
+.detail-section{padding:24px;border-top:2px solid var(--surface2);background:rgba(0,0,0,0.3)}
+.impact-block{margin-bottom:20px}
+.impact-block h4{color:var(--amber);font-size:0.82em;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.impact-block h4::before{content:'⚠️'}
+.impact-block p{font-size:0.9em;color:var(--text);line-height:1.7}
+.poc-block{margin-bottom:20px}
+.poc-block h5{font-size:0.8em;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);margin-bottom:10px}
+.poc-block ol{padding-left:20px}
+.poc-block li{font-size:0.88em;color:var(--text);line-height:1.7;padding:3px 0}
+.code-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+.code-label{font-size:0.75em;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;padding:5px 12px;display:inline-block;border-radius:6px 6px 0 0}
+.code-label.vuln-lbl{background:var(--rose-dim);color:var(--rose);border:1px solid rgba(244,63,94,0.3);border-bottom:none}
+.code-label.fix-lbl{background:var(--emerald-dim);color:var(--emerald);border:1px solid rgba(16,185,129,0.3);border-bottom:none}
+pre.code-pre{
+  background:#050811;border:1px solid var(--border);border-radius:0 8px 8px 8px;
+  padding:16px;font-size:0.84em;font-family:'Fira Code','SF Mono',monospace;color:#e2e8f0;
+  overflow-x:auto;white-space:pre;margin:0;line-height:1.65;
+}
+.footer{text-align:center;padding:32px;color:var(--text-muted);font-size:0.84em;border-top:1px solid var(--border);margin-top:40px}
+.footer span{color:var(--emerald);font-weight:600}
 </style>
 </head>
 <body>
 <div class="header">
-  <h1>API Security Test Report{% if detail == 'detailed' %}<span class="detail-badge">Detailed</span>{% endif %}</h1>
-  <p>Target: {{ target }} &nbsp;|&nbsp; {{ timestamp }} &nbsp;|&nbsp; OWASP API Top 10:2023</p>
+  <h1>🛡️ API Security Test Report{% if detail == 'detailed' %}<span class="detail-badge">Detailed Analysis</span>{% endif %}</h1>
+  <p>Target Endpoint: <span>{{ target }}</span> &nbsp;•&nbsp; {{ timestamp }} &nbsp;•&nbsp; OWASP API Top 10:2023 Standard</p>
 </div>
 <div class="container">
   <div class="cards">
     <div class="card"><div class="num red">{{ total_vuln }}</div><div class="lbl">Vulnerabilities Found</div></div>
-    <div class="card"><div class="num blue">{{ total_tests }}</div><div class="lbl">Tests Executed</div></div>
+    <div class="card"><div class="num indigo">{{ total_tests }}</div><div class="lbl">Total Tests Executed</div></div>
     <div class="card"><div class="num green">{{ total_tests - total_vuln }}</div><div class="lbl">Tests Passed</div></div>
     <div class="card"><div class="num yellow">{{ "%.0f"|format(score) }}%</div><div class="lbl">Security Score</div></div>
   </div>
   <div class="charts">
     <div class="cbox"><h3>Vulnerabilities by Category</h3><canvas id="barChart" height="220"></canvas></div>
-    <div class="cbox"><h3>Overall Results</h3><canvas id="pieChart" height="220"></canvas></div>
+    <div class="cbox"><h3>Overall Security Posture</h3><canvas id="pieChart" height="220"></canvas></div>
   </div>
   {% for cat in categories %}
   {% set cve = cve_db.get(cat.category, {}) %}
@@ -180,12 +249,12 @@ pre.code-pre{background:#0d1117;border:1px solid #21262d;border-radius:0 6px 6px
       </div>
     </div>
     <table>
-      <tr><th>Test</th><th>Request</th><th>Expected</th><th>Actual</th><th>Severity</th><th>Result</th></tr>
+      <tr><th>Test Vector</th><th>Request Payload / Path</th><th>Expected Result</th><th>Actual Result</th><th>Severity</th><th>Status</th></tr>
       {% for t in cat.tests %}
       <tr>
-        <td>{{ t.test }}</td>
+        <td style="font-weight:600;color:var(--text)">{{ t.test }}</td>
         <td><code>{{ t.request }}</code></td>
-        <td>{{ t.expected }}</td>
+        <td style="color:var(--text-muted)">{{ t.expected }}</td>
         <td>{{ t.actual }}</td>
         <td class="s{{ t.severity[0] }}">{{ t.severity }}</td>
         <td class="{% if t.vulnerable %}vY{% else %}vN{% endif %}">{{ "VULNERABLE" if t.vulnerable else "SECURE" }}</td>
@@ -194,16 +263,16 @@ pre.code-pre{background:#0d1117;border:1px solid #21262d;border-radius:0 6px 6px
     </table>
     {% if cve %}
     <div class="cve-panel">
-      <h4>CVE References &amp; Remediation</h4>
+      <h4>CVE References &amp; Remediation Guidance</h4>
       <div class="cve-row">
         {% for cve_id in cve.cves %}
         <a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/{{ cve_id }}" target="_blank" rel="noopener">{{ cve_id }}</a>
         {% endfor %}
-        <a class="owasp-link" href="{{ cve.owasp_ref }}" target="_blank" rel="noopener">OWASP Reference &rarr;</a>
+        <a class="owasp-link" href="{{ cve.owasp_ref }}" target="_blank" rel="noopener">OWASP Documentation &rarr;</a>
       </div>
       <p class="vuln-desc">{{ cve.description }}</p>
       <div class="fixes">
-        <h5>Remediation Steps</h5>
+        <h5>Recommended Fixes</h5>
         <ol>
           {% for fix in cve.fixes %}
           <li>{{ fix }}</li>
@@ -219,7 +288,7 @@ pre.code-pre{background:#0d1117;border:1px solid #21262d;border-radius:0 6px 6px
       </div>
       {% if cve.poc_steps %}
       <div class="poc-block">
-        <h5>Proof of Concept — Attack Steps</h5>
+        <h5>Proof of Concept — Attack Execution Steps</h5>
         <ol>
           {% for step in cve.poc_steps %}
           <li>{{ step }}</li>
@@ -230,11 +299,11 @@ pre.code-pre{background:#0d1117;border:1px solid #21262d;border-radius:0 6px 6px
       {% if cve.code_before %}
       <div class="code-grid">
         <div class="code-pane">
-          <div class="code-label vuln-lbl">Vulnerable Code</div>
+          <div class="code-label vuln-lbl">Vulnerable Code Implementation</div>
           <pre class="code-pre">{{ cve.code_before|e }}</pre>
         </div>
         <div class="code-pane">
-          <div class="code-label fix-lbl">Fixed Code</div>
+          <div class="code-label fix-lbl">Hardened Code Remediation</div>
           <pre class="code-pre">{{ cve.code_after|e }}</pre>
         </div>
       </div>
@@ -247,12 +316,46 @@ pre.code-pre{background:#0d1117;border:1px solid #21262d;border-radius:0 6px 6px
   </div>
   {% endfor %}
 </div>
-<div class="footer">CY384 API Security Project &nbsp;|&nbsp; University of Mines and Technology, Ghana &nbsp;|&nbsp; OWASP API Security Top 10:2023</div>
+<div class="footer">MazAPI Security Scanner &nbsp;•&nbsp; <span>CY384 Cybersecurity Lab Work II</span> &nbsp;•&nbsp; University of Mines and Technology, Ghana</div>
 <script>
 const labels = {{ cat_labels|tojson }};
 const vulns  = {{ vuln_counts|tojson }};
-new Chart(document.getElementById('barChart'),{type:'bar',data:{labels,datasets:[{label:'Vulnerable',data:vulns,backgroundColor:'rgba(248,81,73,.7)',borderColor:'#f85149',borderWidth:1}]},options:{plugins:{legend:{labels:{color:'#c9d1d9'}}},scales:{x:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}},y:{ticks:{color:'#8b949e',stepSize:1},grid:{color:'#21262d'}}}}});
-new Chart(document.getElementById('pieChart'),{type:'doughnut',data:{labels:['Vulnerable','Secure'],datasets:[{data:[{{ total_vuln }},{{ total_tests - total_vuln }}],backgroundColor:['rgba(248,81,73,.7)','rgba(63,185,80,.7)'],borderColor:['#f85149','#3fb950'],borderWidth:2}]},options:{plugins:{legend:{labels:{color:'#c9d1d9'}}}}});
+new Chart(document.getElementById('barChart'),{
+  type:'bar',
+  data:{
+    labels,
+    datasets:[{
+      label:'Vulnerabilities',
+      data:vulns,
+      backgroundColor:'rgba(244,63,94,0.75)',
+      borderColor:'#f43f5e',
+      borderWidth:1,
+      borderRadius:6
+    }]
+  },
+  options:{
+    plugins:{legend:{labels:{color:'#f3f4f6',font:{family:'Inter'}}}},
+    scales:{
+      x:{ticks:{color:'#9ca3af',font:{family:'Inter'}},grid:{color:'rgba(255,255,255,0.05)'}},
+      y:{ticks:{color:'#9ca3af',stepSize:1,font:{family:'Inter'}},grid:{color:'rgba(255,255,255,0.05)'}}
+    }
+  }
+});
+new Chart(document.getElementById('pieChart'),{
+  type:'doughnut',
+  data:{
+    labels:['Vulnerable','Secure'],
+    datasets:[{
+      data:[{{ total_vuln }},{{ total_tests - total_vuln }}],
+      backgroundColor:['rgba(244,63,94,0.8)','rgba(16,185,129,0.8)'],
+      borderColor:['#f43f5e','#10b981'],
+      borderWidth:2
+    }]
+  },
+  options:{
+    plugins:{legend:{labels:{color:'#f3f4f6',font:{family:'Inter'}}}}
+  }
+});
 </script>
 </body>
 </html>"""

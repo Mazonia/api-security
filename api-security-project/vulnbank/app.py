@@ -278,41 +278,48 @@ LAB_UI = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VulnBank Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  :root{
+    --bg:#090d16;--surf:#111827;--surf2:#1f293d;--border:rgba(255,255,255,0.09);
+    --text:#f3f4f6;--muted:#9ca3af;--emerald:#10b981;--indigo:#6366f1;
+    --rose:#f43f5e;--amber:#f59e0b;--purple:#8b5cf6;--radius:12px;
+  }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#0d1117;color:#c9d1d9;font-family:'Segoe UI',system-ui,sans-serif;padding:24px}
-  h1{color:#58a6ff;font-size:1.6rem;margin-bottom:4px}
-  .subtitle{color:#8b949e;font-size:.9rem;margin-bottom:24px}
-  .creds{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px 18px;margin-bottom:28px;font-size:.85rem}
-  .creds b{color:#58a6ff}
-  .creds code{background:#0d1117;padding:2px 6px;border-radius:4px;color:#e6edf3}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
-  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:10px}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;padding:32px 24px;line-height:1.5;max-width:1400px;margin:0 auto}
+  h1{color:var(--emerald);font-size:2rem;font-weight:800;margin-bottom:4px;letter-spacing:-0.02em}
+  .subtitle{color:var(--muted);font-size:0.92rem;margin-bottom:28px}
+  .creds{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:32px;font-size:0.88rem;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+  .creds b{color:var(--emerald)}
+  .creds code{background:var(--bg);border:1px solid var(--border);padding:2px 7px;border-radius:4px;color:#60a5fa;font-family:'Fira Code',monospace}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:20px}
+  .card{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.25);transition:border-color 0.2s,transform 0.2s}
+  .card:hover{border-color:rgba(99,102,241,0.3);transform:translateY(-2px)}
   .card-head{display:flex;align-items:center;gap:10px}
-  .badge{font-size:.7rem;font-weight:700;padding:3px 8px;border-radius:12px;text-transform:uppercase;white-space:nowrap}
-  .CRITICAL{background:#3d1a1a;color:#f85149;border:1px solid #f85149}
-  .HIGH{background:#2d1f00;color:#e3b341;border:1px solid #e3b341}
-  .MEDIUM{background:#122335;color:#58a6ff;border:1px solid #58a6ff}
-  .card-id{font-size:.72rem;color:#8b949e;font-weight:600}
-  .card-name{font-size:.95rem;font-weight:600;color:#e6edf3}
-  .card-desc{font-size:.83rem;color:#8b949e;line-height:1.5}
-  .card-hint{font-size:.8rem;color:#3fb950;background:#0f2318;border-left:3px solid #3fb950;padding:7px 10px;border-radius:0 6px 6px 0}
-  .card-mazapi{font-size:.78rem;color:#bc8cff;background:#1a1030;border-left:3px solid #bc8cff;padding:7px 10px;border-radius:0 6px 6px 0}
-  .endpoint{font-family:monospace;font-size:.8rem;background:#0d1117;border:1px solid #30363d;padding:5px 10px;border-radius:6px;color:#79c0ff;display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .try-btn{background:#1f6feb;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:.8rem;cursor:pointer;white-space:nowrap;flex-shrink:0}
-  .try-btn:hover{background:#388bfd}
-  .response-box{display:none;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px;font-family:monospace;font-size:.75rem;color:#e6edf3;white-space:pre-wrap;max-height:220px;overflow-y:auto}
+  .badge{font-size:0.72rem;font-weight:800;padding:3px 10px;border-radius:20px;text-transform:uppercase;white-space:nowrap;letter-spacing:0.04em}
+  .CRITICAL{background:rgba(244,63,94,0.15);color:var(--rose);border:1px solid rgba(244,63,94,0.4)}
+  .HIGH{background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)}
+  .MEDIUM{background:rgba(99,102,241,0.15);color:var(--indigo);border:1px solid rgba(99,102,241,0.4)}
+  .card-id{font-size:0.75rem;color:var(--muted);font-weight:600;font-family:'Fira Code',monospace}
+  .card-name{font-size:1.02rem;font-weight:700;color:#fff}
+  .card-desc{font-size:0.86rem;color:var(--muted);line-height:1.55}
+  .card-hint{font-size:0.82rem;color:var(--emerald);background:rgba(16,185,129,0.08);border-left:3px solid var(--emerald);padding:8px 12px;border-radius:0 6px 6px 0}
+  .card-mazapi{font-size:0.8rem;color:var(--purple);background:rgba(139,92,246,0.08);border-left:3px solid var(--purple);padding:8px 12px;border-radius:0 6px 6px 0}
+  .endpoint{font-family:'Fira Code',monospace;font-size:0.82rem;background:var(--bg);border:1px solid var(--border);padding:6px 12px;border-radius:6px;color:#60a5fa;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .try-btn{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:20px;padding:7px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:opacity 0.15s}
+  .try-btn:hover{opacity:0.9}
+  .response-box{display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'Fira Code',monospace;font-size:0.78rem;color:var(--text);white-space:pre-wrap;max-height:240px;overflow-y:auto}
   .response-box.visible{display:block}
-  .status-ok{color:#3fb950}
-  .status-err{color:#f85149}
-  label{font-size:.78rem;color:#8b949e}
-  input[type=text]{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:.8rem;margin-top:3px}
-  input[type=text]:focus{outline:none;border-color:#58a6ff}
+  .status-ok{color:var(--emerald);font-weight:600}
+  .status-err{color:var(--rose);font-weight:600}
+  label{font-size:0.8rem;color:var(--muted);font-weight:500}
+  input[type=text]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:0.84em;margin-top:4px;font-family:inherit;transition:border-color 0.15s}
+  input[type=text]:focus{outline:none;border-color:var(--indigo)}
   .token-row{display:flex;gap:8px;align-items:flex-end;margin-top:4px}
   .token-row input{flex:1}
-  .login-hint{font-size:.72rem;color:#8b949e;margin-top:2px}
+  .login-hint{font-size:0.75rem;color:var(--muted);margin-top:3px}
 </style>
 </head>
 <body>
