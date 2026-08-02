@@ -2550,6 +2550,7 @@ code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.84em}
   <a href="/dashboard">&#128200; Monitor</a>
   <a href="http://localhost:8000/ui" target="_blank">&#128722; Shop App</a>
   <a href="http://localhost:8000/docs" target="_blank">&#128196; API Docs</a>
+  <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">☀️ Light</button>
   <button type="button" id="help-btn" title="Help &amp; FAQ">?</button>
 </nav>
 <div class="wrap">
@@ -3643,7 +3644,25 @@ function faqSearch(val) {
   });
 }
 
+function toggleTheme() {
+  var current = document.documentElement.getAttribute("data-theme") || "dark";
+  var next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("mazapiTheme", next);
+  var btn = document.getElementById("theme-toggle-btn");
+  if (btn) {
+    btn.textContent = next === "light" ? "🌙 Dark" : "☀️ Light";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
+  // Theme initialization
+  var initialTheme = localStorage.getItem("mazapiTheme") || "dark";
+  document.documentElement.setAttribute("data-theme", initialTheme);
+  var themeBtn = document.getElementById("theme-toggle-btn");
+  if (themeBtn) {
+    themeBtn.textContent = initialTheme === "light" ? "🌙 Dark" : "☀️ Light";
+  }
   // ── HAR file import ─────────────────────────────────────────────────────────
   document.getElementById("har-file-input").addEventListener("change", function(e) {
     var file = e.target.files[0];
@@ -3975,7 +3994,160 @@ async def delete_report(filename: str):
 
 def _build_report_html(req: "SaveReportRequest") -> str:
     from html import escape as _esc
-    _CSS = """*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#0d1117;color:#c9d1d9}.header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:40px;text-align:center}.header h1{color:#58a6ff;font-size:2.2em;margin-bottom:8px}.header p{color:#8b949e}.detail-badge{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid rgba(88,166,255,.4);padding:3px 10px;border-radius:5px;font-size:.45em;font-weight:700;vertical-align:middle;margin-left:10px;text-transform:uppercase}.container{max-width:1200px;margin:0 auto;padding:28px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px;text-align:center}.card .num{font-size:2.2em;font-weight:700}.card .lbl{color:#8b949e;font-size:.83em;margin-top:5px}.red{color:#f85149}.green{color:#3fb950}.blue{color:#58a6ff}.yellow{color:#e3b341}.cat{background:#161b22;border:1px solid #30363d;border-radius:10px;margin-bottom:16px}.cat-hdr{padding:16px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}.cat-hdr h2{font-size:1.05em;color:#e6edf3}.badge{padding:3px 10px;border-radius:16px;font-size:.8em;font-weight:700}.bv{background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149}.bs{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid #3fb950}.sev-CRITICAL{background:rgba(188,30,30,.2);color:#ff6b6b;border:1px solid #ff6b6b}.sev-HIGH{background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149}.sev-MEDIUM{background:rgba(227,179,65,.15);color:#e3b341;border:1px solid #e3b341}.sev-LOW{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid #58a6ff}table{width:100%;border-collapse:collapse}th{background:#0d1117;padding:10px 14px;text-align:left;font-size:.78em;color:#8b949e;text-transform:uppercase;letter-spacing:.04em}td{padding:10px 14px;border-top:1px solid #21262d;font-size:.85em;word-break:break-word}code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.86em}.vY{color:#f85149;font-weight:700}.vN{color:#3fb950}.sC{color:#f85149}.sH{color:#e3b341}.sM{color:#58a6ff}.sL{color:#8b949e}.cve-panel{padding:16px 20px;border-top:1px solid #21262d;background:#0d1117}.cve-panel h4{color:#8b949e;font-size:.78em;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}.cve-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;align-items:center}.cve-badge{background:#161b22;border:1px solid #30363d;border-radius:5px;padding:3px 9px;font-size:.78em;font-family:monospace;color:#58a6ff;text-decoration:none}.cve-badge:hover{border-color:#58a6ff}.owasp-link{font-size:.8em;color:#8b949e;text-decoration:none;margin-left:auto}.owasp-link:hover{color:#58a6ff}.vuln-desc{font-size:.85em;color:#8b949e;margin-bottom:12px;line-height:1.55}.fixes h5{font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;margin-bottom:7px}.fixes ol{padding-left:18px}.fixes li{font-size:.84em;color:#c9d1d9;line-height:1.6;padding:2px 0}.detail-section{padding:16px 20px;border-top:2px solid #1c2128;background:#0a0d10}.impact-block{margin-bottom:16px}.impact-block h4{color:#e3b341;font-size:.78em;text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}.impact-block p{font-size:.85em;color:#c9d1d9;line-height:1.6}.poc-block{margin-bottom:16px}.poc-block h5{font-size:.76em;text-transform:uppercase;letter-spacing:.06em;color:#8b949e;margin-bottom:7px}.poc-block ol{padding-left:18px}.poc-block li{font-size:.83em;color:#c9d1d9;line-height:1.65;padding:2px 0}.code-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.code-label{font-size:.7em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;padding:3px 9px;display:inline-block;border-radius:4px 4px 0 0}.vuln-lbl{background:rgba(248,81,73,.15);color:#f85149;border:1px solid rgba(248,81,73,.3);border-bottom:none}.fix-lbl{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid rgba(63,185,80,.3);border-bottom:none}pre.code-pre{background:#0d1117;border:1px solid #21262d;border-radius:0 5px 5px 5px;padding:12px;font-size:.8em;font-family:Consolas,monospace;color:#c9d1d9;overflow-x:auto;white-space:pre;margin:0;line-height:1.55}.footer{text-align:center;padding:24px;color:#8b949e;font-size:.8em;border-top:1px solid #21262d;margin-top:28px}"""
+    _CSS = """
+    :root {
+      --bg: #090d16;
+      --surf: #111827;
+      --surf-alt: #1f293d;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --blue: #6366f1;
+      --green: #10b981;
+      --red: #f43f5e;
+      --yellow: #f59e0b;
+      --accent-dim: rgba(99, 102, 241, 0.08);
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.35);
+      --font-title: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surf: #ffffff;
+      --surf-alt: #f1f5f9;
+      --border: rgba(148, 163, 184, 0.2);
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --blue: #4f46e5;
+      --green: #059669;
+      --red: #dc2626;
+      --yellow: #d97706;
+      --accent-dim: rgba(79, 70, 229, 0.06);
+      --shadow: 0 4px 20px rgba(149, 157, 165, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background 0.2s, color 0.2s;
+    }
+    .theme-float-btn {
+      position: fixed; top: 16px; right: 20px; z-index: 9999;
+      background: var(--surf-alt); border: 1px solid var(--border); color: var(--text);
+      padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85em; font-weight: 600;
+      box-shadow: var(--shadow); transition: all 0.18s; font-family: var(--font-body);
+    }
+    .theme-float-btn:hover { border-color: var(--blue); color: var(--blue); transform: translateY(-1px); }
+    .header {
+      background: linear-gradient(135deg, #1e1b4e 0%, #0f172a 100%);
+      padding: 50px 20px; text-align: center; color: #fff;
+    }
+    .header h1 {
+      font-family: var(--font-title); font-size: 2.4em; font-weight: 800; margin-bottom: 8px;
+      color: #60a5fa;
+    }
+    .header p { color: #94a3b8; font-size: 0.95em; }
+    .detail-badge {
+      background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.4);
+      padding: 3px 10px; border-radius: 20px; font-size: 0.45em; font-weight: 700;
+      vertical-align: middle; margin-left: 10px; text-transform: uppercase;
+      font-family: var(--font-body);
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: -60px; margin-bottom: 32px; }
+    .card {
+      background: var(--surf); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 24px 16px; text-align: center; box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+    .card:hover { transform: translateY(-2px); }
+    .card .num { font-family: var(--font-title); font-size: 2.4em; font-weight: 800; line-height: 1.1; }
+    .card .lbl { color: var(--text-muted); font-size: 0.85em; margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .red { color: var(--red); }
+    .green { color: var(--green); }
+    .blue { color: var(--blue); }
+    .yellow { color: var(--yellow); }
+    
+    .cat {
+      background: var(--surf); border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: 20px; box-shadow: var(--shadow); overflow: hidden;
+    }
+    .cat-hdr {
+      padding: 18px 24px; border-bottom: 1px solid var(--border); background: var(--surf-alt);
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    }
+    .cat-hdr h2 { font-family: var(--font-title); font-size: 1.1em; font-weight: 700; color: var(--text); }
+    .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.78em; font-weight: 700; }
+    .bv { background: var(--accent-dim); color: var(--red); border: 1px solid var(--red); }
+    .bs { background: var(--accent-dim); color: var(--green); border: 1px solid var(--green); }
+    
+    .sev-CRITICAL { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; }
+    .sev-HIGH { background: rgba(244, 63, 94, 0.15); color: var(--red); border: 1px solid var(--red); }
+    .sev-MEDIUM { background: rgba(245, 158, 11, 0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+    .sev-LOW { background: rgba(99, 102, 241, 0.15); color: var(--blue); border: 1px solid var(--blue); }
+    
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: var(--surf-alt); padding: 12px 16px; text-align: left;
+      font-size: 0.75em; color: var(--text-muted); text-transform: uppercase;
+      letter-spacing: 0.05em; border-bottom: 1px solid var(--border);
+    }
+    td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.86em; word-break: break-word; }
+    code {
+      background: var(--surf-alt); padding: 3px 6px; border-radius: 4px;
+      font-size: 0.88em; font-family: 'Fira Code', Consolas, monospace;
+    }
+    .vY { color: var(--red); font-weight: 700; }
+    .vN { color: var(--green); font-weight: 600; }
+    .sC { color: #f87171; }
+    .sH { color: var(--red); }
+    .sM { color: var(--yellow); }
+    .sL { color: var(--blue); }
+    
+    .cve-panel { padding: 20px 24px; border-top: 1px solid var(--border); background: var(--surf-alt); }
+    .cve-panel h4 {
+      color: var(--text-muted); font-size: 0.78em; text-transform: uppercase;
+      letter-spacing: 0.08em; margin-bottom: 12px; font-weight: 700;
+    }
+    .cve-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; }
+    .cve-badge {
+      background: var(--surf); border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 10px; font-size: 0.8em; font-family: 'Fira Code', monospace; color: var(--blue);
+      text-decoration: none; transition: border-color 0.15s;
+    }
+    .cve-badge:hover { border-color: var(--blue); }
+    .owasp-link { font-size: 0.82em; color: var(--text-muted); text-decoration: none; margin-left: auto; font-weight: 500; }
+    .owasp-link:hover { color: var(--blue); }
+    .vuln-desc { font-size: 0.88em; color: var(--text-muted); margin-bottom: 14px; line-height: 1.6; }
+    .fixes h5 { font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; }
+    .fixes ol { padding-left: 20px; }
+    .fixes li { font-size: 0.86em; color: var(--text); line-height: 1.65; padding: 3px 0; }
+    
+    .detail-section { padding: 20px 24px; border-top: 2px solid var(--border); background: var(--surf-alt); }
+    .impact-block { margin-bottom: 18px; }
+    .impact-block h4 { color: var(--yellow); font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+    .impact-block p { font-size: 0.88em; color: var(--text); line-height: 1.6; }
+    .poc-block { margin-bottom: 18px; }
+    .poc-block h5 { font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; }
+    .poc-block ol { padding-left: 20px; }
+    .poc-block li { font-size: 0.86em; color: var(--text); line-height: 1.65; padding: 3px 0; }
+    .code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .code-label { font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 4px 10px; display: inline-block; border-radius: 4px 4px 0 0; }
+    .vuln-lbl { background: rgba(244, 63, 94, 0.15); color: var(--red); border: 1px solid rgba(244, 63, 94, 0.3); border-bottom: none; }
+    .fix-lbl { background: rgba(16, 185, 129, 0.15); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); border-bottom: none; }
+    pre.code-pre {
+      background: var(--surf); border: 1px solid var(--border); border-radius: 0 var(--radius) var(--radius) var(--radius);
+      padding: 14px; font-size: 0.82em; font-family: 'Fira Code', Consolas, monospace; color: var(--text);
+      overflow-x: auto; white-space: pre; margin: 0; line-height: 1.55;
+    }
+    .footer {
+      text-align: center; padding: 32px 20px; color: var(--text-muted); font-size: 0.82em;
+      border-top: 1px solid var(--border); margin-top: 32px;
+    }
+    """
 
     total_vuln = req.total_vulnerable
     total_tests = req.total_tests
@@ -4054,7 +4226,12 @@ def _build_report_html(req: "SaveReportRequest") -> str:
 
     return (
         f'<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
-        f'<title>API Security Report</title><style>{_CSS}</style></head><body>'
+        f'<title>API Security Report</title>'
+        f'<link rel="preconnect" href="https://fonts.googleapis.com">'
+        f'<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+        f'<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">'
+        f'<style>{_CSS}</style></head><body>'
+        f'<button class="theme-float-btn" id="theme-float-btn" onclick="toggleReportTheme()">☀️ Light</button>'
         f'<div class="header"><h1>API Security Test Report {detail_badge}</h1>'
         f'<p>Target: {_esc(req.target)} &nbsp;|&nbsp; {_esc(ts)} &nbsp;|&nbsp; OWASP API Top 10:2023</p></div>'
         f'<div class="container">'
@@ -4065,6 +4242,22 @@ def _build_report_html(req: "SaveReportRequest") -> str:
         f'<div class="card"><div class="num {score_color}">{score}%</div><div class="lbl">Security Score</div></div>'
         f'</div>{cats_html}</div>'
         f'<div class="footer">CY384 API Security Project &nbsp;|&nbsp; University of Mines and Technology, Ghana &nbsp;|&nbsp; OWASP API Security Top 10:2023</div>'
+        f'<script>'
+        f'function toggleReportTheme() {{'
+        f'  var current = document.documentElement.getAttribute("data-theme") || "dark";'
+        f'  var next = current === "dark" ? "light" : "dark";'
+        f'  document.documentElement.setAttribute("data-theme", next);'
+        f'  localStorage.setItem("mazapiTheme", next);'
+        f'  var btn = document.getElementById("theme-float-btn");'
+        f'  if (btn) btn.textContent = next === "light" ? "🌙 Dark" : "☀️ Light";'
+        f'}}'
+        f'(function() {{'
+        f'  var theme = localStorage.getItem("mazapiTheme") || "dark";'
+        f'  document.documentElement.setAttribute("data-theme", theme);'
+        f'  var btn = document.getElementById("theme-float-btn");'
+        f'  if (btn) btn.textContent = theme === "light" ? "🌙 Dark" : "☀️ Light";'
+        f'}})();'
+        f'</script>'
         f'</body></html>'
     )
 
@@ -4243,39 +4436,132 @@ def _build_comparison_html(rows: list, vuln_url: str, hard_url: str,
     from html import escape as _esc
     improvement = hard_score - vuln_score
     imp_sign  = "+" if improvement > 0 else ""
-    imp_color = "#3fb950" if improvement > 0 else "#f85149" if improvement < 0 else "#e3b341"
-    _CSS = ("*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;background:#0d1117;color:#c9d1d9}"
-            ".header{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:40px;text-align:center}"
-            ".header h1{color:#bc8cff;font-size:2.2em;margin-bottom:8px}.header p{color:#8b949e;font-size:.9em}"
-            ".container{max-width:1200px;margin:0 auto;padding:28px}"
-            ".cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}"
-            ".card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:22px;text-align:center}"
-            ".card .num{font-size:2.4em;font-weight:700}.card .lbl{color:#8b949e;font-size:.85em;margin-top:6px}"
-            ".red{color:#f85149}.green{color:#3fb950}"
-            ".scenario{background:#161b22;border:1px solid #30363d;border-radius:10px;margin-bottom:18px}"
-            ".sc-hdr{padding:16px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}"
-            ".sc-hdr h2{font-size:1.05em;color:#e6edf3}"
-            ".badge{padding:4px 12px;border-radius:20px;font-size:.82em;font-weight:700}"
-            ".sev-CRITICAL{background:rgba(188,30,30,.2);color:#ff6b6b;border:1px solid #ff6b6b}"
-            ".sev-HIGH{background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149}"
-            ".sev-MEDIUM{background:rgba(227,179,65,.15);color:#e3b341;border:1px solid #e3b341}"
-            ".sev-LOW{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid #58a6ff}"
-            ".sc-body{display:grid;grid-template-columns:1fr 1fr 1fr}"
-            ".sc-col{padding:16px 18px;border-right:1px solid #21262d}.sc-col:last-child{border-right:none}"
-            ".col-label{font-size:.72em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}"
-            ".lbl-attack{color:#8b949e}.lbl-vuln{color:#f85149}.lbl-hard{color:#3fb950}"
-            ".attack-code{display:block;background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:10px 12px;"
-            "font-family:Consolas,monospace;font-size:.82em;color:#c9d1d9;white-space:pre-wrap;word-break:break-all}"
-            ".result-status{font-weight:700;font-size:1.1em;margin-bottom:8px}"
-            ".status-vuln{color:#f85149}.status-secure{color:#3fb950}"
-            ".http-code{background:#0d1117;padding:2px 7px;border-radius:4px;font-family:monospace;font-size:.85em;margin-left:6px;color:#c9d1d9}"
-            ".result-reason{font-size:.84em;color:#8b949e;line-height:1.55}"
-            ".sc-footer{padding:14px 18px;display:flex;flex-wrap:wrap;gap:7px;align-items:center;border-top:1px solid #21262d}"
-            ".cve-badge{background:#161b22;border:1px solid #30363d;border-radius:5px;padding:3px 9px;"
-            "font-size:.78em;font-family:monospace;color:#58a6ff;text-decoration:none}"
-            ".cve-badge:hover{border-color:#58a6ff}.owasp-link{font-size:.8em;color:#8b949e;text-decoration:none;margin-left:auto}"
-            ".owasp-link:hover{color:#58a6ff}"
-            ".footer{text-align:center;padding:28px;color:#8b949e;font-size:.82em;border-top:1px solid #21262d;margin-top:24px}")
+    imp_color = "var(--green)" if improvement > 0 else "var(--red)" if improvement < 0 else "var(--yellow)"
+    _CSS = """
+    :root {
+      --bg: #090d16;
+      --surf: #111827;
+      --surf-alt: #1f293d;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --blue: #6366f1;
+      --green: #10b981;
+      --red: #f43f5e;
+      --yellow: #f59e0b;
+      --accent-dim: rgba(99, 102, 241, 0.08);
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.35);
+      --font-title: 'Outfit', sans-serif;
+      --font-body: 'Inter', sans-serif;
+    }
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --surf: #ffffff;
+      --surf-alt: #f1f5f9;
+      --border: rgba(148, 163, 184, 0.2);
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --blue: #4f46e5;
+      --green: #059669;
+      --red: #dc2626;
+      --yellow: #d97706;
+      --accent-dim: rgba(79, 70, 229, 0.06);
+      --shadow: 0 4px 20px rgba(149, 157, 165, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      transition: background 0.2s, color 0.2s;
+    }
+    .theme-float-btn {
+      position: fixed; top: 16px; right: 20px; z-index: 9999;
+      background: var(--surf-alt); border: 1px solid var(--border); color: var(--text);
+      padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85em; font-weight: 600;
+      box-shadow: var(--shadow); transition: all 0.18s; font-family: var(--font-body);
+    }
+    .theme-float-btn:hover { border-color: var(--blue); color: var(--blue); transform: translateY(-1px); }
+    .header {
+      background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+      padding: 50px 20px; text-align: center; color: #fff;
+    }
+    .header h1 {
+      font-family: var(--font-title); font-size: 2.4em; font-weight: 800; margin-bottom: 8px;
+      color: #bc8cff;
+    }
+    .header p { color: #8b949e; font-size: 0.95em; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: -60px; margin-bottom: 32px; }
+    .card {
+      background: var(--surf); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 24px 16px; text-align: center; box-shadow: var(--shadow);
+      transition: transform 0.2s;
+    }
+    .card:hover { transform: translateY(-2px); }
+    .card .num { font-family: var(--font-title); font-size: 2.4em; font-weight: 800; line-height: 1.1; }
+    .card .lbl { color: var(--text-muted); font-size: 0.85em; margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .red { color: var(--red); }
+    .green { color: var(--green); }
+    
+    .scenario {
+      background: var(--surf); border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: 20px; box-shadow: var(--shadow); overflow: hidden;
+    }
+    .sc-hdr {
+      padding: 18px 24px; border-bottom: 1px solid var(--border); background: var(--surf-alt);
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    }
+    .sc-hdr h2 { font-family: var(--font-title); font-size: 1.1em; font-weight: 700; color: var(--text); }
+    .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.78em; font-weight: 700; }
+    .sev-CRITICAL { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid #ef4444; }
+    .sev-HIGH { background: rgba(244, 63, 94, 0.15); color: var(--red); border: 1px solid var(--red); }
+    .sev-MEDIUM { background: rgba(245, 158, 11, 0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+    .sev-LOW { background: rgba(99, 102, 241, 0.15); color: var(--blue); border: 1px solid var(--blue); }
+    
+    .sc-body { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+    .sc-col { padding: 18px 20px; border-right: 1px solid var(--border); }
+    .sc-col:last-child { border-right: none; }
+    .col-label { font-size: 0.72em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; }
+    .lbl-attack { color: var(--text-muted); }
+    .lbl-vuln { color: var(--red); }
+    .lbl-hard { color: var(--green); }
+    
+    .attack-code {
+      display: block; background: var(--surf-alt); border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px; font-family: 'Fira Code', Consolas, monospace;
+      font-size: 0.82em; color: var(--text); white-space: pre-wrap; word-break: break-all;
+    }
+    .result-status { font-family: var(--font-title); font-weight: 800; font-size: 1.1em; margin-bottom: 8px; }
+    .status-vuln { color: var(--red); }
+    .status-secure { color: var(--green); }
+    .http-code {
+      background: var(--surf-alt); padding: 3px 8px; border-radius: 4px;
+      font-family: 'Fira Code', monospace; font-size: 0.8em; margin-left: 6px; color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .result-reason { font-size: 0.86em; color: var(--text-muted); line-height: 1.6; }
+    
+    .sc-footer {
+      padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      border-top: 1px solid var(--border); background: var(--surf-alt);
+    }
+    .cve-badge {
+      background: var(--surf); border: 1px solid var(--border); border-radius: 5px;
+      padding: 4px 10px; font-size: 0.78em; font-family: 'Fira Code', monospace; color: var(--blue);
+      text-decoration: none; transition: border-color 0.15s;
+    }
+    .cve-badge:hover { border-color: var(--blue); }
+    .owasp-link { font-size: 0.82em; color: var(--text-muted); text-decoration: none; margin-left: auto; font-weight: 500; }
+    .owasp-link:hover { color: var(--blue); }
+    
+    .footer {
+      text-align: center; padding: 32px 20px; color: var(--text-muted); font-size: 0.82em;
+      border-top: 1px solid var(--border); margin-top: 32px;
+    }
+    """
 
     scenarios_html = ""
     for row in rows:
@@ -4318,7 +4604,11 @@ def _build_comparison_html(rows: list, vuln_url: str, hard_url: str,
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
         '<title>Comparison Report</title>'
+        '<link rel="preconnect" href="https://fonts.googleapis.com">'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
+        '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">'
         f'<style>{_CSS}</style></head><body>'
+        '<button class="theme-float-btn" id="theme-float-btn" onclick="toggleReportTheme()">☀️ Light</button>'
         '<div class="header"><h1>Vulnerability Comparison Report</h1>'
         f'<p>Vulnerable: {_esc(vuln_url)} &nbsp;|&nbsp; Hardened: {_esc(hard_url)}'
         f' &nbsp;|&nbsp; {_esc(ts_label)}</p></div>'
@@ -4330,7 +4620,24 @@ def _build_comparison_html(rows: list, vuln_url: str, hard_url: str,
         f'<div class="card"><div class="num green">{hard_score}%</div><div class="lbl">Hardened API Score</div></div>'
         f'</div>{scenarios_html}</div>'
         '<div class="footer">CY384 API Security Project &nbsp;|&nbsp; University of Mines and Technology, Ghana'
-        ' &nbsp;|&nbsp; OWASP API Security Top 10:2023</div></body></html>'
+        ' &nbsp;|&nbsp; OWASP API Security Top 10:2023</div>'
+        '<script>'
+        'function toggleReportTheme() {'
+        '  var current = document.documentElement.getAttribute("data-theme") || "dark";'
+        '  var next = current === "dark" ? "light" : "dark";'
+        '  document.documentElement.setAttribute("data-theme", next);'
+        '  localStorage.setItem("mazapiTheme", next);'
+        '  var btn = document.getElementById("theme-float-btn");'
+        '  if (btn) btn.textContent = next === "light" ? "🌙 Dark" : "☀️ Light";'
+        '}'
+        '(function() {'
+        '  var theme = localStorage.getItem("mazapiTheme") || "dark";'
+        '  document.documentElement.setAttribute("data-theme", theme);'
+        '  var btn = document.getElementById("theme-float-btn");'
+        '  if (btn) btn.textContent = theme === "light" ? "🌙 Dark" : "☀️ Light";'
+        '})();'
+        '</script>'
+        '</body></html>'
     )
 
 

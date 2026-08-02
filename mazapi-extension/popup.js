@@ -10,8 +10,8 @@ let _liveTimer        = null;
 
 // ── Theme system ───────────────────────────────────────────────────────────────
 (function initTheme() {
-  chrome.storage.local.get('mazapiTheme', ({ mazapiTheme }) => {
-    const theme = mazapiTheme || 'dark';
+  chrome.storage.local.get('mazapiTheme', res => {
+    const theme = res?.mazapiTheme || 'dark';
     applyTheme(theme);
   });
 })();
@@ -44,12 +44,16 @@ document.querySelectorAll(".tab").forEach(tab => {
     tab.classList.add("active");
     const pane = document.getElementById("pane-" + tab.dataset.tab);
     if (pane) pane.classList.add("active");
-    if (tab.dataset.tab === "history")  renderHistory();
-    if (tab.dataset.tab === "settings") loadSettings();
-    if (tab.dataset.tab === "keys")     renderKeys();
-    if (tab.dataset.tab === "threats")  renderThreats();
-    if (tab.dataset.tab === "live")     { renderLive(); startLivePolling(); }
-    else stopLivePolling();
+    try {
+      if (tab.dataset.tab === "history")  renderHistory();
+      if (tab.dataset.tab === "settings") loadSettings();
+      if (tab.dataset.tab === "keys")     renderKeys();
+      if (tab.dataset.tab === "threats")  renderThreats();
+      if (tab.dataset.tab === "live")     { renderLive(); startLivePolling(); }
+      else stopLivePolling();
+    } catch (err) {
+      console.error("Error rendering pane for tab:", tab.dataset.tab, err);
+    }
   });
 });
 
@@ -246,8 +250,6 @@ document.getElementById("btn-openapi").addEventListener("click", () => {
 });
 
 // ── Run Scan ──────────────────────────────────────────────────────────────────
-document.getElementById("btn-scan").addEventListener("click", () => {
-// ── Port Auto-Detection & Dashboard Link ─────────────────────────────────────
 document.getElementById("btn-detect-port")?.addEventListener("click", () => {
   const statusEl = document.getElementById("port-detect-status");
   const inputEl  = document.getElementById("scan-monitor-url");
@@ -262,7 +264,6 @@ document.getElementById("btn-detect-port")?.addEventListener("click", () => {
   });
 });
 
-// ── Check active background scan status ──────────────────────────────────────
 function checkActiveScanStatus() {
   chrome.runtime.sendMessage({ type: "GET_SCAN_STATUS" }, scan => {
     if (!scan || scan.status === "idle") return;
@@ -443,7 +444,7 @@ document.getElementById("btn-export-sarif").addEventListener("click", () => {
 document.getElementById("btn-export-html").addEventListener("click", () => {
   if (!_lastResults.length) return;
   chrome.storage.local.get("mazapi_settings", d => {
-    const orgName = d.mazapi_settings?.orgName || "MazAPI Scanner";
+    const orgName = d?.mazapi_settings?.orgName || "MazAPI Scanner";
     chrome.runtime.sendMessage({ type: "GENERATE_HTML_REPORT", target: _lastTarget, score: _lastScore, results: _lastResults, orgName }, resp => {
       if (resp?.html) {
         const blob = new Blob([resp.html], { type: "text/html" });
@@ -458,7 +459,7 @@ document.getElementById("btn-export-html").addEventListener("click", () => {
 
 document.getElementById("btn-send-webhook").addEventListener("click", () => {
   chrome.storage.local.get("mazapi_settings", d => {
-    const url = d.mazapi_settings?.webhookUrl || "";
+    const url = d?.mazapi_settings?.webhookUrl || "";
     if (!url) { alert("No webhook URL set. Go to Settings tab."); return; }
     chrome.runtime.sendMessage({ type: "SEND_WEBHOOK", webhookUrl: url, target: _lastTarget, score: _lastScore, results: _lastResults }, resp => {
       document.getElementById("btn-send-webhook").textContent = resp?.ok ? "&#10003; Sent!" : "&#10007; Failed";
@@ -511,9 +512,9 @@ function renderKeys() {
       const color = SEV_COLOR[sev] || "#f85149";
       let srcLabel = "";
       try {
-        const u = new URL(k.source);
+        const u = new URL(k.source || "");
         srcLabel = u.pathname.length > 40 ? "…" + u.pathname.slice(-38) : u.pathname || "/";
-        if (k.source.includes("(inline)")) srcLabel = "inline script";
+        if (k.source && k.source.includes("(inline)")) srcLabel = "inline script";
       } catch { srcLabel = k.source || "page"; }
 
       return `<div class="key-card">
