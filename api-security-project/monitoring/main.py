@@ -2608,8 +2608,8 @@ code {
   font-size: 0.85em;
   font-family: 'Fira Code', Consolas, monospace;
 }
-.vY { color: var(--red); font-weight: 700; }
-.vN { color: var(--green); }
+.vY { color: var(--red); font-weight: 700; white-space: nowrap; }
+.vN { color: var(--green); white-space: nowrap; }
 
 .cve-panel {
   padding: 20px;
@@ -5014,8 +5014,8 @@ def _build_report_html(req: "SaveReportRequest") -> str:
       background: var(--surf-alt); padding: 3px 6px; border-radius: 4px;
       font-size: 0.88em; font-family: 'Fira Code', Consolas, monospace;
     }
-    .vY { color: var(--red); font-weight: 700; }
-    .vN { color: var(--green); font-weight: 600; }
+    .vY { color: var(--red); font-weight: 700; white-space: nowrap; }
+    .vN { color: var(--green); font-weight: 600; white-space: nowrap; }
     .sC { color: var(--red); }
     .sH { color: var(--red); }
     .sM { color: var(--yellow); }
@@ -5723,7 +5723,7 @@ table{width:100%;border-collapse:collapse}
 th{background:#0d1117;padding:10px 14px;text-align:left;font-size:.77em;color:#8b949e;text-transform:uppercase}
 td{padding:10px 14px;border-top:1px solid #21262d;font-size:.84em;word-break:break-word}
 code{background:#0d1117;padding:2px 6px;border-radius:4px;font-size:.85em}
-.vY{color:#f85149;font-weight:700}.vN{color:#3fb950}
+.vY{color:#f85149;font-weight:700;white-space:nowrap}.vN{color:#3fb950;white-space:nowrap}
 .cve-panel{padding:16px 18px;border-top:1px solid #21262d;background:#0d1117}
 .cve-panel h4{color:#8b949e;font-size:.77em;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
 .cve-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center}
