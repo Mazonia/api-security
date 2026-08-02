@@ -3092,7 +3092,6 @@ code {
 }
 .btn-back:hover { border-color: var(--blue); color: var(--blue); background: var(--surf-alt); }
 #help-btn {
-  margin-left: auto;
   background: var(--accent-dim);
   border: 1px solid var(--border);
   color: var(--blue);
@@ -3223,6 +3222,31 @@ code {
 /* Theme float toggle button in header */
 .theme-toggle-btn {
   margin-left: auto;
+  background: var(--surf-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 99px;
+  height: 32px;
+  padding: 0 16px;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.theme-toggle-btn:hover {
+  border-color: var(--blue);
+  background: var(--accent-dim);
+  color: var(--blue);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+}
+.theme-toggle-btn:active {
+  transform: translateY(0);
 }
 
 /* CSS overrides for hardcoded inline styles */
