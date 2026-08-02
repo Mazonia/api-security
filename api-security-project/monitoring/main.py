@@ -5472,7 +5472,7 @@ def _build_comparison_html(rows: list, vuln_url: str, hard_url: str,
       border-radius: 6px; padding: 12px; font-family: 'Fira Code', Consolas, monospace;
       font-size: 0.85em; color: var(--text); white-space: pre-wrap; word-break: break-all;
     }
-    .result-status { font-family: var(--font-title); font-weight: 800; font-size: 1.25em; margin-bottom: 8px; }
+    .result-status { font-family: var(--font-title); font-weight: 800; font-size: 1.1em; margin-bottom: 8px; white-space: nowrap; }
     .status-vuln { color: var(--red); }
     .status-secure { color: var(--green); }
     .http-code {
