@@ -1199,7 +1199,17 @@ async function getLastScan(target) {
 }
 
 async function detectActivePort() {
+  const settings = await getSettings();
   const candidatePorts = [9000, 8000, 8001, 8002, 9001, 5000, 3000];
+  if (settings && settings.monitorUrl) {
+    try {
+      const u = new URL(settings.monitorUrl);
+      const port = parseInt(u.port);
+      if (port && !candidatePorts.includes(port)) {
+        candidatePorts.unshift(port);
+      }
+    } catch (_) {}
+  }
   for (const port of candidatePorts) {
     try {
       const controller = new AbortController();
@@ -1211,5 +1221,5 @@ async function detectActivePort() {
       }
     } catch (_) {}
   }
-  return { ok: false, message: "No active MazAPI Dashboard detected on standard ports (9000, 8000, etc.)" };
+  return { ok: false, message: "No active MazAPI Dashboard detected on standard ports" };
 }
