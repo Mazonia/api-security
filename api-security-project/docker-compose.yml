@@ -43,7 +43,7 @@ services:
     build: ./monitoring
     container_name: monitoring
     ports:
-      - "9009:9000"
+      - "9000:9000"
     networks:
       - api-net
     volumes:
