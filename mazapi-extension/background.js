@@ -53,43 +53,65 @@ function detectPII(text) {
 }
 
 // ── Session state ─────────────────────────────────────────────────────────────
-let sessionData = {
-  baseUrl:        "",
-  endpoints:      {},
-  tokens:         [],
-  apiKeys:        [],
-  lastUrl:        "",
-  hardcoded_keys: [],
-  behavioral:     [],   // live behavioral findings (IDOR probing, auth bypass, enumeration, weak JWT)
-  liveFeed:       [],   // recent request lines for the LIVE tab (capped)
-};
+const originsData = {};
+let lastActiveOrigin = "";
+
+function getOriginSession(rawUrlOrOrigin) {
+  let origin = "";
+  if (rawUrlOrOrigin) {
+    try {
+      const u = new URL(rawUrlOrOrigin);
+      if (u.protocol === "http:" || u.protocol === "https:") {
+        origin = `${u.protocol}//${u.host}`;
+      }
+    } catch {
+      if (String(rawUrlOrOrigin).startsWith("http")) origin = String(rawUrlOrOrigin);
+    }
+  }
+  if (!origin) origin = lastActiveOrigin || "default";
+  lastActiveOrigin = origin;
+
+  if (!originsData[origin]) {
+    originsData[origin] = {
+      baseUrl:        origin === "default" ? "" : origin,
+      endpoints:      {},
+      tokens:         [],
+      apiKeys:        [],
+      lastUrl:        "",
+      hardcoded_keys: [],
+      behavioral:     [],
+      liveFeed:       [],
+    };
+  }
+  return originsData[origin];
+}
+
+// Legacy session reference getter
+function getSessionData(origin) {
+  return getOriginSession(origin);
+}
 
 // ── Behavioral analysis state (in-memory, reset with the session) ───────────────
-// We can only see request metadata via chrome.webRequest in MV3 (response bodies are
-// not available), so behavioral signals are derived from request *sequences*: repeated
-// hits on the same template with different numeric IDs (IDOR probing), a protected route
-// suddenly called without its Authorization header (auth-bypass attempt), and high-volume
-// hammering of one endpoint (enumeration). JWTs are inspected from the Authorization header.
 const behaviorState = {
-  // normalizedPath -> { ids:Set, authSeenWith:bool, authSeenWithout:bool, hits:int, lastReset:ts }
   paths:    {},
-  decodedJwts: new Set(),   // raw token strings already analysed, to avoid duplicate findings
+  decodedJwts: new Set(),
 };
 
 const LIVE_FEED_CAP = 120;
 
-function pushBehavioral(finding) {
-  // de-dupe by (kind + path)
+function pushBehavioral(session, finding) {
+  if (!session) return;
   const key = `${finding.kind}::${finding.path}`;
-  if (!sessionData.behavioral.some(b => `${b.kind}::${b.path}` === key)) {
-    sessionData.behavioral.push({ ...finding, detectedAt: new Date().toISOString() });
+  if (!session.behavioral.some(b => `${b.kind}::${b.path}` === key)) {
+    session.behavioral.push({ ...finding, detectedAt: new Date().toISOString() });
   }
 }
 
-function pushLive(line) {
-  sessionData.liveFeed.push({ ...line, t: Date.now() });
-  if (sessionData.liveFeed.length > LIVE_FEED_CAP) {
-    sessionData.liveFeed = sessionData.liveFeed.slice(-LIVE_FEED_CAP);
+function pushLive(session, line) {
+  if (!session) return;
+  session.liveFeed.push({ ...line, t: Date.now() });
+  if (session.liveFeed.length > LIVE_FEED_CAP) {
+    session.liveFeed = session.liveFeed.slice(-LIVE_FEED_CAP);
   }
 }
 
@@ -107,7 +129,7 @@ function inspectJwt(token) {
 }
 
 // Classify a single observed request and emit behavioral findings as patterns emerge.
-function analyseRequest({ method, normPath, statusCode, hasAuth, rawToken }) {
+function analyseRequest(session, { method, normPath, statusCode, hasAuth, rawToken }) {
   const st = behaviorState.paths[normPath] || (behaviorState.paths[normPath] = {
     ids: new Set(), authSeenWith: false, authSeenWithout: false, hits: 0, firstSeen: Date.now(),
   });
@@ -117,11 +139,10 @@ function analyseRequest({ method, normPath, statusCode, hasAuth, rawToken }) {
   // IDOR probing: a templated path ({id}) hit with ≥3 distinct concrete IDs
   const idMatch = normPath.includes("{id}");
   if (idMatch) {
-    // store the concrete id seen on this hit (kept on the path's last segment count)
-    st.ids.add(`${method}:${st.hits}`); // hits acts as a proxy for distinct sequential calls
+    st.ids.add(`${method}:${st.hits}`);
   }
   if (idMatch && st.hits >= 3) {
-    pushBehavioral({
+    pushBehavioral(session, {
       kind: "idor-probing", path: normPath, severity: "HIGH",
       title: "IDOR probing pattern",
       detail: `${normPath} called ${st.hits}× with varying object IDs — sequential ID access is the classic BOLA signature.`,
@@ -131,7 +152,7 @@ function analyseRequest({ method, normPath, statusCode, hasAuth, rawToken }) {
 
   // Auth-bypass attempt: a route seen WITH auth is later seen WITHOUT it
   if (st.authSeenWith && st.authSeenWithout) {
-    pushBehavioral({
+    pushBehavioral(session, {
       kind: "auth-bypass", path: normPath, severity: "HIGH",
       title: "Possible auth-bypass attempt",
       detail: `${normPath} was called both with and without an Authorization header — confirm the unauthenticated call was rejected (got HTTP ${statusCode}).`,
@@ -141,7 +162,7 @@ function analyseRequest({ method, normPath, statusCode, hasAuth, rawToken }) {
 
   // Mass enumeration: one endpoint hammered ≥12× in this session
   if (st.hits >= 12) {
-    pushBehavioral({
+    pushBehavioral(session, {
       kind: "enumeration", path: normPath, severity: "MEDIUM",
       title: "High-volume endpoint access",
       detail: `${normPath} called ${st.hits}× this session — possible enumeration / scraping. Verify rate limiting is enforced.`,
@@ -156,23 +177,22 @@ function analyseRequest({ method, normPath, statusCode, hasAuth, rawToken }) {
     if (jwt) {
       const alg = String(jwt.header.alg || "").toLowerCase();
       if (alg === "none") {
-        pushBehavioral({
+        pushBehavioral(session, {
           kind: "weak-jwt", path: normPath, severity: "CRITICAL",
           title: "Unsigned JWT in use (alg:none)",
           detail: `A token with alg:none was sent to ${normPath}. Unsigned tokens can be forged trivially.`,
           category: "CVE-2015-9235 - JWT Algorithm None Bypass",
         });
       } else if (alg === "hs256") {
-        pushBehavioral({
+        pushBehavioral(session, {
           kind: "weak-jwt", path: normPath, severity: "MEDIUM",
           title: "Symmetric JWT (HS256) observed",
           detail: `Token at ${normPath} uses HS256 (shared-secret). If the secret is weak or hardcoded it can be brute-forced — verify it is long and random.`,
           category: "API2:2023 - Broken Authentication",
         });
       }
-      // Expired token still being accepted is a server problem worth flagging
       if (jwt.payload?.exp && jwt.payload.exp * 1000 < Date.now() && statusCode && statusCode < 400) {
-        pushBehavioral({
+        pushBehavioral(session, {
           kind: "weak-jwt", path: normPath, severity: "HIGH",
           title: "Expired JWT accepted",
           detail: `An expired token (exp ${new Date(jwt.payload.exp * 1000).toISOString()}) reached ${normPath} and got HTTP ${statusCode} — expiry may not be enforced.`,
@@ -182,7 +202,7 @@ function analyseRequest({ method, normPath, statusCode, hasAuth, rawToken }) {
     }
   }
 
-  chrome.storage.session.set({ mazapi_session: sessionData });
+  chrome.storage.session.set({ mazapi_session: session });
 }
 
 // ── Attack-chain correlator (browser side) ──────────────────────────────────────
@@ -252,33 +272,34 @@ chrome.webRequest.onCompleted.addListener(
     if (["image","stylesheet","font"].includes(details.type)) return;
 
     const origin = `${url.protocol}//${url.host}`;
+    const session = getOriginSession(origin);
     const path   = url.pathname;
 
-    if (!sessionData.baseUrl || details.type === "xmlhttprequest" || details.type === "fetch") {
-      sessionData.baseUrl = origin;
+    if (!session.baseUrl || details.type === "xmlhttprequest" || details.type === "fetch") {
+      session.baseUrl = origin;
     }
-    sessionData.lastUrl = details.url;
+    session.lastUrl = details.url;
 
     const isApiPath = /\/(api|v\d+|graphql|rest|auth|users|orders|products|search|data|service)\b/.test(path);
     if (!isApiPath && !path.includes("/api")) return;
 
     const normPath = path.replace(/\/\d+/g, "/{id}");
-    if (!sessionData.endpoints[normPath]) {
-      sessionData.endpoints[normPath] = { methods: [], statuses: [], authRequired: false };
+    if (!session.endpoints[normPath]) {
+      session.endpoints[normPath] = { methods: [], statuses: [], authRequired: false };
     }
-    const ep = sessionData.endpoints[normPath];
+    const ep = session.endpoints[normPath];
     if (!ep.methods.includes(details.method)) ep.methods.push(details.method);
     ep.statuses.push(details.statusCode);
     if ([401, 403].includes(details.statusCode)) ep.authRequired = true;
 
-    // Did this request carry auth? (header capture happens in onSendHeaders; we cache it per requestId)
+    // Did this request carry auth?
     const reqAuth   = requestAuthCache[details.requestId];
     const hasAuth   = !!reqAuth;
     const rawToken  = reqAuth && reqAuth.startsWith("Bearer ") ? reqAuth.slice(7).trim() : null;
     delete requestAuthCache[details.requestId];
 
     // Behavioral analysis from the request sequence
-    analyseRequest({ method: details.method, normPath, statusCode: details.statusCode, hasAuth, rawToken });
+    analyseRequest(session, { method: details.method, normPath, statusCode: details.statusCode, hasAuth, rawToken });
 
     // Live feed line, colour-coded for the LIVE tab
     const sensitive = /\/(admin|debug|\.env|config|actuator|internal|secret)/i.test(path);
@@ -286,33 +307,39 @@ chrome.webRequest.onCompleted.addListener(
     let verdict = "safe";
     if (details.statusCode >= 500 || sensitive) verdict = "suspicious";
     else if (idorish || (!hasAuth && ep.authRequired)) verdict = "watch";
-    pushLive({ method: details.method, path, status: details.statusCode, verdict, hasAuth });
+    pushLive(session, { method: details.method, path, status: details.statusCode, verdict, hasAuth });
 
-    chrome.storage.session.set({ mazapi_session: sessionData });
+    chrome.storage.session.set({ mazapi_session: session });
   },
   { urls: ["<all_urls>"] }
 );
 
 chrome.webRequest.onSendHeaders.addListener(
   (details) => {
+    let origin = "";
+    try {
+      const url = new URL(details.url);
+      origin = `${url.protocol}//${url.host}`;
+    } catch {}
+    const session = getOriginSession(origin);
+
     for (const hdr of (details.requestHeaders || [])) {
       const name  = hdr.name.toLowerCase();
       const value = hdr.value || "";
       if (name === "authorization" && value) {
-        // Cache for the onCompleted correlation (behavioral analysis)
         requestAuthCache[details.requestId] = value;
       }
       if (name === "authorization" && value.toLowerCase().startsWith("bearer ")) {
         const tok = value.slice(7).trim();
-        if (tok && !sessionData.tokens.includes(tok)) {
-          sessionData.tokens.push(tok);
-          chrome.storage.session.set({ mazapi_session: sessionData });
+        if (tok && !session.tokens.includes(tok)) {
+          session.tokens.push(tok);
+          chrome.storage.session.set({ mazapi_session: session });
         }
       }
       if (["x-api-key","x-auth-token","api-key","apikey"].includes(name)) {
-        if (!sessionData.apiKeys.find(k => k.header === hdr.name) && value) {
-          sessionData.apiKeys.push({ header: hdr.name, value });
-          chrome.storage.session.set({ mazapi_session: sessionData });
+        if (!session.apiKeys.find(k => k.header === hdr.name) && value) {
+          session.apiKeys.push({ header: hdr.name, value });
+          chrome.storage.session.set({ mazapi_session: session });
         }
       }
     }
@@ -982,14 +1009,26 @@ chrome.contextMenus.onClicked.addListener((info) => {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
   if (msg.type === "GET_SESSION") {
-    chrome.storage.session.get("mazapi_session", d => sendResponse(d.mazapi_session || sessionData));
+    const session = getOriginSession(msg.origin || msg.target || msg.url);
+    sendResponse(session);
     return true;
   }
 
   if (msg.type === "RUN_SCAN") {
     const { target, token, options, monitorUrl } = msg;
+    let targetOrigin = target;
+    try {
+      const u = new URL(target);
+      targetOrigin = `${u.protocol}//${u.host}`;
+    } catch {}
+
     const scanState = { status: "running", target, score: 0, results: [], chains: [], startedAt: Date.now() };
-    chrome.storage.local.set({ mazapi_active_scan: scanState });
+    
+    chrome.storage.local.get("mazapi_active_scans", d => {
+      const scans = d.mazapi_active_scans || {};
+      scans[targetOrigin] = scanState;
+      chrome.storage.local.set({ mazapi_active_scans: scans, mazapi_active_scan: scanState });
+    });
 
     getLastScan(target).then(lastScan =>
       runScan(target, token, options).then(async raw => {
@@ -1001,28 +1040,51 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         if (settings.autoWebhook && settings.webhookUrl && results.some(r => r.vulnerable && r.severity === "CRITICAL")) {
           await sendWebhook(settings.webhookUrl, target, score, results);
         }
-        // Push to the linked local monitoring dashboard if specified or enabled
         const activeMonitorUrl = monitorUrl || settings.monitorUrl || "http://localhost:9000";
         if (settings.linkDashboard || monitorUrl) {
           await sendToMonitor(activeMonitorUrl, target, score, results);
         }
-        // Correlate active-scan results
-        const chains = correlateBrowserChains(results, sessionData.behavioral, sessionData.hardcoded_keys);
+        const session = getOriginSession(targetOrigin);
+        const chains = correlateBrowserChains(results, session?.behavioral || [], session?.hardcoded_keys || []);
         const finalState = { status: "done", target, score, results, chains, finishedAt: Date.now() };
-        await chrome.storage.local.set({ mazapi_active_scan: finalState });
-        sendResponse({ ok: true, results, score, chains, behavioral: sessionData.behavioral });
+        
+        chrome.storage.local.get("mazapi_active_scans", d => {
+          const scans = d.mazapi_active_scans || {};
+          scans[targetOrigin] = finalState;
+          chrome.storage.local.set({ mazapi_active_scans: scans, mazapi_active_scan: finalState });
+        });
+
+        try { sendResponse({ ok: true, results, score, chains, behavioral: session?.behavioral || [] }); } catch (_) {}
       })
     ).catch(async err => {
       const errState = { status: "error", target, error: err.message };
-      await chrome.storage.local.set({ mazapi_active_scan: errState });
-      sendResponse({ ok: false, error: err.message });
+      chrome.storage.local.get("mazapi_active_scans", d => {
+        const scans = d.mazapi_active_scans || {};
+        scans[targetOrigin] = errState;
+        chrome.storage.local.set({ mazapi_active_scans: scans, mazapi_active_scan: errState });
+      });
+      try { sendResponse({ ok: false, error: err.message }); } catch (_) {}
     });
     return true;
   }
 
   if (msg.type === "GET_SCAN_STATUS") {
-    chrome.storage.local.get("mazapi_active_scan", d => {
-      sendResponse(d.mazapi_active_scan || { status: "idle" });
+    let targetOrigin = msg.origin || msg.target || "";
+    if (targetOrigin) {
+      try {
+        const u = new URL(targetOrigin);
+        targetOrigin = `${u.protocol}//${u.host}`;
+      } catch {}
+    }
+    chrome.storage.local.get(["mazapi_active_scans", "mazapi_active_scan"], d => {
+      const scans = d.mazapi_active_scans || {};
+      if (targetOrigin && scans[targetOrigin]) {
+        sendResponse(scans[targetOrigin]);
+      } else if (d.mazapi_active_scan) {
+        sendResponse(d.mazapi_active_scan);
+      } else {
+        sendResponse({ status: "idle" });
+      }
     });
     return true;
   }
@@ -1051,18 +1113,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === "GENERATE_POSTMAN") {
-    chrome.storage.session.get("mazapi_session", d => {
-      const eps = (d.mazapi_session || sessionData).endpoints || {};
-      sendResponse(generatePostman(msg.target, eps));
-    });
+    const session = getOriginSession(msg.target || msg.origin);
+    sendResponse(generatePostman(msg.target || session.baseUrl, session.endpoints || {}));
     return true;
   }
 
   if (msg.type === "GENERATE_OPENAPI") {
-    chrome.storage.session.get("mazapi_session", d => {
-      const eps = (d.mazapi_session || sessionData).endpoints || {};
-      sendResponse(generateOpenAPI(msg.target, eps));
-    });
+    const session = getOriginSession(msg.target || msg.origin);
+    sendResponse(generateOpenAPI(msg.target || session.baseUrl, session.endpoints || {}));
     return true;
   }
 
@@ -1082,40 +1140,53 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg.type === "CONTENT_FINDINGS") {
-    if (!sessionData.hardcoded_keys) sessionData.hardcoded_keys = [];
+    const session = getOriginSession(msg.url || msg.origin);
+    if (!session.hardcoded_keys) session.hardcoded_keys = [];
     for (const k of (msg.keys || [])) {
-      if (!sessionData.hardcoded_keys.some(x => x.value === k.value)) {
-        sessionData.hardcoded_keys.push(k);
+      if (!session.hardcoded_keys.some(x => x.value === k.value)) {
+        session.hardcoded_keys.push(k);
       }
     }
-    chrome.storage.session.set({ mazapi_session: sessionData });
+    chrome.storage.session.set({ mazapi_session: session });
     sendResponse({ ok: true });
     return true;
   }
 
   if (msg.type === "GET_BEHAVIORAL") {
-    chrome.storage.session.get("mazapi_session", d =>
-      sendResponse((d.mazapi_session || sessionData).behavioral || []));
+    const session = getOriginSession(msg.origin || msg.target);
+    sendResponse(session.behavioral || []);
     return true;
   }
 
   if (msg.type === "GET_LIVE_FEED") {
-    chrome.storage.session.get("mazapi_session", d =>
-      sendResponse((d.mazapi_session || sessionData).liveFeed || []));
+    const session = getOriginSession(msg.origin || msg.target);
+    sendResponse(session.liveFeed || []);
     return true;
   }
 
   if (msg.type === "CORRELATE_CHAINS") {
-    // On-demand correlation for the Threats tab (e.g. after viewing history)
-    sendResponse(correlateBrowserChains(msg.results || [], sessionData.behavioral, sessionData.hardcoded_keys));
+    const session = getOriginSession(msg.target || msg.origin);
+    sendResponse(correlateBrowserChains(msg.results || [], session.behavioral, session.hardcoded_keys));
     return true;
   }
 
   if (msg.type === "CLEAR_SESSION") {
-    sessionData = { baseUrl: "", endpoints: {}, tokens: [], apiKeys: [], lastUrl: "", hardcoded_keys: [], behavioral: [], liveFeed: [] };
+    let targetOrigin = msg.origin || msg.target || "";
+    if (targetOrigin) {
+      try {
+        const u = new URL(targetOrigin);
+        targetOrigin = `${u.protocol}//${u.host}`;
+      } catch {}
+    }
+    if (targetOrigin && originsData[targetOrigin]) {
+      delete originsData[targetOrigin];
+    } else {
+      for (const k of Object.keys(originsData)) delete originsData[k];
+    }
     behaviorState.paths = {};
     behaviorState.decodedJwts = new Set();
-    chrome.storage.session.set({ mazapi_session: sessionData });
+    const session = getOriginSession(targetOrigin);
+    chrome.storage.session.set({ mazapi_session: session });
     sendResponse({ ok: true });
     return true;
   }

@@ -173,6 +173,12 @@ async def extension_live():
     return _EXT_LIVE_HTML
 
 
+@app.get("/monitor/health")
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "MazAPI Monitoring Proxy"}
+
+
 # ── internal monitor API (ALL before the /{path:path} catch-all) ───────────────
 
 @app.get("/monitor/stats")
@@ -257,10 +263,36 @@ async def timeline(minutes: int = 60):
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
             "SELECT substr(timestamp,1,5) as minute, COUNT(*) as total, "
-            "SUM(anomaly) as anomalies "
-            "FROM traffic GROUP BY minute ORDER BY minute DESC LIMIT ?", (minutes,))
-        rows = list(reversed([dict(r) for r in await cur.fetchall()]))
-    return rows
+            "SUM(anomaly) as anomalies, MIN(id) as min_id "
+            "FROM traffic GROUP BY minute ORDER BY min_id DESC LIMIT ?", (max(minutes, 300),))
+        raw_rows = await cur.fetchall()
+
+    counts = {r["minute"]: {"total": r["total"], "anomalies": r["anomalies"] or 0} for r in raw_rows}
+    
+    now = datetime.utcnow()
+    ref_time = now
+    if raw_rows:
+        latest_min = raw_rows[0]["minute"]
+        try:
+            latest_dt = datetime.strptime(latest_min, "%H:%M").replace(
+                year=now.year, month=now.month, day=now.day)
+            if latest_dt > ref_time:
+                ref_time = latest_dt
+        except Exception:
+            pass
+
+    result = []
+    for i in range(minutes - 1, -1, -1):
+        t = ref_time - timedelta(minutes=i)
+        m_str = t.strftime("%H:%M")
+        c = counts.get(m_str, {"total": 0, "anomalies": 0})
+        result.append({
+            "minute": m_str,
+            "total": c["total"],
+            "anomalies": c["anomalies"]
+        })
+
+    return result
 
 
 @app.get("/monitor/endpoints")

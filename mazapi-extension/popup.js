@@ -103,13 +103,29 @@ function decodeJWT(token) {
   } catch (_) { return ''; }
 }
 
-// ── Load session from background ──────────────────────────────────────────────
-function loadSession() {
+// ── Active tab helper ─────────────────────────────────────────────────────────
+let _currentTabOrigin = "";
+
+function getActiveTabOrigin(callback) {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     const activeTabUrl = tabs?.[0]?.url || "";
-    chrome.runtime.sendMessage({ type: "GET_SESSION" }, session => {
+    let origin = "";
+    try {
+      const u = new URL(activeTabUrl);
+      if (u.protocol === "https:" || u.protocol === "http:") {
+        origin = `${u.protocol}//${u.host}`;
+      }
+    } catch {}
+    callback(origin, activeTabUrl);
+  });
+}
+
+// ── Load session from background ──────────────────────────────────────────────
+function loadSession() {
+  getActiveTabOrigin((origin, activeTabUrl) => {
+    chrome.runtime.sendMessage({ type: "GET_SESSION", origin, url: activeTabUrl }, session => {
       if (!session) return;
-      renderDiscovered(session, activeTabUrl);
+      renderDiscovered(session, origin || activeTabUrl);
       // Update Keys tab badge count without switching to it
       const keyCount = (session.hardcoded_keys || []).length;
       const countEl  = document.getElementById("keys-count");
@@ -221,14 +237,16 @@ function renderDiscovered(session, activeTabUrl = "") {
 // ── Clear session ─────────────────────────────────────────────────────────────
 document.getElementById("btn-clear").addEventListener("click", () => {
   _showAllEndpoints = false;
-  chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }, () => {
-    document.getElementById("base-url").textContent = "—";
-    document.getElementById("token-area").innerHTML = "";
-    document.getElementById("endpoints-list").innerHTML = '<div class="empty">Session cleared.</div>';
-    document.getElementById("ep-count").textContent = "0";
-    document.getElementById("results-list").innerHTML = '<div class="empty">Run a scan to see results.</div>';
-    document.getElementById("score-area").innerHTML = "";
-    document.getElementById("export-bar").style.display = "none";
+  getActiveTabOrigin(origin => {
+    chrome.runtime.sendMessage({ type: "CLEAR_SESSION", origin }, () => {
+      document.getElementById("base-url").textContent = "—";
+      document.getElementById("token-area").innerHTML = "";
+      document.getElementById("endpoints-list").innerHTML = '<div class="empty">Session cleared.</div>';
+      document.getElementById("ep-count").textContent = "0";
+      document.getElementById("results-list").innerHTML = '<div class="empty">Run a scan to see results.</div>';
+      document.getElementById("score-area").innerHTML = "";
+      document.getElementById("export-bar").style.display = "none";
+    });
   });
 });
 
@@ -265,22 +283,24 @@ document.getElementById("btn-detect-port")?.addEventListener("click", () => {
 });
 
 function checkActiveScanStatus() {
-  chrome.runtime.sendMessage({ type: "GET_SCAN_STATUS" }, scan => {
-    if (!scan || scan.status === "idle") return;
-    const btn    = document.getElementById("btn-scan");
-    const status = document.getElementById("scan-status");
-    if (scan.status === "running") {
-      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Scanning in Background...'; }
-      if (status) status.textContent = `Active scan running for ${scan.target} (safe to close/minimize)...`;
-    } else if (scan.status === "done" && scan.results?.length) {
-      if (btn) { btn.disabled = false; btn.innerHTML = "&#9654; Run Full Scan"; }
-      if (status) status.textContent = "";
-      _lastResults = scan.results;
-      _lastScore   = scan.score;
-      _lastTarget  = scan.target;
-      _lastChains  = scan.chains || [];
-      renderResults(scan.results, scan.score, scan.target);
-    }
+  getActiveTabOrigin(origin => {
+    chrome.runtime.sendMessage({ type: "GET_SCAN_STATUS", origin }, scan => {
+      if (!scan || scan.status === "idle") return;
+      const btn    = document.getElementById("btn-scan");
+      const status = document.getElementById("scan-status");
+      if (scan.status === "running") {
+        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Scanning in Background...'; }
+        if (status) status.textContent = `Active scan running for ${scan.target} (safe to close/minimize)...`;
+      } else if (scan.status === "done" && scan.results?.length) {
+        if (btn) { btn.disabled = false; btn.innerHTML = "&#9654; Run Full Scan"; }
+        if (status) status.textContent = "";
+        _lastResults = scan.results;
+        _lastScore   = scan.score;
+        _lastTarget  = scan.target;
+        _lastChains  = scan.chains || [];
+        renderResults(scan.results, scan.score, scan.target);
+      }
+    });
   });
 }
 
@@ -816,22 +836,30 @@ document.getElementById("btn-clear-history").addEventListener("click", () => {
 function loadSettings() {
   chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, s => {
     if (!s) return;
-    document.getElementById("set-orgname").value       = s.orgName || "";
-    document.getElementById("set-webhook").value       = s.webhookUrl || "";
-    document.getElementById("set-auto-webhook").checked = !!s.autoWebhook;
-    document.getElementById("set-monitor-url").value     = s.monitorUrl || "http://localhost:9000";
+    document.getElementById("set-orgname").value         = s.orgName || "";
+    document.getElementById("set-webhook").value         = s.webhookUrl || "";
+    document.getElementById("set-auto-webhook").checked   = !!s.autoWebhook;
+    const monUrl = s.monitorUrl || "http://localhost:9000";
+    document.getElementById("set-monitor-url").value     = monUrl;
     document.getElementById("set-link-dashboard").checked = !!s.linkDashboard;
+
+    const scanMonInput = document.getElementById("scan-monitor-url");
+    if (scanMonInput) scanMonInput.value = monUrl;
   });
 }
 
 document.getElementById("btn-save-settings").addEventListener("click", () => {
+  const monUrl = document.getElementById("set-monitor-url").value.trim() || "http://localhost:9000";
   const settings = {
     orgName:       document.getElementById("set-orgname").value.trim(),
     webhookUrl:    document.getElementById("set-webhook").value.trim(),
     autoWebhook:   document.getElementById("set-auto-webhook").checked,
-    monitorUrl:    document.getElementById("set-monitor-url").value.trim() || "http://localhost:9000",
+    monitorUrl:    monUrl,
     linkDashboard: document.getElementById("set-link-dashboard").checked,
   };
+  const scanMonInput = document.getElementById("scan-monitor-url");
+  if (scanMonInput) scanMonInput.value = monUrl;
+
   chrome.runtime.sendMessage({ type: "SAVE_SETTINGS", settings }, () => {
     const st = document.getElementById("settings-status");
     st.textContent = "&#10003; Settings saved";
@@ -839,11 +867,10 @@ document.getElementById("btn-save-settings").addEventListener("click", () => {
   });
 });
 
-// Open the live monitoring dashboard for the current target. The dashboard is served
-// from the user's own machine (localhost by default), so this never leaves the device.
-document.getElementById("btn-open-dashboard").addEventListener("click", () => {
+// Open the live monitoring dashboard for the current target.
+document.getElementById("btn-open-dashboard")?.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, s => {
-    const base = (((s && s.monitorUrl) || document.getElementById("set-monitor-url").value || "http://localhost:9000")).replace(/\/+$/, "");
+    const base = (((s && s.monitorUrl) || document.getElementById("set-monitor-url")?.value || "http://localhost:9000")).replace(/\/+$/, "");
     const site = (document.getElementById("scan-target")?.value || _lastTarget || "").trim();
     const url  = base + "/extension/live" + (site ? "?site=" + encodeURIComponent(site) : "");
     chrome.tabs.create({ url });
@@ -859,7 +886,46 @@ function downloadJSON(obj, filename) {
   a.click();
 }
 
+// ── Tab switching handler ─────────────────────────────────────────────────────
+function handleTabChange() {
+  getActiveTabOrigin((origin, activeUrl) => {
+    if (origin && origin !== _currentTabOrigin) {
+      _currentTabOrigin = origin;
+      _lastResults = [];
+      _lastScore   = 100;
+      _lastTarget  = origin;
+      _lastChains  = [];
+
+      const targetInput = document.getElementById("scan-target");
+      if (targetInput) targetInput.value = origin;
+
+      const resList = document.getElementById("results-list");
+      if (resList) resList.innerHTML = '<div class="empty">Run a scan to see results.</div>';
+      const scoreArea = document.getElementById("score-area");
+      if (scoreArea) scoreArea.innerHTML = "";
+      const expBar = document.getElementById("export-bar");
+      if (expBar) expBar.style.display = "none";
+
+      loadSession();
+      checkActiveScanStatus();
+    }
+  });
+}
+
+if (chrome.tabs?.onActivated) {
+  chrome.tabs.onActivated.addListener(handleTabChange);
+}
+if (chrome.tabs?.onUpdated) {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === "complete" || changeInfo.url) {
+      handleTabChange();
+    }
+  });
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
+loadSettings();
 loadSession();
 checkContextUrl();
+checkActiveScanStatus();
 setInterval(loadSession, 3000);

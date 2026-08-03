@@ -848,16 +848,17 @@ function updateCharts() {
 }
 
 function buildTimeline() {
-  const d = state.timeline.slice(-(state.timeWindow));
+  const d = state.timeline || [];
+  const radius = d.length > 60 ? 1 : 2;
   mkChart('timelineChart', 'line', {
     labels: d.map(r => r.minute),
     datasets: [
       { label: 'Requests', data: d.map(r => r.total),
         borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.08)',
-        tension: .4, fill: true, pointRadius: 2 },
+        tension: .2, fill: true, pointRadius: radius },
       { label: 'Anomalies', data: d.map(r => r.anomalies),
         borderColor: '#f85149', backgroundColor: 'rgba(248,81,73,.08)',
-        tension: .4, fill: true, pointRadius: 2, yAxisID: 'y2' },
+        tension: .2, fill: true, pointRadius: radius, yAxisID: 'y2' },
     ],
   }, { ...CHART_OPTS,
     scales: {
@@ -1329,11 +1330,15 @@ function switchTab(name, btn) {
 /* ═══════════════════════════════════════════════════════════════════════════
    TIME WINDOW
 ═══════════════════════════════════════════════════════════════════════════ */
-function setTimeWindow(n, btn) {
+async function setTimeWindow(n, btn) {
   state.timeWindow = n;
   document.querySelectorAll('#tab-overview .btn-sm').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  buildTimeline();
+  const timeline = await api(`/monitor/timeline?minutes=${n}`);
+  if (timeline) {
+    state.timeline = timeline;
+    buildTimeline();
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
