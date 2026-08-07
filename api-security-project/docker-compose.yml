@@ -14,6 +14,8 @@ services:
       - ENV=vulnerable
     volumes:
       - ./reports:/reports
+      - ./vulnerable-api:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   vulnbank:
     build: ./vulnbank
@@ -26,6 +28,9 @@ services:
       - ENV=vulnerable
       # API10 lesson: third-party identity provider URL injected via env, unvalidated.
       - IDENTITY_PROVIDER_URL=http://identity-partner.internal/verify
+    volumes:
+      - ./vulnbank:/app
+    command: gunicorn --bind 0.0.0.0:8002 --workers 1 --reload app:app
 
   hardened-api:
     build: ./hardened-api
@@ -38,6 +43,9 @@ services:
       - .env
     environment:
       - ENV=hardened
+    volumes:
+      - ./hardened-api:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 
   monitoring:
     build: ./monitoring
@@ -49,8 +57,10 @@ services:
     volumes:
       - ./data:/data
       - ./reports:/reports
+      - ./monitoring:/app
     depends_on:
       - vulnerable-api
+    command: uvicorn main:app --host 0.0.0.0 --port 9000 --reload
 
   testing-engine:
     build: ./testing-engine
