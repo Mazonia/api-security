@@ -110,6 +110,24 @@ def update_user(user_id: int, update: UserUpdate,
     return {"message": "Updated", "user": {k: v for k, v in user.items() if k != "password"}}
 
 
+class OrderCreate(BaseModel):
+    item: str
+    price: float
+
+
+@app.post("/orders")
+def create_order(req: OrderCreate, current_user: dict = Depends(get_current_user)):
+    new_id = max(orders_db.keys()) + 1 if orders_db else 1
+    orders_db[new_id] = {
+        "id": new_id,
+        "user_id": current_user["id"],
+        "item": req.item,
+        "price": req.price,
+        "status": "pending"
+    }
+    return orders_db[new_id]
+
+
 @app.get("/orders/{order_id}")
 def get_order(order_id: int, current_user: dict = Depends(get_current_user)):
     # API1: BOLA — any authenticated user reads any order
@@ -172,126 +190,146 @@ _SHOPAPP_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ShopApp — Vulnerable API Demo</title>
+<title>ShopApp — Premium API Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#090d16;--surf:#111827;--surf2:#1f293d;--border:rgba(255,255,255,0.09);
-  --text:#f3f4f6;--muted:#9ca3af;--emerald:#10b981;--indigo:#6366f1;
-  --rose:#f43f5e;--amber:#f59e0b;--radius:10px;
+  --bg:#0b0e17;
+  --surf:#131825;
+  --surf2:#1f293d;
+  --border:rgba(255,255,255,0.08);
+  --border-glow:rgba(99,102,241,0.35);
+  --text:#f3f4f6;
+  --muted:#9ca3af;
+  --emerald:#10b981;
+  --indigo:#6366f1;
+  --rose:#f43f5e;
+  --amber:#f59e0b;
+  --radius:16px;
+  --shadow-glass:0 8px 32px 0 rgba(0,0,0,0.37);
+  --glass-blur:blur(16px) saturate(180%);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5}
-nav{background:var(--surf);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:16px;height:60px;box-shadow:0 4px 16px rgba(0,0,0,0.3)}
-nav .logo{color:var(--emerald);font-weight:800;font-size:1.2em;letter-spacing:-0.01em}
-nav .badge{background:rgba(244,63,94,0.15);color:var(--rose);border:1px solid rgba(244,63,94,0.4);border-radius:20px;padding:3px 12px;font-size:0.75em;font-weight:700}
-nav button{background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:6px 16px;cursor:pointer;font-size:0.85em;font-weight:600;transition:all 0.18s}
-nav button:hover{border-color:var(--emerald);color:var(--emerald)}
-.nav-tool-link{color:var(--muted);font-size:0.82em;text-decoration:none;padding:5px 12px;border:1px solid var(--border);border-radius:20px;transition:all 0.18s}
-.nav-tool-link:hover{color:var(--indigo);border-color:var(--indigo)}
-.main{max-width:1140px;margin:0 auto;padding:32px 20px;display:grid;grid-template-columns:310px 1fr;gap:24px}
-.sidebar{display:flex;flex-direction:column;gap:18px}
-.panel{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
-.panel-hdr{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--surf2);display:flex;justify-content:space-between;align-items:center}
-.panel-hdr h3{font-size:0.95em;font-weight:700;color:#fff}
-.vuln-tag{background:rgba(244,63,94,0.15);color:var(--rose);border:1px solid rgba(244,63,94,0.4);border-radius:20px;padding:2px 9px;font-size:0.72em;font-weight:700}
-.panel-body{padding:18px 20px}
-.field{margin-bottom:14px}
-.field label{display:block;font-size:0.8em;color:var(--muted);margin-bottom:6px;font-weight:500}
-.field input,.field select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:9px 12px;font-size:0.88em;font-family:inherit;transition:border-color 0.15s}
-.field input:focus,.field select:focus{outline:none;border-color:var(--indigo);box-shadow:0 0 0 3px rgba(99,102,241,0.2)}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;overflow-x:hidden}
+nav{background:var(--surf);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:16px;height:70px;box-shadow:var(--shadow-glass);position:sticky;top:0;z-index:100}
+nav .logo{font-family:'Outfit',sans-serif;color:var(--emerald);font-weight:800;font-size:1.4em;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px}
+nav .badge{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rgba(244,63,94,0.3);border-radius:20px;padding:3px 12px;font-size:0.75em;font-weight:700}
+.nav-links{display:flex;gap:8px;margin:0 12px}
+.nav-tool-link{color:var(--muted);font-size:0.85em;text-decoration:none;padding:6px 14px;border:1px solid var(--border);border-radius:20px;transition:all 0.18s;font-weight:600}
+.nav-tool-link:hover{color:var(--indigo);border-color:var(--indigo);background:rgba(99,102,241,0.06)}
+.main{max-width:1200px;margin:0 auto;padding:32px 20px;display:grid;grid-template-columns:330px 1fr;gap:28px}
+.sidebar{display:flex;flex-direction:column;gap:20px}
+.panel{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-glass);transition:all 0.2s ease}
+.panel:hover{border-color:var(--border-glow)}
+.panel-hdr{padding:18px 24px;border-bottom:1px solid var(--border);background:var(--surf2);display:flex;justify-content:space-between;align-items:center}
+.panel-hdr h3{font-family:'Outfit',sans-serif;font-size:1.05em;font-weight:700;color:#fff}
+.vuln-tag{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rgba(244,63,94,0.35);border-radius:20px;padding:3px 10px;font-size:0.72em;font-weight:700}
+.panel-body{padding:20px 24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:0.8em;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.field input,.field select{width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-size:0.9em;font-family:inherit;transition:all 0.15s;outline:none}
+.field input:focus,.field select:focus{border-color:var(--indigo);box-shadow:0 0 0 3px rgba(99,102,241,0.25);background:rgba(0,0,0,0.4)}
 .field input[readonly]{opacity:0.6;cursor:not-allowed}
-.btn{width:100%;padding:10px;border:none;border-radius:20px;cursor:pointer;font-size:0.88em;font-weight:700;font-family:inherit;transition:all 0.18s}
-.btn-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 2px 10px rgba(16,185,129,0.3)}.btn-primary:hover{opacity:0.9;transform:translateY(-1px)}
-.btn-danger{background:linear-gradient(135deg,#f43f5e,#e11d48);color:#fff;box-shadow:0 2px 10px rgba(244,63,94,0.3)}.btn-danger:hover{opacity:0.9;transform:translateY(-1px)}
-.btn-secondary{background:var(--surf2);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{border-color:var(--indigo);color:var(--indigo)}
-.btn-warn{background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)}.btn-warn:hover{background:rgba(245,158,11,0.25)}
-.msg{margin-top:12px;padding:9px 14px;border-radius:6px;font-size:0.83em;display:none;font-weight:500}
-.msg.ok{background:rgba(16,185,129,0.12);color:var(--emerald);border:1px solid rgba(16,185,129,0.3)}
-.msg.err{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rgba(244,63,94,0.3)}
-.msg.warn{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}
-.kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.85em}
+.btn{width:100%;padding:10px 16px;border:none;border-radius:20px;cursor:pointer;font-size:0.88em;font-weight:700;font-family:inherit;transition:all 0.18s;text-align:center;display:inline-block}
+.btn-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 2px 10px rgba(16,185,129,0.25)}.btn-primary:hover{opacity:0.9;transform:translateY(-1px)}
+.btn-danger{background:linear-gradient(135deg,#f43f5e,#e11d48);color:#fff;box-shadow:0 2px 10px rgba(244,63,94,0.25)}.btn-danger:hover{opacity:0.9;transform:translateY(-1px)}
+.btn-secondary{background:var(--surf2);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{border-color:var(--indigo);color:var(--indigo);background:rgba(99,102,241,0.06)}
+.btn-warn{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}.btn-warn:hover{background:rgba(245,158,11,0.2)}
+.msg{margin-top:14px;padding:10px 16px;border-radius:8px;font-size:0.85em;display:none;font-weight:600}
+.msg.ok{background:rgba(16,185,129,0.1);color:var(--emerald);border:1px solid rgba(16,185,129,0.25)}
+.msg.err{background:rgba(244,63,94,0.1);color:var(--rose);border:1px solid rgba(244,63,94,0.25)}
+.kv{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.88em}
 .kv:last-child{border:none}
-.kv .k{color:var(--muted)}
+.kv .k{color:var(--muted);font-weight:500}
 .kv .v{color:#fff;font-weight:600;word-break:break-all;text-align:right;max-width:60%}
 .kv .v.red{color:var(--rose)}.kv .v.green{color:var(--emerald)}.kv .v.yellow{color:var(--amber)}.kv .v.blue{color:var(--indigo)}
-.order-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px}
+.order-card{background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
 .order-card:last-child{margin-bottom:0}
-.order-card .item{font-weight:700;font-size:0.9em;margin-bottom:6px;color:#fff}
-.order-card .meta{font-size:0.8em;color:var(--muted)}
-.status-shipped{color:var(--emerald);font-weight:600}.status-pending{color:var(--amber);font-weight:600}.status-delivered{color:var(--indigo);font-weight:600}
-.login-wrap{max-width:420px;margin:80px auto;padding:0 20px}
-.login-wrap h2{color:var(--emerald);font-size:1.6em;font-weight:800;margin-bottom:6px}
-.login-wrap p{color:var(--muted);font-size:0.88em;margin-bottom:24px}
-.accounts{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:18px}
-.accounts p{font-size:.8em;color:#8b949e;margin-bottom:8px}
-.acc{display:flex;gap:8px;margin-bottom:6px;align-items:center;font-size:.83em}
-.acc button{background:#21262d;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:.8em}
-.acc button:hover{border-color:#58a6ff;color:#58a6ff}
-.warn-banner{background:rgba(227,179,65,.1);border:1px solid rgba(227,179,65,.4);border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:.82em;color:#e3b341}
-pre{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-size:.8em;color:#79c0ff;overflow:auto;max-height:260px;white-space:pre-wrap;word-break:break-all}
-.tab-row{display:flex;gap:0;border-bottom:1px solid #30363d}
-.tab{padding:10px 16px;cursor:pointer;font-size:.85em;color:#8b949e;border-bottom:2px solid transparent;margin-bottom:-1px}
-.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
-.tab-content{padding:16px 18px}
+.order-card .item{font-weight:700;font-size:0.95em;color:#fff}
+.order-card .meta{font-size:0.8em;color:var(--muted);margin-top:2px}
+.status-shipped{background:rgba(16,185,129,0.12);color:var(--emerald);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:700}
+.status-pending{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.3);padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:700}
+.status-delivered{background:rgba(99,102,241,0.12);color:var(--indigo);border:1px solid rgba(99,102,241,0.3);padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:700}
+.login-wrap{max-width:440px;margin:80px auto;padding:0 20px}
+.login-wrap h2{font-family:'Outfit',sans-serif;color:var(--emerald);font-size:1.8em;font-weight:800;margin-bottom:6px;letter-spacing:-0.02em}
+.login-wrap p{color:var(--muted);font-size:0.9em;margin-bottom:24px}
+.accounts{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:20px;box-shadow:var(--shadow-glass)}
+.accounts p{font-size:.82em;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.acc{display:flex;gap:10px;margin-bottom:8px;align-items:center;font-size:.85em;justify-content:space-between}
+.acc span{color:var(--text);font-weight:500}
+.acc button{background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:3px 12px;cursor:pointer;font-size:.8em;font-weight:700;transition:all 0.18s}
+.acc button:hover{border-color:var(--indigo);color:var(--indigo);background:rgba(99,102,241,0.06)}
+.warn-banner{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:.84em;color:var(--amber)}
+.proxy-notice{background:rgba(99,102,241,0.06);border-left:4px solid var(--indigo);padding:12px 20px;margin-bottom:24px;border-radius:4px;font-size:0.85em}
+.proxy-notice a{color:var(--indigo);font-weight:600}
+pre{background:#0b0d16;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:.82em;color:#79c0ff;overflow:auto;max-height:260px;font-family:'Fira Code',monospace;white-space:pre-wrap;word-break:break-all}
+.tab-row{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px}
+.tab{padding:12px 18px;cursor:pointer;font-size:.85em;color:var(--muted);border-bottom:2px solid transparent;font-weight:700;transition:all 0.18s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--indigo);border-bottom-color:var(--indigo)}
+.tab-content{padding:0}
 .tab-pane{display:none}.tab-pane.active{display:block}
-/* tutorials */
-details.guide{margin-bottom:12px;background:#0d1117;border:1px solid #30363d;border-radius:6px}
-details.guide summary{padding:8px 12px;cursor:pointer;font-size:.79em;color:#e3b341;font-weight:600;list-style:none;user-select:none}
-details.guide summary::-webkit-details-marker{display:none}
-details.guide summary::before{content:"▶ ";font-size:.7em;transition:transform .15s;display:inline-block}
+details.guide{margin-bottom:16px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px}
+details.guide summary{padding:10px 14px;cursor:pointer;font-size:.82em;color:var(--amber);font-weight:700;user-select:none;display:flex;align-items:center;gap:6px}
+details.guide summary::before{content:"▶";font-size:.75em;transition:transform .15s;display:inline-block}
 details[open].guide summary::before{transform:rotate(90deg)}
-details.guide .gb{padding:10px 14px 12px;border-top:1px solid #21262d}
-details.guide ol{padding-left:16px;margin-bottom:8px}
-details.guide li{font-size:.82em;color:#c9d1d9;line-height:1.7}
-details.guide li strong{color:#79c0ff}
-details.guide .gnote{font-size:.78em;color:#8b949e;line-height:1.5;border-top:1px solid #21262d;margin-top:8px;padding-top:8px}
-.proxy-notice{background:rgba(88,166,255,.07);border-left:3px solid #58a6ff;padding:8px 16px;margin:0 20px 0;font-size:.79em;color:#58a6ff;display:flex;align-items:center;gap:8px}
-.proxy-notice a{color:#58a6ff}
+details.guide .gb{padding:12px 16px 14px;border-top:1px solid var(--border)}
+details.guide ol{padding-left:16px;margin-bottom:10px}
+details.guide li{font-size:.84em;color:var(--text);line-height:1.7}
+details.guide li strong{color:var(--indigo)}
+details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);margin-top:10px;padding-top:10px}
+
+/* E-Commerce Grid Styles */
+.products-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px}
+.product-card{background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;transition:all 0.2s}
+.product-card:hover{transform:translateY(-2px);border-color:var(--border-glow);box-shadow:0 4px 12px rgba(99,102,241,0.1)}
+.product-card .title{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.05em;color:#fff}
+.product-card .price{font-weight:800;font-size:1.15em;color:var(--amber)}
+.product-card .desc{font-size:0.8em;color:var(--muted);flex:1}
 </style>
 </head>
 <body>
-<!-- ─── NAV ─── -->
+
 <nav>
-  <span class="logo">ShopApp</span>
+  <span class="logo">🔒 ShopApp</span>
   <span id="nav-badge" class="badge">INTENTIONALLY VULNERABLE</span>
-  <div style="display:flex;gap:4px;margin:0 8px">
-    <a class="nav-tool-link" href="http://localhost:9000/dashboard">Monitor</a>
-    <a class="nav-tool-link" href="http://localhost:9000/scan-ui">Scanner</a>
+  <div class="nav-links">
+    <a class="nav-tool-link" href="http://localhost:9000/dashboard" target="_blank">Monitor Dashboard</a>
+    <a class="nav-tool-link" href="http://localhost:9000/scan-ui" target="_blank">Security Scanner</a>
   </div>
   <!-- API mode toggle -->
-  <div style="display:flex;align-items:center;gap:4px;background:#21262d;border:1px solid #30363d;border-radius:7px;padding:3px;margin-left:12px">
+  <div style="display:flex;align-items:center;gap:4px;background:#1f293d;border:1px solid var(--border);border-radius:20px;padding:4px;margin-left:12px">
     <button id="mode-vuln-btn" onclick="setMode('vulnerable')"
-      style="padding:4px 12px;border:none;border-radius:5px;font-size:.78em;font-weight:700;cursor:pointer;background:#f85149;color:#fff;transition:all .15s">
+      style="padding:5px 16px;border:none;border-radius:20px;font-size:.78em;font-weight:800;cursor:pointer;background:#f43f5e;color:#fff;transition:all 0.15s">
       Vulnerable
     </button>
     <button id="mode-hard-btn" onclick="setMode('hardened')"
-      style="padding:4px 12px;border:none;border-radius:5px;font-size:.78em;font-weight:700;cursor:pointer;background:transparent;color:#8b949e;transition:all .15s">
+      style="padding:5px 16px;border:none;border-radius:20px;font-size:.78em;font-weight:800;cursor:pointer;background:transparent;color:var(--muted);transition:all 0.15s">
       Hardened
     </button>
   </div>
-  <span id="nav-user" style="font-size:.85em;color:#8b949e;margin-left:auto"></span>
-  <button id="logout-btn" onclick="logout()" style="display:none;padding:5px 14px;background:transparent;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;font-size:.82em">Logout</button>
+  <span id="nav-user" style="font-size:.85em;color:var(--muted);margin-left:auto;font-weight:600"></span>
+  <button id="logout-btn" onclick="logout()" style="display:none;padding:6px 16px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;font-size:.82em;font-weight:700;margin-left:10px">Logout</button>
 </nav>
 
 <!-- ─── LOGIN ─── -->
 <div id="login-view">
   <div class="login-wrap">
     <h2>Sign in to ShopApp</h2>
-    <p>Demonstration app for the CY384 API Security Project — this API is intentionally vulnerable to OWASP API Top 10 flaws.</p>
-    <div class="warn-banner">All data is synthetic. This app exists to demonstrate real API security vulnerabilities in a controlled lab environment.</div>
+    <p>Demonstration storefront app for the CY384 API Security Lab.</p>
+    <div class="warn-banner">⚠️ All data is generated synthetically. This app exists strictly to demonstrate real API vulnerabilities in an isolated sandbox.</div>
     <div class="accounts">
-      <p>Demo accounts (click to fill):</p>
-      <div class="acc"><span>alice / alice123 (user)</span><button onclick="fill('alice','alice123')">Use</button></div>
-      <div class="acc"><span>bob / bob123 (user)</span><button onclick="fill('bob','bob123')">Use</button></div>
-      <div class="acc"><span>admin / admin123 (admin)</span><button onclick="fill('admin','admin123')">Use</button></div>
+      <p>Select a Practice Account:</p>
+      <div class="acc"><span>Alice (Regular User)</span><button onclick="fill('alice','alice123')">Select</button></div>
+      <div class="acc"><span>Bob (Regular User)</span><button onclick="fill('bob','bob123')">Select</button></div>
+      <div class="acc"><span>Admin Account</span><button onclick="fill('admin','admin123')">Select</button></div>
     </div>
     <div class="panel">
       <div class="panel-body">
-        <div class="field"><label>Username</label><input id="l-user" type="text" placeholder="username"></div>
-        <div class="field"><label>Password</label><input id="l-pass" type="password" placeholder="password"></div>
+        <div class="field"><label>Username</label><input id="l-user" type="text" placeholder="e.g. alice"></div>
+        <div class="field"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••"></div>
         <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
         <div class="msg" id="l-msg"></div>
       </div>
@@ -301,20 +339,25 @@ details.guide .gnote{font-size:.78em;color:#8b949e;line-height:1.5;border-top:1p
 
 <!-- ─── MAIN APP ─── -->
 <div id="app-view" style="display:none">
-  <div class="proxy-notice" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <div>⇄ All requests route through the <strong>monitoring proxy</strong> (port&nbsp;9000) — every action you take here appears in real time on the <a href="http://localhost:9000/dashboard" target="_blank">dashboard</a>.</div>
-    <div id="blocking-status-badge" style="background:rgba(248,81,73,0.15);color:#f85149;border:1px solid rgba(248,81,73,0.3);padding:4px 12px;border-radius:12px;font-size:0.85em;font-weight:bold;white-space:nowrap;transition:all 0.3s">
-      Auto-Blocking: INACTIVE (Monitoring Only)
-    </div>
-  </div>
   <div class="main">
-    <!-- LEFT SIDEBAR -->
+    <!-- LEFT COLUMN -->
     <div class="sidebar">
+      <!-- Active Protection Mode Status Banner -->
+      <div class="panel" style="border-left:4px solid var(--indigo)">
+        <div class="panel-body" style="padding:14px;font-size:0.85em;display:flex;flex-direction:column;gap:8px">
+          <div>⇄ Routing: <strong>Monitoring Proxy (9000)</strong></div>
+          <div id="blocking-status-badge" style="background:rgba(248,81,73,0.12);color:var(--rose);border:1px solid rgba(248,81,73,0.3);padding:6px 12px;border-radius:12px;font-size:0.82em;font-weight:bold;text-align:center;transition:all 0.3s">
+            Auto-Blocking: INACTIVE (Monitoring Only)
+          </div>
+        </div>
+      </div>
+
       <!-- Profile Card -->
       <div class="panel">
         <div class="panel-hdr"><h3>My Profile</h3></div>
         <div class="panel-body" id="profile-display"></div>
       </div>
+
       <!-- Update Profile -->
       <div class="panel">
         <div class="panel-hdr">
@@ -323,21 +366,21 @@ details.guide .gnote{font-size:.78em;color:#8b949e;line-height:1.5;border-top:1p
         </div>
         <div class="panel-body">
           <details class="guide">
-            <summary>📋 Demo: OWASP API3 — Mass Assignment</summary>
+            <summary>📋 Mass Assignment Walkthrough</summary>
             <div class="gb">
               <ol>
-                <li>Set <strong>Role</strong> dropdown to <strong>"admin"</strong></li>
-                <li>Set <strong>Balance</strong> to any large number, e.g. <strong>99999</strong></li>
+                <li>Set <strong>Role</strong> to <strong>"admin"</strong></li>
+                <li>Set <strong>Balance</strong> to <strong>99999</strong></li>
                 <li>Click <strong>Save Changes</strong></li>
-                <li>Watch your profile card update — role and balance both changed</li>
+                <li>Verify your role and balance updated on the profile card.</li>
               </ol>
-              <p class="gnote">Why it works: PUT /users/{id} passes the full request body directly to the DB update with no field filtering. Privileged fields (role, balance) should be stripped before any update is applied.</p>
+              <p class="gnote">Explanation: <code>PUT /users/{id}</code> updates database fields directly from client input without filtering. Privileged parameters (role, balance) should be blocked at the controller level.</p>
             </div>
           </details>
-          <div class="field"><label>Email</label><input id="u-email" type="text"></div>
-          <div class="field"><label>New Password</label><input id="u-pass" type="password" placeholder="leave blank to keep"></div>
+          <div class="field"><label>Email Address</label><input id="u-email" type="text"></div>
+          <div class="field"><label>New Password</label><input id="u-pass" type="password" placeholder="Leave blank to keep"></div>
           <div class="field">
-            <label>Role <span style="color:#f85149">(should be server-only!)</span></label>
+            <label>Role <span style="color:var(--rose)">(Server-only!)</span></label>
             <select id="u-role">
               <option value="">-- keep current --</option>
               <option value="user">user</option>
@@ -345,8 +388,8 @@ details.guide .gnote{font-size:.78em;color:#8b949e;line-height:1.5;border-top:1p
             </select>
           </div>
           <div class="field">
-            <label>Balance <span style="color:#f85149">(should be server-only!)</span></label>
-            <input id="u-balance" type="number" placeholder="e.g. 9999">
+            <label>Balance <span style="color:var(--rose)">(Server-only!)</span></label>
+            <input id="u-balance" type="number" placeholder="e.g. 1000">
           </div>
           <button class="btn btn-warn" onclick="doUpdate()">Save Changes</button>
           <div class="msg" id="u-msg"></div>
@@ -354,101 +397,139 @@ details.guide .gnote{font-size:.78em;color:#8b949e;line-height:1.5;border-top:1p
       </div>
     </div>
 
-    <!-- RIGHT CONTENT -->
+    <!-- RIGHT COLUMN -->
     <div style="display:flex;flex-direction:column;gap:20px">
+      <!-- E-commerce Store catalog -->
+      <div class="panel">
+        <div class="panel-hdr"><h3>E-Commerce Hardware Catalog</h3></div>
+        <div class="panel-body">
+          <p style="color:var(--muted);font-size:0.85em;margin-bottom:16px">Purchase premium security equipment. Your transaction will post to your order feed via the secure proxy.</p>
+          <div class="products-grid">
+            <div class="product-card">
+              <div class="title">Fido2 CyberKey</div>
+              <div class="desc">Cryptographic hardware token supporting passwordless WebAuthn.</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <span class="price">$49.99</span>
+                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('Fido2 CyberKey', 49.99)">Buy Now</button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div class="title">Pineapple WiFi Router</div>
+              <div class="desc">Hotspot auditing platform for wireless penetration testing.</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <span class="price">$199.99</span>
+                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('Pineapple WiFi Router', 199.99)">Buy Now</button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div class="title">ProxyTap Hardware Sniffer</div>
+              <div class="desc">In-line ethernet packet tap for transparent packet analysis.</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <span class="price">$99.99</span>
+                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('ProxyTap Sniffer', 99.99)">Buy Now</button>
+              </div>
+            </div>
+            <div class="product-card">
+              <div class="title">CyberLab Secure Gateway</div>
+              <div class="desc">Rackmount hardware firewall with integrated intrusion prevention.</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <span class="price">$999.99</span>
+                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('Secure Gateway', 999.99)">Buy Now</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- My Orders -->
       <div class="panel">
-        <div class="panel-hdr"><h3>My Orders</h3></div>
-        <div class="panel-body" id="orders-display"><span style="color:#8b949e;font-size:.87em">Loading...</span></div>
+        <div class="panel-hdr"><h3>My Order Receipts</h3></div>
+        <div class="panel-body" id="orders-display"><span style="color:var(--muted);font-size:.87em">Loading orders...</span></div>
       </div>
 
-      <!-- BOLA Explorer -->
-      <div class="panel">
-        <div class="panel-hdr">
-          <h3>View Any User Profile</h3>
-          <span class="vuln-tag">API1 BOLA</span>
-        </div>
-        <div class="panel-body">
-          <details class="guide">
-            <summary>📋 Demo: OWASP API1 — Broken Object Level Auth</summary>
-            <div class="gb">
-              <ol>
-                <li>Log in as <strong>alice</strong> (her user ID is 1)</li>
-                <li>Change the ID field to <strong>2</strong> (Bob's ID)</li>
-                <li>Click <strong>Fetch User</strong> — you see Bob's email, balance, role</li>
-                <li>Try ID <strong>3</strong> — you see the admin account details</li>
-              </ol>
-              <p class="gnote">Why it works: GET /users/{id} has no ownership check. Any valid token can retrieve any user object — the server only verifies you are logged in, not that you own the resource.</p>
-            </div>
-          </details>
-          <div style="display:flex;gap:8px;margin-bottom:12px">
-            <input id="bola-id" type="number" min="1" max="9" value="2" style="width:80px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:7px 10px;font-size:.88em">
-            <button class="btn btn-danger" style="width:auto;padding:7px 18px" onclick="doBolaFetch()">Fetch User</button>
-          </div>
-          <pre id="bola-result">Click "Fetch User" to demonstrate BOLA</pre>
-        </div>
-      </div>
-
-      <!-- Tabs: Admin | Debug -->
+      <!-- Interactive Practice Consoles -->
       <div class="panel">
         <div class="tab-row">
-          <div class="tab active" onclick="switchTab('admin')">Admin Endpoints <span class="vuln-tag">API5</span></div>
-          <div class="tab" onclick="switchTab('debug')">Debug Config <span class="vuln-tag">API8</span></div>
-          <div class="tab" onclick="switchTab('orders-tab')">Order BOLA <span class="vuln-tag">API1</span></div>
+          <div class="tab active" onclick="switchTab('admin', this)">Admin Panel <span class="vuln-tag">API5 BFLA</span></div>
+          <div class="tab" onclick="switchTab('debug', this)">Server Configuration <span class="vuln-tag">API8 Misconfig</span></div>
+          <div class="tab" onclick="switchTab('bola-profiles', this)">Profile BOLA <span class="vuln-tag">API1</span></div>
+          <div class="tab" onclick="switchTab('bola-orders', this)">Order BOLA <span class="vuln-tag">API1</span></div>
         </div>
-        <!-- Admin Tab -->
-        <div id="tab-admin" class="tab-pane active tab-content">
-          <details class="guide">
-            <summary>📋 Demo: OWASP API5 — Broken Function Level Auth</summary>
-            <div class="gb">
-              <ol>
-                <li>Stay logged in as <strong>alice</strong> (regular user, not admin)</li>
-                <li>Click <strong>GET /admin/users</strong> below</li>
-                <li>The server returns every account including the admin's password hash</li>
-                <li>Open the <a href="http://localhost:9000/dashboard" target="_blank" style="color:#58a6ff">monitor dashboard</a> — you'll see this request flagged as an anomaly</li>
-              </ol>
-              <p class="gnote">Why it works: the endpoint uses <code>Depends(get_current_user)</code> which only verifies the JWT is valid — it never checks <code>current_user["role"] == "admin"</code>.</p>
-            </div>
-          </details>
-          <button class="btn btn-danger" style="margin-bottom:12px" onclick="doAdminList()">GET /admin/users</button>
-          <pre id="admin-result">Click to call the admin endpoint</pre>
-        </div>
-        <!-- Debug Tab -->
-        <div id="tab-debug" class="tab-pane tab-content">
-          <details class="guide">
-            <summary>📋 Demo: OWASP API8 — Security Misconfiguration (Debug Endpoint)</summary>
-            <div class="gb">
-              <ol>
-                <li><strong>No login required</strong> — click the button below right now</li>
-                <li>The server returns the JWT signing secret: <strong>"secret"</strong></li>
-                <li>Use that key to forge any JWT — paste it into the Scanner to test JWT forgery</li>
-                <li>It also reveals algorithm, user count, and debug mode status</li>
-              </ol>
-              <p class="gnote">Why it works: /debug/config has no authentication decorator and is accessible to the public internet. Debug routes must be removed or gated by environment variable before deployment.</p>
-            </div>
-          </details>
-          <button class="btn btn-danger" style="margin-bottom:12px" onclick="doDebug()">GET /debug/config</button>
-          <pre id="debug-result">Click to reveal server secrets</pre>
-        </div>
-        <!-- Orders BOLA Tab -->
-        <div id="tab-orders-tab" class="tab-pane tab-content">
-          <details class="guide">
-            <summary>📋 Demo: OWASP API1 — BOLA on Order objects</summary>
-            <div class="gb">
-              <ol>
-                <li>Logged in as <strong>alice</strong> — she owns Order #1 (Laptop)</li>
-                <li>Change the ID to <strong>2</strong> — that is Bob's Phone order</li>
-                <li>Try <strong>3</strong> — that is the admin's $4,999 Server order</li>
-                <li>No ownership check is performed at any point</li>
-              </ol>
-              <p class="gnote">Why it works: GET /orders/{id} returns the order for whatever ID you supply. The server never compares <code>order.user_id</code> against <code>current_user.id</code>.</p>
-            </div>
-          </details>
-          <div style="display:flex;gap:8px;margin-bottom:12px">
-            <input id="order-id" type="number" min="1" max="9" value="2" style="width:80px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:7px 10px;font-size:.88em">
-            <button class="btn btn-danger" style="width:auto;padding:7px 18px" onclick="doOrderFetch()">Fetch Order</button>
+
+        <div class="panel-body">
+          <!-- Admin Tab -->
+          <div id="tab-admin" class="tab-pane active">
+            <details class="guide">
+              <summary>📋 Broken Function Level Authorization Walkthrough</summary>
+              <div class="gb">
+                <ol>
+                  <li>Login as user <strong>alice</strong> (non-privileged)</li>
+                  <li>Click <strong>Request Admin Accounts</strong></li>
+                  <li>The server will leak every registered user profile, including password hashes.</li>
+                </ol>
+                <p class="gnote">Explanation: The endpoint <code>/admin/users</code> accepts any valid token, without validating the user's role claim. Route handlers must restrict access based on active roles.</p>
+              </div>
+            </details>
+            <button class="btn btn-danger" style="margin-bottom:12px;width:auto" onclick="doAdminList()">Request Admin Accounts</button>
+            <pre id="admin-result">Click button to execute GET /admin/users</pre>
           </div>
-          <pre id="order-result">Click "Fetch Order" to demonstrate order BOLA</pre>
+
+          <!-- Debug Tab -->
+          <div id="tab-debug" class="tab-pane">
+            <details class="guide">
+              <summary>📋 Security Misconfiguration Walkthrough</summary>
+              <div class="gb">
+                <ol>
+                  <li>No authentication headers are required for this check.</li>
+                  <li>Click <strong>Request Debug Configuration</strong>.</li>
+                  <li>The server reveals its JWT signing secret key: <code>"secret"</code>.</li>
+                </ol>
+                <p class="gnote">Explanation: The debug configuration route is exposed without access controls. Debug tools and variables must be stripped or gated behind environment limits before going live.</p>
+              </div>
+            </details>
+            <button class="btn btn-danger" style="margin-bottom:12px;width:auto" onclick="doDebug()">Request Debug Configuration</button>
+            <pre id="debug-result">Click button to execute GET /debug/config</pre>
+          </div>
+
+          <!-- Profile BOLA Tab -->
+          <div id="tab-bola-profiles" class="tab-pane">
+            <details class="guide">
+              <summary>📋 Profile BOLA Walkthrough</summary>
+              <div class="gb">
+                <ol>
+                  <li>Login as <strong>alice</strong> (user ID #1)</li>
+                  <li>Modify the Target User ID field to <strong>2</strong> (Bob) or <strong>3</strong> (Admin)</li>
+                  <li>Click <strong>Fetch Profile</strong> to load Bob's private balance and SSN details.</li>
+                </ol>
+                <p class="gnote">Explanation: <code>GET /users/{id}</code> validates that the caller is logged in, but fails to check if the caller is authorized to view this specific user's database entry.</p>
+              </div>
+            </details>
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <input id="bola-id" type="number" min="1" max="9" value="2" style="width:100px">
+              <button class="btn btn-danger" style="width:auto" onclick="doBolaFetch()">Fetch Profile</button>
+            </div>
+            <pre id="bola-result">Select User ID and click Fetch Profile</pre>
+          </div>
+
+          <!-- Order BOLA Tab -->
+          <div id="tab-bola-orders" class="tab-pane">
+            <details class="guide">
+              <summary>📋 Order BOLA Walkthrough</summary>
+              <div class="gb">
+                <ol>
+                  <li>Alice owns Order Receipt #1.</li>
+                  <li>Set the Order ID field to <strong>2</strong> (Bob's order) or <strong>3</strong> (Admin's order).</li>
+                  <li>Click <strong>Fetch Order Detail</strong>. The server returns full order information without ownership checks.</li>
+                </ol>
+                <p class="gnote">Explanation: <code>GET /orders/{id}</code> displays orders without comparing the order's owner ID against the requester's user ID.</p>
+              </div>
+            </details>
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <input id="order-id" type="number" min="1" max="9" value="2" style="width:100px">
+              <button class="btn btn-danger" style="width:auto" onclick="doOrderFetch()">Fetch Order Detail</button>
+            </div>
+            <pre id="order-result">Select Order ID and click Fetch Order Detail</pre>
+          </div>
         </div>
       </div>
     </div>
@@ -456,13 +537,12 @@ details.guide .gnote{font-size:.78em;color:#8b949e;line-height:1.5;border-top:1p
 </div>
 
 <script>
-const API = 'http://localhost:9000';  // all requests go through monitoring proxy
+const API = 'http://localhost:9000';
 let token = null;
 let currentUser = null;
-let _mode = 'vulnerable'; // 'vulnerable' | 'hardened'
+let _mode = 'vulnerable';
 
 function _xhdr() {
-  // Adds X-Target header when in hardened mode so the proxy routes to hardened-api:8001
   return _mode === 'hardened' ? {'X-Target': 'hardened'} : {};
 }
 
@@ -472,15 +552,17 @@ function setMode(m) {
   const hBtn = document.getElementById('mode-hard-btn');
   const badge = document.getElementById('nav-badge');
   if (m === 'vulnerable') {
-    vBtn.style.background = '#f85149'; vBtn.style.color = '#fff';
-    hBtn.style.background = 'transparent'; hBtn.style.color = '#8b949e';
+    vBtn.style.background = '#f43f5e'; vBtn.style.color = '#fff';
+    hBtn.style.background = 'transparent'; hBtn.style.color = 'var(--muted)';
     badge.textContent = 'INTENTIONALLY VULNERABLE';
-    badge.style.background = 'rgba(248,81,73,.18)'; badge.style.color = '#f85149';
+    badge.style.background = 'rgba(244,63,94,0.12)'; badge.style.color = 'var(--rose)';
+    badge.style.borderColor = 'rgba(244,63,94,0.3)';
   } else {
-    hBtn.style.background = '#3fb950'; hBtn.style.color = '#fff';
-    vBtn.style.background = 'transparent'; vBtn.style.color = '#8b949e';
+    hBtn.style.background = '#10b981'; hBtn.style.color = '#fff';
+    vBtn.style.background = 'transparent'; vBtn.style.color = 'var(--muted)';
     badge.textContent = 'HARDENED MODE';
-    badge.style.background = 'rgba(63,185,80,.18)'; badge.style.color = '#3fb950';
+    badge.style.background = 'rgba(16,185,129,0.12)'; badge.style.color = 'var(--emerald)';
+    badge.style.borderColor = 'rgba(16,185,129,0.3)';
   }
   if (currentUser) { loadProfile(); loadOrders(); }
 }
@@ -514,7 +596,6 @@ async function doLogin() {
       return;
     }
     token = data.access_token;
-    // API8: the verbose error from the server already leaked if you entered wrong — decoded JWT shows user info
     const payload = JSON.parse(atob(token.split('.')[1]));
     currentUser = { id: parseInt(payload.sub), username: payload.username, role: payload.role };
     document.getElementById('login-view').style.display = 'none';
@@ -554,40 +635,69 @@ async function loadProfile() {
   document.getElementById('u-email').value = u.email || '';
 }
 
-async function doUpdate() {
-  const body = {};
-  const email = document.getElementById('u-email').value.trim();
-  const pass  = document.getElementById('u-pass').value;
-  const role  = document.getElementById('u-role').value;
-  const bal   = document.getElementById('u-balance').value;
-  if (email) body.email = email;
-  if (pass)  body.password = pass;
-  if (role)  body.role = role;
-  if (bal !== '') body.balance = parseFloat(bal);
-  if (!Object.keys(body).length) return show('Nothing to update', 'warn', 'u-msg');
-  const r = await fetch(API + '/users/' + currentUser.id, {
-    method:'PUT', headers: authHdr(), body: JSON.stringify(body)
-  });
-  const data = await r.json();
-  if (r.ok) {
-    show('Profile updated! Role/balance changes accepted by server (API3 flaw).', 'warn', 'u-msg');
-    loadProfile();
-  } else {
-    show(data.detail || 'Update failed', 'err', 'u-msg');
-  }
-}
-
 async function loadOrders() {
   const r = await fetch(API + '/users/' + currentUser.id + '/orders', {headers: authHdr()});
   const orders = await r.json();
   const el = document.getElementById('orders-display');
-  if (!orders.length) { el.innerHTML = '<span style="color:#8b949e;font-size:.87em">No orders found.</span>'; return; }
+  if (!orders.length) { el.innerHTML = '<span style="color:var(--muted);font-size:.87em">No orders found.</span>'; return; }
   el.innerHTML = orders.map(o => `
     <div class="order-card">
-      <div class="item">${o.item} — <span class="status-${o.status}">${o.status}</span></div>
-      <div class="meta">Order #${o.id} &nbsp;·&nbsp; $${o.price?.toFixed(2)}</div>
+      <div>
+        <div class="item">${o.item}</div>
+        <div class="meta">Receipt #${o.id} &nbsp;|&nbsp; Price: $${o.price.toFixed(2)}</div>
+      </div>
+      <span class="status-${o.status || 'pending'}">${(o.status || 'pending').toUpperCase()}</span>
     </div>
   `).join('');
+}
+
+async function placeOrder(item, price) {
+  try {
+    const r = await fetch(API + '/orders', {
+      method: 'POST',
+      headers: authHdr(),
+      body: JSON.stringify({ item, price })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      alert("Order Blocked: " + (data.detail || "Request disallowed by MazAPI ML Proxy"));
+      return;
+    }
+    alert("Purchase successful! Ordered: " + data.item);
+    loadProfile();
+    loadOrders();
+  } catch (e) {
+    alert("Network error: " + e.message);
+  }
+}
+
+async function doUpdate() {
+  const email = document.getElementById('u-email').value.trim();
+  const password = document.getElementById('u-pass').value;
+  const role = document.getElementById('u-role').value;
+  const balance = document.getElementById('u-balance').value ? parseFloat(document.getElementById('u-balance').value) : null;
+
+  const payload = {};
+  if (email) payload.email = email;
+  if (password) payload.password = password;
+  if (role) payload.role = role;
+  if (balance !== null) payload.balance = balance;
+
+  const el = document.getElementById('u-msg');
+  try {
+    const r = await fetch(API + '/users/' + currentUser.id, {
+      method: 'PUT',
+      headers: authHdr(),
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      show(data.detail || 'Update failed', 'err', 'u-msg');
+      return;
+    }
+    show('Profile updated successfully!', 'ok', 'u-msg');
+    loadProfile();
+  } catch(e) { show('Network error', 'err', 'u-msg'); }
 }
 
 async function doBolaFetch() {
@@ -616,11 +726,11 @@ async function doOrderFetch() {
   document.getElementById('order-result').textContent = JSON.stringify(data, null, 2);
 }
 
-function switchTab(name) {
+function switchTab(name, btn) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  event.currentTarget.classList.add('active');
+  btn.classList.add('active');
 }
 
 async function checkBlockingStatus() {
@@ -632,14 +742,14 @@ async function checkBlockingStatus() {
       if (badge) {
         if (data.inline_blocking) {
           badge.textContent = 'Auto-Blocking: ACTIVE (ML Protection)';
-          badge.style.background = 'rgba(63,185,80,0.18)';
-          badge.style.color = '#3fb950';
-          badge.style.borderColor = 'rgba(63,185,80,0.4)';
+          badge.style.background = 'rgba(63,185,80,0.12)';
+          badge.style.color = '#10b981';
+          badge.style.borderColor = 'rgba(63,185,80,0.3)';
         } else {
           badge.textContent = 'Auto-Blocking: INACTIVE (Monitoring Only)';
-          badge.style.background = 'rgba(248,81,73,0.15)';
-          badge.style.color = '#f85149';
-          badge.style.borderColor = 'rgba(248,81,73,0.3)';
+          badge.style.background = 'rgba(248,81,73,0.12)';
+          badge.style.color = '#f43f5e';
+          badge.style.borderColor = 'rgba(244,63,94,0.3)';
         }
       }
     }
