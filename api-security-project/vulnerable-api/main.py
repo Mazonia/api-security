@@ -251,8 +251,11 @@ nav .badge{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rg
 #theme-toggle-btn:hover{border-color:var(--indigo);color:var(--indigo)}
 
 /* Layout grid */
-.main{max-width:1250px;margin:0 auto;padding:32px 20px;display:grid;grid-template-columns:350px 1fr;gap:30px}
-.sidebar{display:flex;flex-direction:column;gap:20px}
+.main{max-width:1300px;margin:0 auto;padding:32px 24px;display:flex;flex-direction:column;gap:32px}
+.storefront-grid{display:grid;grid-template-columns:1.8fr 1fr;gap:32px}
+.lab-section{width:100%}
+
+/* Panel styling */
 .panel{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-glass);transition:all 0.2s ease}
 .panel:hover{border-color:var(--border-glow)}
 .panel-hdr{padding:18px 24px;border-bottom:1px solid var(--border);background:var(--surf2);display:flex;justify-content:space-between;align-items:center}
@@ -322,21 +325,22 @@ nav .badge{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rg
 
 /* Store catalog grid */
 .catalog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-.search-container{position:relative;width:240px}
-.products-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
-.product-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:12px;position:relative;transition:all 0.25s ease;box-shadow:var(--shadow-glass)}
+.search-container{position:relative;width:260px}
+.products-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.product-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:20px;display:flex;flex-direction:column;gap:12px;position:relative;transition:all 0.25s ease;box-shadow:var(--shadow-glass)}
 .product-card:hover{transform:translateY(-3px);border-color:var(--border-glow);box-shadow:0 8px 24px rgba(99,102,241,0.12)}
 .product-card .card-badge{position:absolute;top:12px;right:12px;background:rgba(16,185,129,0.12);color:var(--emerald);border:1px solid rgba(16,185,129,0.25);border-radius:20px;padding:2px 8px;font-size:0.68em;font-weight:800}
-.product-card .title{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.1em;color:var(--text);margin-top:6px}
+.product-card .title{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.15em;color:var(--text);margin-top:6px}
 .product-card .rating{font-size:0.8em;color:var(--amber);display:flex;gap:2px}
-.product-card .desc{font-size:0.82em;color:var(--muted);line-height:1.4;flex:1}
+.product-card .desc{font-size:0.85em;color:var(--muted);line-height:1.45;flex:1}
 .product-card .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
-.product-card .price{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.25em;color:var(--amber)}
+.product-card .price{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.3em;color:var(--amber)}
 
 /* Cart panel */
-.cart-summary{background:rgba(16,185,129,0.03);border:1.5px dashed rgba(16,185,129,0.3);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;flex-direction:column;gap:12px}
-.cart-header{font-weight:700;font-size:0.9em;text-transform:uppercase;color:var(--emerald);letter-spacing:0.04em}
-.cart-row{display:flex;justify-content:space-between;font-size:0.88em;font-weight:600}
+.cart-summary{background:rgba(16,185,129,0.03);border:1.5px dashed rgba(16,185,129,0.3);border-radius:var(--radius);padding:20px;display:flex;flex-direction:column;gap:14px}
+.cart-header{font-weight:800;font-size:0.95em;text-transform:uppercase;color:var(--emerald);letter-spacing:0.04em}
+.cart-row{display:flex;justify-content:space-between;font-size:0.9em;font-weight:700}
+.cart-list{max-height:180px;overflow-y:auto;margin:6px 0}
 
 /* Labs and Consoles */
 .tab-row{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px}
@@ -413,89 +417,29 @@ pre{background:#040713;border:1px solid var(--border);border-radius:8px;padding:
 <!-- ─── MAIN APP ─── -->
 <div id="app-view" style="display:none">
   <div class="main">
-    <!-- LEFT COLUMN -->
-    <div class="sidebar">
-      <!-- Active Protection Mode Status Banner -->
-      <div class="panel" style="border-left:4px solid var(--indigo)">
-        <div class="panel-body" style="padding:14px;font-size:0.85em;display:flex;flex-direction:column;gap:8px">
-          <div style="font-weight:600">⇄ Routing: <span style="color:var(--indigo)">Monitoring Proxy (9000)</span></div>
-          <div id="blocking-status-badge" style="background:rgba(248,81,73,0.12);color:var(--rose);border:1px solid rgba(248,81,73,0.3);padding:6px 12px;border-radius:12px;font-size:0.82em;font-weight:bold;text-align:center;transition:all 0.3s">
-            Auto-Blocking: INACTIVE (Monitoring Only)
-          </div>
-        </div>
-      </div>
-
-      <!-- Profile Card -->
-      <div class="panel">
-        <div class="panel-hdr"><h3>My Profile</h3></div>
-        <div class="panel-body" id="profile-display"></div>
-      </div>
-
-      <!-- Shopping Cart Summary -->
-      <div class="cart-summary">
-        <div class="cart-header">🛒 Shopping Cart</div>
-        <div class="cart-row">
-          <span>Active Item:</span>
-          <span id="cart-item-name">None Selected</span>
-        </div>
-        <div class="cart-row">
-          <span>Checkout Price:</span>
-          <span id="cart-item-price" style="color:var(--amber)">$0.00</span>
-        </div>
-        <button class="btn btn-primary" id="checkout-btn" style="margin-top:6px" onclick="checkoutCart()" disabled>Confirm Purchase</button>
-      </div>
-
-      <!-- Update Profile -->
-      <div class="panel">
-        <div class="panel-hdr">
-          <h3>Update Profile</h3>
-          <span class="vuln-tag">API3 Mass Assignment</span>
-        </div>
-        <div class="panel-body">
-          <details class="guide">
-            <summary>📋 Mass Assignment Walkthrough</summary>
-            <div class="gb">
-              <ol>
-                <li>Set <strong>Role</strong> to <strong>"admin"</strong></li>
-                <li>Set <strong>Balance</strong> to <strong>99999</strong></li>
-                <li>Click <strong>Save Changes</strong></li>
-                <li>Verify your role and balance updated on the profile card.</li>
-              </ol>
-              <p class="gnote">Explanation: <code>PUT /users/{id}</code> updates database fields directly from client input without filtering. Privileged parameters (role, balance) should be blocked at the controller level.</p>
-            </div>
-          </details>
-          <div class="field"><label>Email Address</label><input id="u-email" type="text" placeholder="new email"></div>
-          <div class="field"><label>New Password</label><input id="u-pass" type="password" placeholder="Leave blank to keep"></div>
-          <div class="field">
-            <label>Role <span style="color:var(--rose)">(Server-only!)</span></label>
-            <select id="u-role">
-              <option value="">-- keep current --</option>
-              <option value="user">user</option>
-              <option value="admin">admin</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Balance <span style="color:var(--rose)">(Server-only!)</span></label>
-            <input id="u-balance" type="number" placeholder="e.g. 1000">
-          </div>
-          <button class="btn btn-warn" onclick="doUpdate()">Save Changes</button>
-          <div class="msg" id="u-msg"></div>
+    
+    <!-- TOP ROW: Routing and Status -->
+    <div class="panel" style="border-left:4px solid var(--indigo)">
+      <div class="panel-body" style="padding:16px;font-size:0.88em;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="font-weight:600">⇄ Active Gateway Routing: <span style="color:var(--indigo);font-weight:800">Monitoring ML Proxy (Port 9000)</span></div>
+        <div id="blocking-status-badge" style="background:rgba(248,81,73,0.12);color:var(--rose);border:1px solid rgba(248,81,73,0.3);padding:6px 16px;border-radius:20px;font-size:0.85em;font-weight:bold;transition:all 0.3s">
+          Auto-Blocking: INACTIVE (Monitoring Only)
         </div>
       </div>
     </div>
 
-    <!-- RIGHT COLUMN -->
-    <div style="display:flex;flex-direction:column;gap:20px">
-      <!-- E-commerce Store catalog -->
+    <!-- MIDDLE SECTION: E-Commerce Storefront Layout -->
+    <div class="storefront-grid">
+      <!-- LEFT COLUMN: Product Catalog -->
       <div class="panel">
-        <div class="panel-hdr" style="display:flex;align-items:center;justify-content:space-between">
+        <div class="panel-hdr">
           <h3>E-Commerce Hardware Catalog</h3>
           <div class="search-container">
-            <input type="text" id="store-search" placeholder="Search catalog..." oninput="filterStoreProducts()" style="padding:6px 12px;font-size:0.82em">
+            <input type="text" id="store-search" placeholder="Search catalog..." oninput="filterStoreProducts()" style="padding:7px 14px;font-size:0.85em">
           </div>
         </div>
         <div class="panel-body">
-          <p style="color:var(--muted);font-size:0.85em;margin-bottom:16px">Purchase premium security equipment. Your transaction will post to your order feed via the secure proxy.</p>
+          <p style="color:var(--muted);font-size:0.85em;margin-bottom:20px">Purchase premium security equipment. Your transaction will post to your order feed via the secure proxy.</p>
           <div class="products-grid" id="catalog-products-list">
             <div class="product-card" data-title="fido2 cyberkey">
               <span class="card-badge">HOT</span>
@@ -541,19 +485,50 @@ pre{background:#040713;border:1px solid var(--border);border-radius:8px;padding:
         </div>
       </div>
 
-      <!-- My Orders -->
-      <div class="panel">
-        <div class="panel-hdr"><h3>My Order Receipts</h3></div>
-        <div class="panel-body" id="orders-display"><span style="color:var(--muted);font-size:.87em">Loading orders...</span></div>
-      </div>
+      <!-- RIGHT COLUMN: Cart & Profile Information -->
+      <div style="display:flex;flex-direction:column;gap:24px">
+        <!-- Multi-Item Shopping Cart -->
+        <div class="cart-summary panel">
+          <div class="cart-header">🛒 Shopping Cart (<span id="cart-count">0</span>)</div>
+          <div class="cart-list" id="cart-items-list">
+            <div style="color:var(--muted);font-size:0.82em;text-align:center;padding:12px 0;">Your cart is empty</div>
+          </div>
+          <div style="border-top:1px dashed var(--border);padding-top:12px">
+            <div class="cart-row">
+              <span>Checkout Price:</span>
+              <span id="cart-total" style="color:var(--amber);font-size:1.1em">$0.00</span>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="checkout-btn" style="margin-top:6px;width:100%" onclick="checkoutCart()" disabled>Confirm Purchase</button>
+        </div>
 
-      <!-- Interactive Practice Consoles -->
+        <!-- Profile Card -->
+        <div class="panel">
+          <div class="panel-hdr"><h3>My Profile</h3></div>
+          <div class="panel-body" id="profile-display"></div>
+        </div>
+
+        <!-- My Orders -->
+        <div class="panel">
+          <div class="panel-hdr"><h3>My Order Receipts</h3></div>
+          <div class="panel-body" id="orders-display" style="max-height:240px;overflow-y:auto"><span style="color:var(--muted);font-size:.87em">Loading orders...</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW: Labs & Dev Panel -->
+    <div class="lab-section">
       <div class="panel">
-        <div class="tab-row">
+        <div class="panel-hdr">
+          <h3 style="color:var(--amber)">🛠️ API Practice Lab &amp; Vulnerability Consoles</h3>
+        </div>
+        
+        <div class="tab-row" style="background:var(--surf2);padding:0 12px">
           <div class="tab active" onclick="switchTab('admin', this)">Admin Panel <span class="vuln-tag">API5 BFLA</span></div>
           <div class="tab" onclick="switchTab('debug', this)">Server Configuration <span class="vuln-tag">API8 Misconfig</span></div>
           <div class="tab" onclick="switchTab('bola-profiles', this)">Profile BOLA <span class="vuln-tag">API1</span></div>
           <div class="tab" onclick="switchTab('bola-orders', this)">Order BOLA <span class="vuln-tag">API1</span></div>
+          <div class="tab" onclick="switchTab('mass-assignment', this)">Update Settings <span class="vuln-tag">API3 Mass Assignment</span></div>
         </div>
 
         <div class="panel-body">
@@ -630,9 +605,45 @@ pre{background:#040713;border:1px solid var(--border);border-radius:8px;padding:
             </div>
             <pre id="order-result">Select Order ID and click Fetch Order Detail</pre>
           </div>
+
+          <!-- Mass Assignment Tab -->
+          <div id="tab-mass-assignment" class="tab-pane">
+            <details class="guide">
+              <summary>📋 Mass Assignment Walkthrough</summary>
+              <div class="gb">
+                <ol>
+                  <li>Set <strong>Role</strong> to <strong>"admin"</strong></li>
+                  <li>Set <strong>Balance</strong> to <strong>99999</strong></li>
+                  <li>Click <strong>Save Changes</strong></li>
+                  <li>Verify your role and balance updated on the profile card.</li>
+                </ol>
+                <p class="gnote">Explanation: <code>PUT /users/{id}</code> updates database fields directly from client input without filtering. Privileged parameters (role, balance) should be blocked at the controller level.</p>
+              </div>
+            </details>
+            <div style="max-width:480px">
+              <div class="field"><label>Email Address</label><input id="u-email" type="text" placeholder="new email"></div>
+              <div class="field"><label>New Password</label><input id="u-pass" type="password" placeholder="Leave blank to keep"></div>
+              <div class="field">
+                <label>Role <span style="color:var(--rose)">(Server-only!)</span></label>
+                <select id="u-role">
+                  <option value="">-- keep current --</option>
+                  <option value="user">user</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Balance <span style="color:var(--rose)">(Server-only!)</span></label>
+                <input id="u-balance" type="number" placeholder="e.g. 1000">
+              </div>
+              <button class="btn btn-warn" onclick="doUpdate()">Save Changes</button>
+              <div class="msg" id="u-msg"></div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -641,7 +652,7 @@ const API = 'http://localhost:9000';
 let token = null;
 let currentUser = null;
 let _mode = 'vulnerable';
-let cartItem = null;
+let cart = [];
 
 function _xhdr() {
   return _mode === 'hardened' ? {'X-Target': 'hardened'} : {};
@@ -710,12 +721,13 @@ async function doLogin() {
 }
 
 function logout() {
-  token = null; currentUser = null;
+  token = null; currentUser = null; cart = [];
   document.getElementById('app-view').style.display = 'none';
   document.getElementById('login-view').style.display = 'block';
   document.getElementById('nav-user').textContent = '';
   document.getElementById('logout-btn').style.display = 'none';
   document.getElementById('l-pass').value = '';
+  renderCart();
 }
 
 function authHdr() {
@@ -753,33 +765,76 @@ async function loadOrders() {
 }
 
 function selectProduct(name, price) {
-  cartItem = { item: name, price: price };
-  document.getElementById('cart-item-name').textContent = name;
-  document.getElementById('cart-item-price').textContent = '$' + price.toFixed(2);
-  document.getElementById('checkout-btn').removeAttribute('disabled');
+  cart.push({ item: name, price: price });
+  renderCart();
+}
+
+function removeFromCart(index) {
+  cart.splice(index, 1);
+  renderCart();
+}
+
+function renderCart() {
+  const listEl = document.getElementById('cart-items-list');
+  const countEl = document.getElementById('cart-count');
+  const totalEl = document.getElementById('cart-total');
+  const btn = document.getElementById('checkout-btn');
+  
+  if (cart.length === 0) {
+    listEl.innerHTML = '<div style="color:var(--muted);font-size:0.82em;text-align:center;padding:12px 0;">Your cart is empty</div>';
+    countEl.textContent = '0';
+    totalEl.textContent = '$0.00';
+    btn.disabled = true;
+    return;
+  }
+  
+  let total = 0;
+  listEl.innerHTML = cart.map((item, idx) => {
+    total += item.price;
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.15);padding:8px 12px;border-radius:8px;margin-bottom:8px;font-size:0.84em;border:1px solid var(--border)">
+        <div>
+          <div style="font-weight:700;color:var(--text)">${item.item}</div>
+          <div style="color:var(--amber);font-weight:700;margin-top:2px">$${item.price.toFixed(2)}</div>
+        </div>
+        <button onclick="removeFromCart(${idx})" style="background:transparent;border:none;color:var(--rose);cursor:pointer;font-size:1.15em;font-weight:bold;padding:4px 8px">✕</button>
+      </div>
+    `;
+  }).join('');
+  
+  countEl.textContent = cart.length;
+  totalEl.textContent = '$' + total.toFixed(2);
+  btn.disabled = false;
 }
 
 async function checkoutCart() {
-  if (!cartItem) return;
+  if (cart.length === 0) return;
   const btn = document.getElementById('checkout-btn');
   btn.disabled = true;
+  
   try {
-    const r = await fetch(API + '/orders', {
-      method: 'POST',
-      headers: authHdr(),
-      body: JSON.stringify({ item: cartItem.item, price: cartItem.price })
-    });
-    const data = await r.json();
-    if (!r.ok) {
-      alert("Order Blocked: " + (data.detail || "Request blocked by ML Proxy"));
-      return;
+    let successCount = 0;
+    for (const cartItem of cart) {
+      const r = await fetch(API + '/orders', {
+        method: 'POST',
+        headers: authHdr(),
+        body: JSON.stringify({ item: cartItem.item, price: cartItem.price })
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        alert("Order Blocked for " + cartItem.item + ": " + (data.detail || "Request blocked by ML Proxy"));
+        break; 
+      }
+      successCount++;
     }
-    alert("Purchase successful! Ordered: " + data.item);
-    cartItem = null;
-    document.getElementById('cart-item-name').textContent = "None Selected";
-    document.getElementById('cart-item-price').textContent = "$0.00";
-    loadProfile();
-    loadOrders();
+    
+    if (successCount > 0) {
+      alert(`Successfully placed ${successCount} order(s)!`);
+      cart = [];
+      renderCart();
+      loadProfile();
+      loadOrders();
+    }
   } catch (e) {
     alert("Network error: " + e.message);
   } finally {

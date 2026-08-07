@@ -625,7 +625,7 @@ tr:hover td{background:var(--surf2);cursor:pointer}
         <!-- Topology Graph Box -->
         <div class="chart-card" style="position:relative;height:550px;display:flex;flex-direction:column">
           <h3 style="margin-bottom:12px">Interactive Network Map</h3>
-          <div id="topology-network" style="flex:1;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:8px;position:relative"></div>
+          <div id="topology-network" style="height:460px;width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:8px;position:relative;overflow:hidden"></div>
         </div>
 
         <!-- BOM Status Box -->
@@ -1672,10 +1672,13 @@ async function initOrUpdateTopology() {
   };
 
   const options = {
+    height: '100%',
+    width: '100%',
     physics: { enabled: false },
     interaction: {
       keyboard: false,
       navigationButtons: false,
+      zoomView: false,
       tooltipDelay: 3600000
     },
     layout: {
@@ -1692,6 +1695,14 @@ async function initOrUpdateTopology() {
     visNetwork.destroy();
   }
   visNetwork = new vis.Network(container, data, options);
+  setTimeout(() => {
+    const canvas = container.querySelector('canvas');
+    if (canvas) {
+      canvas.blur();
+      canvas.setAttribute('tabindex', '-1');
+      canvas.style.outline = 'none';
+    }
+  }, 100);
 }
 
 async function toggleInlineBlocking(checked) {
