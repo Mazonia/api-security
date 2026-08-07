@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="/static/chart.min.js"></script>
+<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <style>
 :root{
   --bg:#090d16;
@@ -275,9 +276,12 @@ tr:hover td{background:var(--surf2);cursor:pointer}
       <span class="nav-icon">📋</span><span class="nav-label">Reports</span>
       <span class="nav-badge hidden" id="reports-badge">0</span>
     </button>
+    <button class="nav-link" data-tab="topology" onclick="switchTab('topology',this)" title="Topology & BOM">
+      <span class="nav-icon">🕸️</span><span class="nav-label">Topology &amp; BOM</span>
+    </button>
 
     <div class="nav-section">Tools</div>
-    <a class="nav-link ext" href="/scan-ui" title="Scanner">
+    <a class="nav-link ext" href="/scan-ui" target="_blank" title="Scanner">
       <span class="nav-icon">🔍</span><span class="nav-label">Scanner</span>
       <span class="nav-ext-arrow">↗</span>
     </a>
@@ -598,6 +602,55 @@ tr:hover td{background:var(--surf2);cursor:pointer}
       </div>
 
       <div id="reports-list"></div>
+    </div>
+
+    <!-- ── TOPOLOGY & BOM ── -->
+    <div id="tab-topology" class="tab">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <div>
+          <h2 style="font-family:'Outfit',sans-serif;font-weight:700;font-size:1.45em;margin-bottom:4px;color:var(--emerald)">System Topology &amp; Supply Chain Security</h2>
+          <p style="color:var(--muted);font-size:.84em">Interactive mapping of clients, proxies, upstream targets, and AI agent call sites.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;font-size:.85em;cursor:pointer;background:var(--surf2);border:1px solid var(--border);padding:8px 16px;border-radius:20px;font-weight:700">
+            <input type="checkbox" id="inline-blocking-toggle" onchange="toggleInlineBlocking(this.checked)" style="accent-color:var(--red);width:16px;height:16px">
+            Active Inline ML Mitigation Mode (Auto-Blocking)
+          </label>
+          <button class="btn" onclick="exportOpenAPISpec()">Export OpenAPI 3.0</button>
+          <button class="btn" onclick="exportUnifiedBOM()">Export Unified BOM</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:3fr 1.2fr;gap:16px;margin-bottom:16px">
+        <!-- Topology Graph Box -->
+        <div class="chart-card" style="position:relative;height:550px;display:flex;flex-direction:column">
+          <h3 style="margin-bottom:12px">Interactive Network Map</h3>
+          <div id="topology-network" style="flex:1;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:8px;position:relative"></div>
+        </div>
+
+        <!-- BOM Status Box -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="chart-card" style="flex:1">
+            <h3 style="margin-bottom:12px">BOM Supply Chain Status</h3>
+            <div id="bom-status-info" style="font-size:.85em;line-height:1.6;display:flex;flex-direction:column;gap:12px">
+              <div style="background:rgba(88,166,255,0.06);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <strong style="color:var(--blue)">API-BOM Mapping</strong>
+                <p id="bom-api-count" style="margin-top:4px">Total endpoints mapped: --</p>
+              </div>
+              <div style="background:rgba(163,113,247,0.06);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <strong style="color:var(--purple)">AI-BOM Inventory</strong>
+                <p style="margin-top:4px">LLM Providers: OpenAI, Anthropic, Gemini, Groq, Mistral</p>
+                <p>Agent Frameworks: LangChain, LangGraph, CrewAI</p>
+                <p style="color:var(--emerald)">✓ MCP Auditor Active &amp; Integrated</p>
+              </div>
+              <div style="background:rgba(16,185,129,0.06);border:1px solid var(--border);border-radius:8px;padding:12px">
+                <strong style="color:var(--green)">S-BOM Compliance</strong>
+                <p style="margin-top:4px">Target coverage: OWASP Top 10, PCI-DSS 4.0, GDPR Art. 32</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div><!-- /content -->
@@ -1319,12 +1372,13 @@ function switchTab(name, btn) {
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelectorAll('.nav-link[data-tab]').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  const titles = { overview:'Overview', feed:'Live Feed', anomalies:'Anomalies', endpoints:'Endpoints', reports:'Reports' };
+  const titles = { overview:'Overview', feed:'Live Feed', anomalies:'Anomalies', endpoints:'Endpoints', reports:'Reports', topology:'Topology & BOM' };
   document.getElementById('page-title').textContent = titles[name] || name;
   if (name === 'endpoints') { buildEpBarChart(); renderEndpointsTable(); }
   if (name === 'anomalies') { buildTopPathsChart(); buildAnomalyMethodChart(); buildReasonChart(); renderAnomalyTab(); }
   if (name === 'feed')     renderFeedTable();
   if (name === 'reports')  { fetchReports(); }
+  if (name === 'topology') { initOrUpdateTopology(); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1570,6 +1624,106 @@ function applyDashboardTheme(theme) {
   const saved = localStorage.getItem('dashboardTheme') || 'dark';
   applyDashboardTheme(saved);
 })();
+
+let visNetwork = null;
+async function initOrUpdateTopology() {
+  const res = await api('/api/topology');
+  const bomRes = await api('/api/export-bom');
+  if (!res) return;
+
+  const toggle = document.getElementById('inline-blocking-toggle');
+  if (toggle) {
+    toggle.checked = !!res.inline_blocking;
+  }
+
+  if (bomRes && bomRes.api_bom) {
+    document.getElementById('bom-api-count').textContent = `Total endpoints mapped: ${bomRes.api_bom.total_mapped_endpoints}`;
+  }
+
+  const container = document.getElementById('topology-network');
+  
+  const formattedNodes = res.nodes.map(n => {
+    return {
+      id: n.id,
+      label: n.label,
+      shape: 'box',
+      color: {
+        background: n.color || '#1f293d',
+        border: 'rgba(255,255,255,0.2)',
+        highlight: { background: n.color || '#1f293d', border: '#58a6ff' }
+      },
+      font: { color: '#f3f4f6', face: 'Inter', size: 12, bold: true },
+      margin: 12
+    };
+  });
+
+  const formattedEdges = res.edges.map(e => ({
+    from: e.from,
+    to: e.to,
+    label: e.label,
+    arrows: 'to',
+    color: { color: 'rgba(255,255,255,0.2)', highlight: '#58a6ff' },
+    font: { color: '#8b949e', face: 'Inter', size: 10, strokeWidth: 0 }
+  }));
+
+  const data = {
+    nodes: new vis.DataSet(formattedNodes),
+    edges: new vis.DataSet(formattedEdges)
+  };
+
+  const options = {
+    physics: { enabled: true, stabilization: true },
+    layout: {
+      hierarchical: {
+        enabled: true,
+        direction: 'LR',
+        sortMethod: 'directed',
+        levelSeparation: 220
+      }
+    }
+  };
+
+  if (visNetwork) {
+    visNetwork.destroy();
+  }
+  visNetwork = new vis.Network(container, data, options);
+}
+
+async function toggleInlineBlocking(checked) {
+  try {
+    const r = await fetch('/api/toggle-blocking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: checked })
+    });
+    if (r.ok) {
+      const data = await r.json();
+      console.log("Inline blocking toggle updated:", data.inline_blocking_enabled);
+    }
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function exportOpenAPISpec() {
+  const res = await api('/api/export-openapi');
+  if (!res) return alert('Failed to export OpenAPI spec');
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(res, null, 2));
+  const dlAnchorElem = document.createElement('a');
+  dlAnchorElem.setAttribute("href",     dataStr);
+  dlAnchorElem.setAttribute("download", "openapi_spec.json");
+  dlAnchorElem.click();
+}
+
+async function exportUnifiedBOM() {
+  const res = await api('/api/export-bom');
+  if (!res) return alert('Failed to export Unified BOM');
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(res, null, 2));
+  const dlAnchorElem = document.createElement('a');
+  dlAnchorElem.setAttribute("href",     dataStr);
+  dlAnchorElem.setAttribute("download", "unified_bom_report.json");
+  dlAnchorElem.click();
+}
 
 window.addEventListener('DOMContentLoaded', () => {
   fetchAll();

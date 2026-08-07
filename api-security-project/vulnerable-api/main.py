@@ -301,7 +301,12 @@ details.guide .gnote{font-size:.78em;color:#8b949e;line-height:1.5;border-top:1p
 
 <!-- ─── MAIN APP ─── -->
 <div id="app-view" style="display:none">
-  <div class="proxy-notice">⇄ All requests route through the <strong>monitoring proxy</strong> (port&nbsp;9000) — every action you take here appears in real time on the <a href="http://localhost:9000/dashboard" target="_blank">dashboard</a>.</div>
+  <div class="proxy-notice" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>⇄ All requests route through the <strong>monitoring proxy</strong> (port&nbsp;9000) — every action you take here appears in real time on the <a href="http://localhost:9000/dashboard" target="_blank">dashboard</a>.</div>
+    <div id="blocking-status-badge" style="background:rgba(248,81,73,0.15);color:#f85149;border:1px solid rgba(248,81,73,0.3);padding:4px 12px;border-radius:12px;font-size:0.85em;font-weight:bold;white-space:nowrap;transition:all 0.3s">
+      Auto-Blocking: INACTIVE (Monitoring Only)
+    </div>
+  </div>
   <div class="main">
     <!-- LEFT SIDEBAR -->
     <div class="sidebar">
@@ -518,6 +523,7 @@ async function doLogin() {
     document.getElementById('logout-btn').style.display = '';
     loadProfile();
     loadOrders();
+    checkBlockingStatus();
   } catch(e) { show('Network error', 'err', 'l-msg'); }
 }
 
@@ -616,6 +622,35 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   event.currentTarget.classList.add('active');
 }
+
+async function checkBlockingStatus() {
+  try {
+    const r = await fetch(API + '/api/topology');
+    if (r.ok) {
+      const data = await r.json();
+      const badge = document.getElementById('blocking-status-badge');
+      if (badge) {
+        if (data.inline_blocking) {
+          badge.textContent = 'Auto-Blocking: ACTIVE (ML Protection)';
+          badge.style.background = 'rgba(63,185,80,0.18)';
+          badge.style.color = '#3fb950';
+          badge.style.borderColor = 'rgba(63,185,80,0.4)';
+        } else {
+          badge.textContent = 'Auto-Blocking: INACTIVE (Monitoring Only)';
+          badge.style.background = 'rgba(248,81,73,0.15)';
+          badge.style.color = '#f85149';
+          badge.style.borderColor = 'rgba(248,81,73,0.3)';
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch proxy topology status", e);
+  }
+}
+
+// Start checking status periodically
+setInterval(checkBlockingStatus, 5000);
+checkBlockingStatus();
 </script>
 </body>
 </html>"""
