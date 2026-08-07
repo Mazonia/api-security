@@ -205,16 +205,23 @@ API security evaluation tools divide into three main operational categories: act
 | **Burp Suite Professional** | Active Proxy / Scanner | Manual / Extension-based | Interactive Traffic Log | No Native ML | No | Commercial / Desktop Application |
 | **OWASP ZAP** | Active Proxy / Scanner | Scripted / Manual Context | Intercepting Proxy | No | No | Open-Source / Desktop Application |
 | **Akto** | API Security Platform | OpenAPI / eBPF Capture | Passive Traffic Analysis | Basic Anomaly Rules | No | Commercial / Hybrid Cloud |
+| **APIsec Surface** | Attack Surface Discovery | Browser Traffic, Static Specs | Passive Browser Capture | No | Static SDK / MCP Scan | Free & Open-Source (MIT/Apache) |
 | **TruffleHog** | Static Secret Scanner | N/A | N/A | No | CLI Only | Open-Source / CLI Tool |
 | **GitLeaks** | Static Secret Scanner | N/A | N/A | No | CLI Only | Open-Source / CLI Tool |
 | **MazAPI Framework** | Unified Security Ecosystem | OpenAPI, Playwright, HAR, Crawling | Transparent Reverse Proxy | Dual Ensemble (IsoForest + RF) | Yes (TypeScript Extension) | Open-Source / Single Docker Stack |
 
-#### 2.3.1 Analysis of Tooling Gaps
-Existing solutions exhibit several key limitations:
-1. **Isolated Lifecycle Phases**: Active scanners (Burp Suite, OWASP ZAP) operate independently of development environments and operational traffic logs. Developers must manually configure target contexts, authentication headers, and session tokens before scanning can take place.
-2. **Lack of Adaptive Anomaly Detection**: Standard scanners rely on static rule sets and payload signatures. They cannot establish baseline normal traffic behavior or identify novel anomaly patterns across HTTP traffic feature distributions.
-3. **High False Positive Rates in SAST Tools**: Static secret scanners often rely exclusively on fixed regular expressions, flagging benign code variables, test strings, and environment file comments as hardcoded secrets.
-4. **Cloud Dependency and Cost Constraints**: Enterprise API security tools (such as Akto or Noname Security) require external cloud connectivity, proprietary SaaS subscriptions, or complex cluster deployments, preventing offline deployment in isolated lab environments.
+#### 2.3.1 Analysis of APIsec Surface Suite
+APIsec Surface represents a modern family of free, open-source, local-first developer utilities aiming to map application and artificial intelligence (AI) attack surfaces:
+- **AI Surface (MIT License)**: A static source-code analyzer that detects Large Language Model (LLM) SDK call sites across multiple providers, AI agent frameworks (such as LangChain, LangGraph, and CrewAI), and Model Context Protocol (MCP) servers. It operates locally at pull-request (PR) time to generate an Artificial Intelligence Bill of Materials (AI-BOM).
+- **APIsec Bolt Code Discovery (MIT License)**: A CI/CD static scanner that parses codebases to identify API route definitions (e.g., FastAPI, Flask, Spring Boot) and automatically outputs OpenAPI specifications to reveal undocumented or shadow endpoints.
+- **APIsec Bolt Browser Extension (Apache 2.0 License)**: A browser-based interceptor that captures live API traffic without proxies or agents, generating endpoint and parameter inventories directly from browser activity.
+- **MCP Audit (MIT License)**: A dedicated utility scanning Claude Desktop, Cursor, or IDE configurations to identify Model Context Protocol (MCP) server endpoints, checking for exposed credentials or over-privileged filesystem and system privileges.
+
+#### 2.3.2 Analysis of Tooling Gaps and MazAPI Differentiation
+Despite the capabilities of modern tools like APIsec Surface, several operational gaps persist:
+1. **The Mapping vs. Exploitation Gap**: As noted by APIsec, attack surface mapping tools (such as Bolt and AI Surface) inventory endpoints and paths but cannot verify exploitability. Determining if an endpoint is vulnerable to BOLA or SQL Injection requires active, stateful vulnerability probing. MazAPI resolves this by linking headless Playwright session discovery directly to an active black-box scanning engine that validates vulnerabilities.
+2. **Lack of Inline Runtime Anomaly Detection**: Surface-mapping suites do not inspect or defend active production API traffic. MazAPI embeds an inline, asynchronous transparent proxy executing a dual machine learning ensemble (RandomForest + IsolationForest) that evaluates request feature vectors in real-time.
+3. **Isolated Developer Workflows**: While tools like GitGuardian and Gitleaks offer secrets detection, they do not correlate hardcoded secrets with discovered API endpoints or model frameworks. MazAPI unites these functions by incorporating a custom VS Code extension that maps API endpoints, identifies local secrets using AST-aware Shannon entropy, and flags AI/LLM SDK integrations natively in the editor.
 
 ### 2.5 Static Secret Analysis and Browser Interception Techniques
 
@@ -290,6 +297,17 @@ Because Broken Object Level Authorization (BOLA) attacks involve syntactically v
 1. The proxy parses the `Authorization` Bearer header and decodes the JWT payload to extract the subject (`sub`) claim.
 2. The proxy parses the requested URL path using regular expression pattern matching to extract targeted resource identifiers (e.g., `/users/{id}`).
 3. If the JWT `sub` value does not match the resource identifier in the path, the pre-check flags the request as a high-confidence BOLA violation (`bola_suspected = 1.0`).
+
+#### 3.3.2 Dynamic OpenAPI 3.0 Synthesizer, Schema Drift & Active Inline Auto-Blocking
+Beyond passive monitoring, MazAPI includes automated contract synthesis and active threat mitigation:
+- **OpenAPI 3.0 Spec Synthesizer**: The endpoint `/api/export-openapi` aggregates logged HTTP methods, paths, and response status codes to dynamically build an OpenAPI 3.0.3 specification document without manual developer effort.
+- **Schema Drift & Shadow API Detection**: incoming traffic is validated against the active API schema. Un-schematized endpoints (Shadow APIs) or payload schema mismatches are flagged as policy violations.
+- **Active Inline Threat Mitigation Mode**: When `_INLINE_BLOCKING_ENABLED` is activated, incoming requests evaluated with an anomaly confidence $Confidence \ge 0.85$ or triggering deterministic BOLA/Command Injection pre-checks are blocked inline with an HTTP 403 Forbidden response, preventing malicious payloads from reaching upstream servers.
+
+#### 3.3.3 Unified BOM Generator & Model Context Protocol (MCP) Auditor
+To align with modern AI supply-chain governance and agentic infrastructure:
+- **Unified BOM Export Engine (`/api/export-bom`)**: Outputs standardized JSON reports detailing the **API-BOM** (mapped REST/GraphQL routes and authentication posture), **AI-BOM** (LLM SDK call sites, agent frameworks like LangChain/CrewAI), and **S-BOM** (active security controls and CWE vulnerability states).
+- **MCP & AI Agent Security Auditor (`mcp_audit.py`)**: Audits local Model Context Protocol configuration files (`mcp.json`, `claude_desktop_config.json`) and source code to identify exposed environment credentials, unauthenticated SSE transport endpoints, and over-privileged system binary executions (`bash`, `rm`, root mounts).
 
 ### 3.4 Feature Engineering and Dataset Synthesizer Specification
 

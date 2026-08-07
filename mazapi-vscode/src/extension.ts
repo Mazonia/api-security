@@ -209,6 +209,47 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // ── Command: Export BOM (AI-BOM / API-BOM / S-BOM) ──────────────────────
+    context.subscriptions.push(
+        vscode.commands.registerCommand('mazapi.exportBOM', async () => {
+            const files = await vscode.workspace.findFiles(
+                '**/*.{js,ts,py,env,json,yml,yaml,cfg,ini,toml}',
+                '**/{node_modules,.git,__pycache__,dist,build,out}/**'
+            );
+            const allFindings: ScanFinding[] = [];
+            for (const file of files) {
+                const doc = await vscode.workspace.openTextDocument(file);
+                const envCommitted = await isEnvTrackedByGit(doc.uri);
+                const findings = scanFileForIssues(doc.getText(), doc.languageId, doc.uri, envCommitted);
+                allFindings.push(...findings);
+            }
+            const endpoints = allFindings.filter(f => f.kind === 'endpoint').map(f => f.value || f.message);
+            const aiFindings = allFindings.filter(f => f.category && f.category.startsWith('AI-BOM'));
+            const sFindings = allFindings.filter(f => f.kind !== 'endpoint');
+
+            const bomData = {
+                bom_version: "1.0.0",
+                timestamp: new Date().toISOString(),
+                framework: "MazAPI Extension Ecosystem",
+                api_bom: {
+                    total_endpoints: endpoints.length,
+                    endpoints: endpoints
+                },
+                ai_bom: {
+                    total_ai_surface_findings: aiFindings.length,
+                    findings: aiFindings.map(f => ({ label: f.label, category: f.category, message: f.message, file: f.uri?.fsPath }))
+                },
+                s_bom: {
+                    total_security_issues: sFindings.length,
+                    issues: sFindings.map(f => ({ label: f.label, severity: f.severity, category: f.category, file: f.uri?.fsPath }))
+                }
+            };
+            const doc = await vscode.workspace.openTextDocument({ content: JSON.stringify(bomData, null, 2), language: 'json' });
+            vscode.window.showTextDocument(doc);
+            vscode.window.showInformationMessage('MazAPI: AI-BOM / API-BOM report generated!');
+        })
+    );
+
     // ── Auto-scan: on open ────────────────────────────────────────────────────
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(async (doc) => {

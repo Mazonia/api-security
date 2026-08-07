@@ -54,6 +54,10 @@
         "title": "MazAPI: Export Last Scan as HTML Report"
       },
       {
+        "command": "mazapi.exportBOM",
+        "title": "MazAPI: Export AI-BOM / API-BOM Report"
+      },
+      {
         "command": "mazapi.configureWebhook",
         "title": "MazAPI: Configure Webhook Alert URL"
       },

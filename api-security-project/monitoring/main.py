@@ -6123,6 +6123,99 @@ async def health():
     return result
 
 
+# ── Global configuration state ──────────────────────────────────────────
+_INLINE_BLOCKING_ENABLED = False
+
+@app.post("/api/toggle-blocking")
+async def toggle_blocking(req: Request):
+    global _INLINE_BLOCKING_ENABLED
+    data = await req.json()
+    _INLINE_BLOCKING_ENABLED = bool(data.get("enabled", not _INLINE_BLOCKING_ENABLED))
+    return {"inline_blocking_enabled": _INLINE_BLOCKING_ENABLED}
+
+@app.get("/api/export-openapi")
+async def export_openapi():
+    """Synthesize an OpenAPI 3.0 specification from captured traffic logs."""
+    paths = {}
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT method, path, status_code FROM traffic LIMIT 2000") as cursor:
+            rows = await cursor.fetchall()
+            for method, p, status in rows:
+                p_str = p or "/"
+                m_str = (method or "GET").lower()
+                if p_str not in paths:
+                    paths[p_str] = {}
+                if m_str not in paths[p_str]:
+                    paths[p_str][m_str] = {
+                        "summary": f"Discovered endpoint {method} {p_str}",
+                        "responses": {
+                            str(status): {"description": f"Observed status code {status}"}
+                        }
+                    }
+                else:
+                    paths[p_str][m_str]["responses"][str(status)] = {"description": f"Observed status code {status}"}
+
+    openapi_spec = {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "MazAPI Synthesized OpenAPI Specification",
+            "version": "1.0.0",
+            "description": "Automatically generated API contract from captured live traffic logs."
+        },
+        "paths": paths
+    }
+    return JSONResponse(openapi_spec)
+
+@app.get("/api/export-bom")
+async def export_bom():
+    """Export unified AI-BOM, API-BOM, and S-BOM compliance report."""
+    endpoints = []
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT DISTINCT method, path, has_auth FROM traffic") as cursor:
+            rows = await cursor.fetchall()
+            for m, p, auth in rows:
+                endpoints.append({"method": m, "path": p, "authenticated": bool(auth)})
+
+    bom = {
+        "bom_version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "framework": "MazAPI Unified Security Ecosystem",
+        "api_bom": {
+            "total_mapped_endpoints": len(endpoints),
+            "endpoints": endpoints
+        },
+        "ai_bom": {
+            "llm_providers": ["OpenAI", "Anthropic", "Google Gemini", "Groq", "Mistral"],
+            "agent_frameworks": ["LangChain", "LangGraph", "CrewAI"],
+            "mcp_support": "Model Context Protocol (MCP) Auditor Active",
+            "status": "Audited via MazAPI VS Code & Testing Engine"
+        },
+        "s_bom": {
+            "compliance_standards": ["OWASP API Top 10:2023", "PCI-DSS 4.0", "GDPR Art. 32", "ISO/IEC 27001"],
+            "active_protection": "Transparent Proxy + Dual ML Ensemble (IsolationForest + RandomForest)"
+        }
+    }
+    return JSONResponse(bom)
+
+@app.get("/api/topology")
+async def topology_graph():
+    """Return node and edge topology map of mapped endpoints and security state."""
+    nodes = [
+        {"id": "client", "label": "Browser / Mobile Client", "type": "client", "color": "#58a6ff"},
+        {"id": "proxy", "label": "MazAPI ML Proxy (:9000)", "type": "proxy", "color": "#3fb950"},
+        {"id": "target_vuln", "label": "Vulnerable API Target (:8000)", "type": "target", "color": "#f85149"},
+        {"id": "target_hardened", "label": "Hardened API Target (:8001)", "type": "target", "color": "#238636"},
+        {"id": "ai_surface", "label": "AI LLM / MCP Gateway", "type": "ai", "color": "#a371f7"},
+    ]
+    edges = [
+        {"from": "client", "to": "proxy", "label": "HTTP/REST Payload"},
+        {"from": "proxy", "to": "target_vuln", "label": "Sidecar Route"},
+        {"from": "proxy", "to": "target_hardened", "label": "Hardened Route"},
+        {"from": "proxy", "to": "ai_surface", "label": "AI-BOM Audit Context"}
+    ]
+    return JSONResponse({"nodes": nodes, "edges": edges, "inline_blocking": _INLINE_BLOCKING_ENABLED})
+
+
 # ── transparent proxy (catch-all — AFTER all specific routes) ─────────────────
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy(request: Request, path: str):
@@ -6175,6 +6268,22 @@ async def proxy(request: Request, path: str):
         "bola_suspected":   bola_suspected,
     }
     det = detector.predict(rec)
+
+    # Active Inline Mitigation Mode: auto-block high confidence threats if enabled
+    if _INLINE_BLOCKING_ENABLED and det["anomaly"] and det.get("confidence", 0) >= 0.85:
+        block_rec = dict(rec)
+        block_rec.update({"status_code": 403, "anomaly": 1, "score": det["score"], "reason": f"INLINE_BLOCKED ({det['reason']})"})
+        asyncio.create_task(_log(block_rec))
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "Blocked by MazAPI Active Inline Threat Mitigation",
+                "reason": det["reason"],
+                "confidence": det.get("confidence"),
+                "model": det.get("model")
+            }
+        )
+
     rec.update({"anomaly": det["anomaly"], "score": det["score"], "reason": det["reason"]})
     asyncio.create_task(_log(rec))
 

@@ -59,6 +59,9 @@ const COMPLIANCE_MAP: Record<string, Compliance> = {
     'CWE-208 - Timing Attack via Non-Constant-Time Comparison': { pci_dss: ['8.3.2'], gdpr: ['Art. 32(1)(a)'], iso27001: ['A.10.1.1', 'A.14.2.5'] },
     'API4:2023 - Auth Route Missing Rate Limiting': { pci_dss: ['8.3.4', '6.3.1'], gdpr: ['Art. 32'], iso27001: ['A.9.4.2', 'A.12.6.1'] },
     'API9:2023 - Multiple API Versions Without Deprecation': { pci_dss: ['6.3.3'], gdpr: ['Art. 32'], iso27001: ['A.12.6.1', 'A.8.1.1'] },
+    'AI-BOM - LLM SDK / Call Site': { pci_dss: ['6.2.4'], gdpr: ['Art. 25', 'Art. 32'], iso27001: ['A.14.2.5'] },
+    'AI-BOM - AI Agent Framework (LangChain/CrewAI)': { pci_dss: ['6.2.4'], gdpr: ['Art. 25', 'Art. 32'], iso27001: ['A.14.2.5'] },
+    'AI-BOM - Model Context Protocol (MCP) Server Configuration': { pci_dss: ['6.2.4'], gdpr: ['Art. 25', 'Art. 32'], iso27001: ['A.14.2.5'] },
 };
 
 function getCompliance(category: string): Compliance | undefined {
@@ -1048,6 +1051,28 @@ const WEAK_AUTH_PATTERNS: { name: string; pattern: RegExp; severity: 'CRITICAL' 
         severity: 'MEDIUM',
         category: 'API4:2023 - Auth Route Missing Rate Limiting',
         fix: 'Attach a rate limiter to auth routes: app.post("/login", rateLimit({ windowMs: 60000, max: 5 }), handler) — unthrottled auth enables credential stuffing',
+    },
+    // ── AI / LLM / Agent Surface Mapping (AI-BOM) ───────────────────────────────
+    {
+        name: 'AI Surface: LLM Client/SDK Call Site',
+        pattern: /(?:new\s+(?:OpenAI|Anthropic|Mistral|CohereClient|Groq)|genai\.Client\s*\(|google\.generativeai\.generativemodel)/gi,
+        severity: 'MEDIUM',
+        category: 'AI-BOM - LLM SDK / Call Site',
+        fix: 'Review key rotation, usage logs, and rate-limiting controls for this LLM SDK call site.',
+    },
+    {
+        name: 'AI Surface: Agent Framework (LangChain/CrewAI/LangGraph)',
+        pattern: /(?:from\s+langchain|from\s+langgraph|from\s+crewai|new\s+(?:ChatOpenAI|ChatAnthropic|StateGraph)|Crew\s*\(\s*agents\b|Agent\s*\(\s*role\b)/gi,
+        severity: 'MEDIUM',
+        category: 'AI-BOM - AI Agent Framework (LangChain/CrewAI)',
+        fix: 'Verify tool permissions, user inputs, output sanitisation, and prompt injection filters for this AI agent.',
+    },
+    {
+        name: 'AI Surface: Model Context Protocol (MCP) Server Configuration',
+        pattern: /(?:new\s+McpServer\b|@modelcontextprotocol\/sdk|mcpServers\s*:\s*\{)/gi,
+        severity: 'MEDIUM',
+        category: 'AI-BOM - Model Context Protocol (MCP) Server Configuration',
+        fix: 'Ensure this MCP server restricts filesystem / process access, validates tool arguments, and does not expose shadow APIs or keys.',
     },
 ];
 

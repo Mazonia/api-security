@@ -13,6 +13,7 @@ from rich.table import Table
 from owasp_tests import (test_api1_bola, test_api2_auth, test_api3_mass_assign,
                          test_api4_rate_limit, test_api5_func_auth, test_api8_misconfig,
                          test_graphql, test_pii)
+import mcp_audit
 import report_generator
 
 console = Console()
@@ -26,6 +27,7 @@ MODULES = [
     ("API8:2023 — Misconfiguration",           test_api8_misconfig),
     ("API9:2023 — GraphQL Security",           test_graphql),
     ("GDPR/CWE-312 — PII Exposure",           test_pii),
+    ("AI-BOM — MCP & AI Agent Audit",          mcp_audit),
 ]
 
 SEV_COLOR = {"CRITICAL": "red", "HIGH": "yellow", "MEDIUM": "cyan", "LOW": "dim"}
