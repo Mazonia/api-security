@@ -1672,7 +1672,12 @@ async function initOrUpdateTopology() {
   };
 
   const options = {
-    physics: { enabled: true, stabilization: true },
+    physics: { enabled: false },
+    interaction: {
+      keyboard: false,
+      navigationButtons: false,
+      tooltipDelay: 3600000
+    },
     layout: {
       hierarchical: {
         enabled: true,

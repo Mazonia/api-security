@@ -186,19 +186,19 @@ def shopapp_ui():
 
 
 _SHOPAPP_HTML = """<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ShopApp — Premium API Demo</title>
+<title>🔒 MazAPI Security Storefront</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0b0e17;
-  --surf:#131825;
-  --surf2:#1f293d;
+  --bg:#070b13;
+  --surf:#0e1424;
+  --surf2:#171e35;
   --border:rgba(255,255,255,0.08);
   --border-glow:rgba(99,102,241,0.35);
   --text:#f3f4f6;
@@ -210,68 +210,142 @@ _SHOPAPP_HTML = """<!DOCTYPE html>
   --radius:16px;
   --shadow-glass:0 8px 32px 0 rgba(0,0,0,0.37);
   --glass-blur:blur(16px) saturate(180%);
+  --input-bg:#070b13;
+  --input-border:rgba(255,255,255,0.15);
+  --card-hover:rgba(99,102,241,0.06);
+}
+[data-theme="light"]{
+  --bg:#f3f4f6;
+  --surf:#ffffff;
+  --surf2:#f9fafb;
+  --border:rgba(0,0,0,0.08);
+  --border-glow:rgba(99,102,241,0.4);
+  --text:#1f2937;
+  --muted:#6b7280;
+  --input-bg:#ffffff;
+  --input-border:rgba(0,0,0,0.12);
+  --shadow-glass:0 8px 24px 0 rgba(149,157,165,0.12);
+  --card-hover:rgba(99,102,241,0.04);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;overflow-x:hidden}
-nav{background:var(--surf);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:16px;height:70px;box-shadow:var(--shadow-glass);position:sticky;top:0;z-index:100}
-nav .logo{font-family:'Outfit',sans-serif;color:var(--emerald);font-weight:800;font-size:1.4em;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px}
-nav .badge{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rgba(244,63,94,0.3);border-radius:20px;padding:3px 12px;font-size:0.75em;font-weight:700}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;overflow-x:hidden;transition:background 0.2s,color 0.2s}
+
+/* Navigation bar */
+nav{background:var(--surf);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:16px;height:75px;box-shadow:var(--shadow-glass);position:sticky;top:0;z-index:100;transition:background 0.2s}
+nav .logo{font-family:'Outfit',sans-serif;color:var(--emerald);font-weight:800;font-size:1.45em;letter-spacing:-0.02em;display:flex;align-items:center;gap:8px}
+nav .badge{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rgba(244,63,94,0.3);border-radius:20px;padding:4px 14px;font-size:0.75em;font-weight:800;letter-spacing:0.02em}
 .nav-links{display:flex;gap:8px;margin:0 12px}
-.nav-tool-link{color:var(--muted);font-size:0.85em;text-decoration:none;padding:6px 14px;border:1px solid var(--border);border-radius:20px;transition:all 0.18s;font-weight:600}
-.nav-tool-link:hover{color:var(--indigo);border-color:var(--indigo);background:rgba(99,102,241,0.06)}
-.main{max-width:1200px;margin:0 auto;padding:32px 20px;display:grid;grid-template-columns:330px 1fr;gap:28px}
+.nav-tool-link{color:var(--muted);font-size:0.85em;text-decoration:none;padding:7px 16px;border:1px solid var(--border);border-radius:20px;transition:all 0.18s;font-weight:700}
+.nav-tool-link:hover{color:var(--indigo);border-color:var(--indigo);background:var(--card-hover)}
+.nav-right{display:flex;align-items:center;gap:12px;margin-left:auto}
+
+/* Styled buttons */
+.btn{padding:10px 18px;border:none;border-radius:20px;cursor:pointer;font-size:0.86em;font-weight:700;font-family:inherit;transition:all 0.18s;text-align:center;display:inline-block;box-shadow:0 2px 6px rgba(0,0,0,0.1)}
+.btn-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 2px 10px rgba(16,185,129,0.25)}.btn-primary:hover{opacity:0.95;transform:translateY(-1px);box-shadow:0 4px 14px rgba(16,185,129,0.35)}
+.btn-danger{background:linear-gradient(135deg,#f43f5e,#e11d48);color:#fff;box-shadow:0 2px 10px rgba(244,63,94,0.25)}.btn-danger:hover{opacity:0.95;transform:translateY(-1px);box-shadow:0 4px 14px rgba(244,63,94,0.35)}
+.btn-secondary{background:var(--surf2);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{border-color:var(--indigo);color:var(--indigo);background:var(--card-hover)}
+.btn-warn{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}.btn-warn:hover{background:rgba(245,158,11,0.2)}
+
+/* Theme selector toggle */
+#theme-toggle-btn{background:var(--surf2);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:0.85em;padding:6px 14px;border-radius:20px;font-weight:700;transition:all 0.15s}
+#theme-toggle-btn:hover{border-color:var(--indigo);color:var(--indigo)}
+
+/* Layout grid */
+.main{max-width:1250px;margin:0 auto;padding:32px 20px;display:grid;grid-template-columns:350px 1fr;gap:30px}
 .sidebar{display:flex;flex-direction:column;gap:20px}
 .panel{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-glass);transition:all 0.2s ease}
 .panel:hover{border-color:var(--border-glow)}
 .panel-hdr{padding:18px 24px;border-bottom:1px solid var(--border);background:var(--surf2);display:flex;justify-content:space-between;align-items:center}
-.panel-hdr h3{font-family:'Outfit',sans-serif;font-size:1.05em;font-weight:700;color:#fff}
+.panel-hdr h3{font-family:'Outfit',sans-serif;font-size:1.05em;font-weight:700;color:var(--text)}
 .vuln-tag{background:rgba(244,63,94,0.12);color:var(--rose);border:1px solid rgba(244,63,94,0.35);border-radius:20px;padding:3px 10px;font-size:0.72em;font-weight:700}
 .panel-body{padding:20px 24px}
-.field{margin-bottom:16px}
-.field label{display:block;font-size:0.8em;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
-.field input,.field select{width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-size:0.9em;font-family:inherit;transition:all 0.15s;outline:none}
-.field input:focus,.field select:focus{border-color:var(--indigo);box-shadow:0 0 0 3px rgba(99,102,241,0.25);background:rgba(0,0,0,0.4)}
+
+/* Advanced designed form controls */
+.field{margin-bottom:18px}
+.field label{display:block;font-size:0.75em;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+.field input, .field select, .field textarea,
+.search-container input, .bola-form input, .order-form input {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 11px 14px;
+  font-size: 0.9em;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  outline: none;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+.field input:focus, .field select:focus, .field textarea:focus,
+.search-container input:focus, .bola-form input:focus, .order-form input:focus {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 4px rgba(99,102,241,0.15), inset 0 2px 4px rgba(0,0,0,0.05);
+  background: var(--surf);
+}
 .field input[readonly]{opacity:0.6;cursor:not-allowed}
-.btn{width:100%;padding:10px 16px;border:none;border-radius:20px;cursor:pointer;font-size:0.88em;font-weight:700;font-family:inherit;transition:all 0.18s;text-align:center;display:inline-block}
-.btn-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 2px 10px rgba(16,185,129,0.25)}.btn-primary:hover{opacity:0.9;transform:translateY(-1px)}
-.btn-danger{background:linear-gradient(135deg,#f43f5e,#e11d48);color:#fff;box-shadow:0 2px 10px rgba(244,63,94,0.25)}.btn-danger:hover{opacity:0.9;transform:translateY(-1px)}
-.btn-secondary{background:var(--surf2);color:var(--text);border:1px solid var(--border)}.btn-secondary:hover{border-color:var(--indigo);color:var(--indigo);background:rgba(99,102,241,0.06)}
-.btn-warn{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.3)}.btn-warn:hover{background:rgba(245,158,11,0.2)}
-.msg{margin-top:14px;padding:10px 16px;border-radius:8px;font-size:0.85em;display:none;font-weight:600}
+
+/* Message styling */
+.msg{margin-top:14px;padding:11px 16px;border-radius:8px;font-size:0.85em;display:none;font-weight:600}
 .msg.ok{background:rgba(16,185,129,0.1);color:var(--emerald);border:1px solid rgba(16,185,129,0.25)}
 .msg.err{background:rgba(244,63,94,0.1);color:var(--rose);border:1px solid rgba(244,63,94,0.25)}
+
+/* Key-Value tables */
 .kv{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.88em}
 .kv:last-child{border:none}
-.kv .k{color:var(--muted);font-weight:500}
-.kv .v{color:#fff;font-weight:600;word-break:break-all;text-align:right;max-width:60%}
+.kv .k{color:var(--muted);font-weight:600}
+.kv .v{color:var(--text);font-weight:700;word-break:break-all;text-align:right;max-width:60%}
 .kv .v.red{color:var(--rose)}.kv .v.green{color:var(--emerald)}.kv .v.yellow{color:var(--amber)}.kv .v.blue{color:var(--indigo)}
-.order-card{background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+
+/* Order Receipt Cards */
+.order-card{background:rgba(0,0,0,0.15);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
 .order-card:last-child{margin-bottom:0}
-.order-card .item{font-weight:700;font-size:0.95em;color:#fff}
+.order-card .item{font-weight:700;font-size:0.95em;color:var(--text)}
 .order-card .meta{font-size:0.8em;color:var(--muted);margin-top:2px}
-.status-shipped{background:rgba(16,185,129,0.12);color:var(--emerald);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:700}
-.status-pending{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.3);padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:700}
-.status-delivered{background:rgba(99,102,241,0.12);color:var(--indigo);border:1px solid rgba(99,102,241,0.3);padding:2px 8px;border-radius:12px;font-size:0.75em;font-weight:700}
-.login-wrap{max-width:440px;margin:80px auto;padding:0 20px}
-.login-wrap h2{font-family:'Outfit',sans-serif;color:var(--emerald);font-size:1.8em;font-weight:800;margin-bottom:6px;letter-spacing:-0.02em}
-.login-wrap p{color:var(--muted);font-size:0.9em;margin-bottom:24px}
-.accounts{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:20px;box-shadow:var(--shadow-glass)}
-.accounts p{font-size:.82em;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
-.acc{display:flex;gap:10px;margin-bottom:8px;align-items:center;font-size:.85em;justify-content:space-between}
-.acc span{color:var(--text);font-weight:500}
-.acc button{background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:3px 12px;cursor:pointer;font-size:.8em;font-weight:700;transition:all 0.18s}
-.acc button:hover{border-color:var(--indigo);color:var(--indigo);background:rgba(99,102,241,0.06)}
-.warn-banner{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:.84em;color:var(--amber)}
-.proxy-notice{background:rgba(99,102,241,0.06);border-left:4px solid var(--indigo);padding:12px 20px;margin-bottom:24px;border-radius:4px;font-size:0.85em}
-.proxy-notice a{color:var(--indigo);font-weight:600}
-pre{background:#0b0d16;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:.82em;color:#79c0ff;overflow:auto;max-height:260px;font-family:'Fira Code',monospace;white-space:pre-wrap;word-break:break-all}
+.status-shipped{background:rgba(16,185,129,0.12);color:var(--emerald);border:1px solid rgba(16,185,129,0.3);padding:3px 10px;border-radius:12px;font-size:0.75em;font-weight:800}
+.status-pending{background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.3);padding:3px 10px;border-radius:12px;font-size:0.75em;font-weight:800}
+.status-delivered{background:rgba(99,102,241,0.12);color:var(--indigo);border:1px solid rgba(99,102,241,0.3);padding:3px 10px;border-radius:12px;font-size:0.75em;font-weight:800}
+
+/* Login screen redesigned */
+.login-view-container{display:flex;min-height:90vh;align-items:center;justify-content:center;padding:40px 20px}
+.login-wrap{width:100%;max-width:480px;background:var(--surf);border:1px solid var(--border);border-radius:24px;padding:36px;box-shadow:var(--shadow-glass)}
+.login-wrap h2{font-family:'Outfit',sans-serif;color:var(--emerald);font-size:1.9em;font-weight:800;margin-bottom:8px;letter-spacing:-0.03em;text-align:center}
+.login-wrap p{color:var(--muted);font-size:0.92em;margin-bottom:24px;text-align:center}
+.accounts{background:rgba(0,0,0,0.15);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:20px}
+.accounts p{font-size:.82em;color:var(--muted);margin-bottom:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;text-align:left}
+.acc{display:flex;gap:10px;margin-bottom:10px;align-items:center;font-size:.85em;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:8px}
+.acc:last-child{border:none;padding-bottom:0}
+.acc span{color:var(--text);font-weight:600}
+.acc button{background:var(--surf2);border:1px solid var(--border);color:var(--text);border-radius:12px;padding:4px 12px;cursor:pointer;font-size:.8em;font-weight:700;transition:all 0.18s}
+.acc button:hover{border-color:var(--indigo);color:var(--indigo);background:var(--card-hover)}
+.warn-banner{background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:.84em;color:var(--amber);line-height:1.4}
+
+/* Store catalog grid */
+.catalog-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.search-container{position:relative;width:240px}
+.products-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.product-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:12px;position:relative;transition:all 0.25s ease;box-shadow:var(--shadow-glass)}
+.product-card:hover{transform:translateY(-3px);border-color:var(--border-glow);box-shadow:0 8px 24px rgba(99,102,241,0.12)}
+.product-card .card-badge{position:absolute;top:12px;right:12px;background:rgba(16,185,129,0.12);color:var(--emerald);border:1px solid rgba(16,185,129,0.25);border-radius:20px;padding:2px 8px;font-size:0.68em;font-weight:800}
+.product-card .title{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.1em;color:var(--text);margin-top:6px}
+.product-card .rating{font-size:0.8em;color:var(--amber);display:flex;gap:2px}
+.product-card .desc{font-size:0.82em;color:var(--muted);line-height:1.4;flex:1}
+.product-card .price-row{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.product-card .price{font-family:'Outfit',sans-serif;font-weight:800;font-size:1.25em;color:var(--amber)}
+
+/* Cart panel */
+.cart-summary{background:rgba(16,185,129,0.03);border:1.5px dashed rgba(16,185,129,0.3);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;flex-direction:column;gap:12px}
+.cart-header{font-weight:700;font-size:0.9em;text-transform:uppercase;color:var(--emerald);letter-spacing:0.04em}
+.cart-row{display:flex;justify-content:space-between;font-size:0.88em;font-weight:600}
+
+/* Labs and Consoles */
 .tab-row{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px}
 .tab{padding:12px 18px;cursor:pointer;font-size:.85em;color:var(--muted);border-bottom:2px solid transparent;font-weight:700;transition:all 0.18s}
 .tab:hover{color:var(--text)}
 .tab.active{color:var(--indigo);border-bottom-color:var(--indigo)}
 .tab-content{padding:0}
 .tab-pane{display:none}.tab-pane.active{display:block}
-details.guide{margin-bottom:16px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:10px}
+details.guide{margin-bottom:16px;background:rgba(0,0,0,0.15);border:1px solid var(--border);border-radius:10px}
 details.guide summary{padding:10px 14px;cursor:pointer;font-size:.82em;color:var(--amber);font-weight:700;user-select:none;display:flex;align-items:center;gap:6px}
 details.guide summary::before{content:"▶";font-size:.75em;transition:transform .15s;display:inline-block}
 details[open].guide summary::before{transform:rotate(90deg)}
@@ -281,13 +355,7 @@ details.guide li{font-size:.84em;color:var(--text);line-height:1.7}
 details.guide li strong{color:var(--indigo)}
 details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);margin-top:10px;padding-top:10px}
 
-/* E-Commerce Grid Styles */
-.products-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px}
-.product-card{background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;transition:all 0.2s}
-.product-card:hover{transform:translateY(-2px);border-color:var(--border-glow);box-shadow:0 4px 12px rgba(99,102,241,0.1)}
-.product-card .title{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.05em;color:#fff}
-.product-card .price{font-weight:800;font-size:1.15em;color:var(--amber)}
-.product-card .desc{font-size:0.8em;color:var(--muted);flex:1}
+pre{background:#040713;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:.82em;color:#79c0ff;overflow:auto;max-height:260px;font-family:'Fira Code',monospace;white-space:pre-wrap;word-break:break-all}
 </style>
 </head>
 <body>
@@ -300,7 +368,7 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
     <a class="nav-tool-link" href="http://localhost:9000/scan-ui" target="_blank">Security Scanner</a>
   </div>
   <!-- API mode toggle -->
-  <div style="display:flex;align-items:center;gap:4px;background:#1f293d;border:1px solid var(--border);border-radius:20px;padding:4px;margin-left:12px">
+  <div style="display:flex;align-items:center;gap:4px;background:var(--surf2);border:1px solid var(--border);border-radius:20px;padding:4px;margin-left:12px">
     <button id="mode-vuln-btn" onclick="setMode('vulnerable')"
       style="padding:5px 16px;border:none;border-radius:20px;font-size:.78em;font-weight:800;cursor:pointer;background:#f43f5e;color:#fff;transition:all 0.15s">
       Vulnerable
@@ -310,28 +378,33 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
       Hardened
     </button>
   </div>
-  <span id="nav-user" style="font-size:.85em;color:var(--muted);margin-left:auto;font-weight:600"></span>
-  <button id="logout-btn" onclick="logout()" style="display:none;padding:6px 16px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;font-size:.82em;font-weight:700;margin-left:10px">Logout</button>
+  <div class="nav-right">
+    <span id="nav-user" style="font-size:.88em;color:var(--text);font-weight:700"></span>
+    <button id="theme-toggle-btn" onclick="toggleShopTheme()">☀️ Light</button>
+    <button id="logout-btn" onclick="logout()" style="display:none;padding:7px 16px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;font-size:.82em;font-weight:700">Logout</button>
+  </div>
 </nav>
 
 <!-- ─── LOGIN ─── -->
 <div id="login-view">
-  <div class="login-wrap">
-    <h2>Sign in to ShopApp</h2>
-    <p>Demonstration storefront app for the CY384 API Security Lab.</p>
-    <div class="warn-banner">⚠️ All data is generated synthetically. This app exists strictly to demonstrate real API vulnerabilities in an isolated sandbox.</div>
-    <div class="accounts">
-      <p>Select a Practice Account:</p>
-      <div class="acc"><span>Alice (Regular User)</span><button onclick="fill('alice','alice123')">Select</button></div>
-      <div class="acc"><span>Bob (Regular User)</span><button onclick="fill('bob','bob123')">Select</button></div>
-      <div class="acc"><span>Admin Account</span><button onclick="fill('admin','admin123')">Select</button></div>
-    </div>
-    <div class="panel">
-      <div class="panel-body">
-        <div class="field"><label>Username</label><input id="l-user" type="text" placeholder="e.g. alice"></div>
-        <div class="field"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••"></div>
-        <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
-        <div class="msg" id="l-msg"></div>
+  <div class="login-view-container">
+    <div class="login-wrap">
+      <h2>Sign in to ShopApp</h2>
+      <p>Demonstration storefront app for the CY384 API Security Lab.</p>
+      <div class="warn-banner">⚠️ All data is generated synthetically. This app exists strictly to demonstrate real API vulnerabilities in an isolated sandbox.</div>
+      <div class="accounts">
+        <p>Select a Practice Account:</p>
+        <div class="acc"><span>Alice (Regular User)</span><button onclick="fill('alice','alice123')">Select</button></div>
+        <div class="acc"><span>Bob (Regular User)</span><button onclick="fill('bob','bob123')">Select</button></div>
+        <div class="acc"><span>Admin Account</span><button onclick="fill('admin','admin123')">Select</button></div>
+      </div>
+      <div class="panel">
+        <div class="panel-body" style="padding: 16px 0 0 0">
+          <div class="field"><label>Username</label><input id="l-user" type="text" placeholder="e.g. alice"></div>
+          <div class="field"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••"></div>
+          <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+          <div class="msg" id="l-msg"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -345,7 +418,7 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
       <!-- Active Protection Mode Status Banner -->
       <div class="panel" style="border-left:4px solid var(--indigo)">
         <div class="panel-body" style="padding:14px;font-size:0.85em;display:flex;flex-direction:column;gap:8px">
-          <div>⇄ Routing: <strong>Monitoring Proxy (9000)</strong></div>
+          <div style="font-weight:600">⇄ Routing: <span style="color:var(--indigo)">Monitoring Proxy (9000)</span></div>
           <div id="blocking-status-badge" style="background:rgba(248,81,73,0.12);color:var(--rose);border:1px solid rgba(248,81,73,0.3);padding:6px 12px;border-radius:12px;font-size:0.82em;font-weight:bold;text-align:center;transition:all 0.3s">
             Auto-Blocking: INACTIVE (Monitoring Only)
           </div>
@@ -356,6 +429,20 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
       <div class="panel">
         <div class="panel-hdr"><h3>My Profile</h3></div>
         <div class="panel-body" id="profile-display"></div>
+      </div>
+
+      <!-- Shopping Cart Summary -->
+      <div class="cart-summary">
+        <div class="cart-header">🛒 Shopping Cart</div>
+        <div class="cart-row">
+          <span>Active Item:</span>
+          <span id="cart-item-name">None Selected</span>
+        </div>
+        <div class="cart-row">
+          <span>Checkout Price:</span>
+          <span id="cart-item-price" style="color:var(--amber)">$0.00</span>
+        </div>
+        <button class="btn btn-primary" id="checkout-btn" style="margin-top:6px" onclick="checkoutCart()" disabled>Confirm Purchase</button>
       </div>
 
       <!-- Update Profile -->
@@ -377,7 +464,7 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
               <p class="gnote">Explanation: <code>PUT /users/{id}</code> updates database fields directly from client input without filtering. Privileged parameters (role, balance) should be blocked at the controller level.</p>
             </div>
           </details>
-          <div class="field"><label>Email Address</label><input id="u-email" type="text"></div>
+          <div class="field"><label>Email Address</label><input id="u-email" type="text" placeholder="new email"></div>
           <div class="field"><label>New Password</label><input id="u-pass" type="password" placeholder="Leave blank to keep"></div>
           <div class="field">
             <label>Role <span style="color:var(--rose)">(Server-only!)</span></label>
@@ -401,40 +488,53 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
     <div style="display:flex;flex-direction:column;gap:20px">
       <!-- E-commerce Store catalog -->
       <div class="panel">
-        <div class="panel-hdr"><h3>E-Commerce Hardware Catalog</h3></div>
+        <div class="panel-hdr" style="display:flex;align-items:center;justify-content:space-between">
+          <h3>E-Commerce Hardware Catalog</h3>
+          <div class="search-container">
+            <input type="text" id="store-search" placeholder="Search catalog..." oninput="filterStoreProducts()" style="padding:6px 12px;font-size:0.82em">
+          </div>
+        </div>
         <div class="panel-body">
           <p style="color:var(--muted);font-size:0.85em;margin-bottom:16px">Purchase premium security equipment. Your transaction will post to your order feed via the secure proxy.</p>
-          <div class="products-grid">
-            <div class="product-card">
+          <div class="products-grid" id="catalog-products-list">
+            <div class="product-card" data-title="fido2 cyberkey">
+              <span class="card-badge">HOT</span>
               <div class="title">Fido2 CyberKey</div>
-              <div class="desc">Cryptographic hardware token supporting passwordless WebAuthn.</div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+              <div class="rating">⭐⭐⭐⭐⭐ <span>(42)</span></div>
+              <div class="desc">Cryptographic hardware token supporting passwordless WebAuthn and security login.</div>
+              <div class="price-row">
                 <span class="price">$49.99</span>
-                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('Fido2 CyberKey', 49.99)">Buy Now</button>
+                <button class="btn btn-secondary" style="border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="selectProduct('Fido2 CyberKey', 49.99)">Add to Cart</button>
               </div>
             </div>
-            <div class="product-card">
+            <div class="product-card" data-title="pineapple wifi router">
+              <span class="card-badge">PENTEST</span>
               <div class="title">Pineapple WiFi Router</div>
-              <div class="desc">Hotspot auditing platform for wireless penetration testing.</div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+              <div class="rating">⭐⭐⭐⭐⭐ <span>(18)</span></div>
+              <div class="desc">Hotspot auditing platform for wireless penetration testing and monitoring.</div>
+              <div class="price-row">
                 <span class="price">$199.99</span>
-                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('Pineapple WiFi Router', 199.99)">Buy Now</button>
+                <button class="btn btn-secondary" style="border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="selectProduct('Pineapple WiFi Router', 199.99)">Add to Cart</button>
               </div>
             </div>
-            <div class="product-card">
+            <div class="product-card" data-title="proxytap hardware sniffer">
+              <span class="card-badge">POPULAR</span>
               <div class="title">ProxyTap Hardware Sniffer</div>
+              <div class="rating">⭐⭐⭐⭐☆ <span>(31)</span></div>
               <div class="desc">In-line ethernet packet tap for transparent packet analysis.</div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+              <div class="price-row">
                 <span class="price">$99.99</span>
-                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('ProxyTap Sniffer', 99.99)">Buy Now</button>
+                <button class="btn btn-secondary" style="border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="selectProduct('ProxyTap Sniffer', 99.99)">Add to Cart</button>
               </div>
             </div>
-            <div class="product-card">
+            <div class="product-card" data-title="cyberlab secure gateway">
+              <span class="card-badge">ENTERPRISE</span>
               <div class="title">CyberLab Secure Gateway</div>
+              <div class="rating">⭐⭐⭐⭐⭐ <span>(9)</span></div>
               <div class="desc">Rackmount hardware firewall with integrated intrusion prevention.</div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+              <div class="price-row">
                 <span class="price">$999.99</span>
-                <button class="btn btn-primary" style="width:auto;border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="placeOrder('Secure Gateway', 999.99)">Buy Now</button>
+                <button class="btn btn-secondary" style="border-radius:12px;padding:6px 12px;font-size:0.8em" onclick="selectProduct('Secure Gateway', 999.99)">Add to Cart</button>
               </div>
             </div>
           </div>
@@ -504,8 +604,8 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
                 <p class="gnote">Explanation: <code>GET /users/{id}</code> validates that the caller is logged in, but fails to check if the caller is authorized to view this specific user's database entry.</p>
               </div>
             </details>
-            <div style="display:flex;gap:8px;margin-bottom:12px">
-              <input id="bola-id" type="number" min="1" max="9" value="2" style="width:100px">
+            <div class="bola-form" style="display:flex;gap:8px;margin-bottom:12px;max-width:240px">
+              <input id="bola-id" type="number" min="1" max="9" value="2" placeholder="User ID">
               <button class="btn btn-danger" style="width:auto" onclick="doBolaFetch()">Fetch Profile</button>
             </div>
             <pre id="bola-result">Select User ID and click Fetch Profile</pre>
@@ -524,8 +624,8 @@ details.guide .gnote{font-size:.8em;color:var(--muted);line-height:1.5;border-to
                 <p class="gnote">Explanation: <code>GET /orders/{id}</code> displays orders without comparing the order's owner ID against the requester's user ID.</p>
               </div>
             </details>
-            <div style="display:flex;gap:8px;margin-bottom:12px">
-              <input id="order-id" type="number" min="1" max="9" value="2" style="width:100px">
+            <div class="order-form" style="display:flex;gap:8px;margin-bottom:12px;max-width:240px">
+              <input id="order-id" type="number" min="1" max="9" value="2" placeholder="Order ID">
               <button class="btn btn-danger" style="width:auto" onclick="doOrderFetch()">Fetch Order Detail</button>
             </div>
             <pre id="order-result">Select Order ID and click Fetch Order Detail</pre>
@@ -541,6 +641,7 @@ const API = 'http://localhost:9000';
 let token = null;
 let currentUser = null;
 let _mode = 'vulnerable';
+let cartItem = null;
 
 function _xhdr() {
   return _mode === 'hardened' ? {'X-Target': 'hardened'} : {};
@@ -651,24 +752,52 @@ async function loadOrders() {
   `).join('');
 }
 
-async function placeOrder(item, price) {
+function selectProduct(name, price) {
+  cartItem = { item: name, price: price };
+  document.getElementById('cart-item-name').textContent = name;
+  document.getElementById('cart-item-price').textContent = '$' + price.toFixed(2);
+  document.getElementById('checkout-btn').removeAttribute('disabled');
+}
+
+async function checkoutCart() {
+  if (!cartItem) return;
+  const btn = document.getElementById('checkout-btn');
+  btn.disabled = true;
   try {
     const r = await fetch(API + '/orders', {
       method: 'POST',
       headers: authHdr(),
-      body: JSON.stringify({ item, price })
+      body: JSON.stringify({ item: cartItem.item, price: cartItem.price })
     });
     const data = await r.json();
     if (!r.ok) {
-      alert("Order Blocked: " + (data.detail || "Request disallowed by MazAPI ML Proxy"));
+      alert("Order Blocked: " + (data.detail || "Request blocked by ML Proxy"));
       return;
     }
     alert("Purchase successful! Ordered: " + data.item);
+    cartItem = null;
+    document.getElementById('cart-item-name').textContent = "None Selected";
+    document.getElementById('cart-item-price').textContent = "$0.00";
     loadProfile();
     loadOrders();
   } catch (e) {
     alert("Network error: " + e.message);
+  } finally {
+    btn.disabled = false;
   }
+}
+
+function filterStoreProducts() {
+  const query = document.getElementById('store-search').value.toLowerCase().trim();
+  const cards = document.querySelectorAll('#catalog-products-list .product-card');
+  cards.forEach(card => {
+    const title = card.getAttribute('data-title') || '';
+    if (title.includes(query)) {
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  });
 }
 
 async function doUpdate() {
@@ -742,14 +871,14 @@ async function checkBlockingStatus() {
       if (badge) {
         if (data.inline_blocking) {
           badge.textContent = 'Auto-Blocking: ACTIVE (ML Protection)';
-          badge.style.background = 'rgba(63,185,80,0.12)';
-          badge.style.color = '#10b981';
-          badge.style.borderColor = 'rgba(63,185,80,0.3)';
+          badge.style.background = 'rgba(63,185,80,0.18)';
+          badge.style.color = '#3fb950';
+          badge.style.borderColor = 'rgba(63,185,80,0.4)';
         } else {
           badge.textContent = 'Auto-Blocking: INACTIVE (Monitoring Only)';
-          badge.style.background = 'rgba(248,81,73,0.12)';
-          badge.style.color = '#f43f5e';
-          badge.style.borderColor = 'rgba(244,63,94,0.3)';
+          badge.style.background = 'rgba(248,81,73,0.15)';
+          badge.style.color = '#f85149';
+          badge.style.borderColor = 'rgba(248,81,73,0.3)';
         }
       }
     }
@@ -757,6 +886,27 @@ async function checkBlockingStatus() {
     console.error("Failed to fetch proxy topology status", e);
   }
 }
+
+function toggleShopTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyShopTheme(next);
+  localStorage.setItem('shopTheme', next);
+}
+
+function applyShopTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    btn.innerHTML = theme === 'light' ? '🌙 Dark' : '☀️ Light';
+  }
+}
+
+// Initialize theme on DOM load
+(function initShopTheme() {
+  const saved = localStorage.getItem('shopTheme') || 'dark';
+  applyShopTheme(saved);
+})();
 
 // Start checking status periodically
 setInterval(checkBlockingStatus, 5000);
