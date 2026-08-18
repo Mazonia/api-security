@@ -76,3 +76,9 @@ api-security-project/probe_site.py
 # Temporary node binaries
 node.zip
 node_env/
+
+# Diagnostic Scripts
+check_extension.py
+patch_popup_js.py
+verify_all_modules.py
+
