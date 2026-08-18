@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MazAPI Scanner &amp; BOLT Inspector</title>
+  <title>MazAPI BOLT Security Suite</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="popup.css">
@@ -13,13 +13,12 @@
   <div class="brand">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="26" height="26" class="brand-logo">
       <defs>
-        <linearGradient id="epri" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
-        <linearGradient id="ewav" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00d4ff" stop-opacity="0"/><stop offset="20%" stop-color="#00d4ff"/><stop offset="80%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#00d4ff" stop-opacity="0"/></linearGradient>
+        <linearGradient id="epri" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00e599"/><stop offset="100%" stop-color="#6366f1"/></linearGradient>
         <filter id="egl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
       </defs>
       <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="url(#epri)" fill-opacity="0.14"/>
       <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="none" stroke="url(#epri)" stroke-width="3" filter="url(#egl)"/>
-      <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="#dde3ec" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="#f8fafc" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
     MazAPI <span>BOLT Side Panel</span>
   </div>
@@ -40,35 +39,38 @@
 </div>
 
 <div class="tabs">
-  <button class="tab active" data-tab="discover" data-tooltip="Auto-captures API endpoints and traffic as you browse" data-tip-dir="down">Capture</button>
+  <button class="tab active" data-tab="discover" data-tooltip="Auto-captures API endpoints and traffic as you browse" data-tip-dir="down">&#128269; Capture</button>
   <button class="tab" data-tab="auth" data-tooltip="Harvested JWTs, API keys, Bearer tokens and cookies" data-tip-dir="down">&#128273; Auth</button>
   <button class="tab" data-tab="replay" data-tooltip="Request Editor, Smart Parameter Picker &amp; Replay" data-tip-dir="down">&#9874; Replay</button>
   <button class="tab" data-tab="openapi" data-tooltip="Selectively export captured endpoints to OpenAPI 3.0" data-tip-dir="down">&#128196; OAS</button>
-  <button class="tab" data-tab="threats" data-tooltip="Threat score, attack-surface map and correlated attack chains" data-tip-dir="down">Threats</button>
-  <button class="tab" data-tab="scan" data-tooltip="Run OWASP API Top 10 active security scanner" data-tip-dir="down">Scan</button>
-  <button class="tab" data-tab="results" data-tooltip="Scan findings, severity tags and evidence" data-tip-dir="down">Results</button>
+  <button class="tab" data-tab="threats" data-tooltip="Threat score, attack-surface map and correlated attack chains" data-tip-dir="down">&#128737; Threats</button>
+  <button class="tab" data-tab="scan" data-tooltip="Run OWASP API Top 10 active security scanner" data-tip-dir="down">&#9654; Scan</button>
+  <button class="tab" data-tab="results" data-tooltip="Scan findings, severity tags and evidence" data-tip-dir="down">&#128203; Results</button>
   <button class="tab" data-tab="live" data-tooltip="Real-time stream of intercepted requests" data-tip-dir="down">&#9673; Live</button>
-  <button class="tab" data-tab="history" data-tooltip="Previous scans history" data-tip-dir="down">History</button>
+  <button class="tab" data-tab="history" data-tooltip="Previous scans history" data-tip-dir="down">&#128340; History</button>
+  <button class="tab" data-tab="guide" data-tooltip="Feature walkthrough and interactive usage guide" data-tip-dir="down">&#128214; Guide</button>
   <button class="tab" data-tab="settings" data-tooltip="Settings &amp; Dashboard links" data-tip-dir="down">&#9881;</button>
 </div>
 
 <!-- ── Tab 1: Captured APIs ───────────────────────────────────────────────── -->
 <div class="pane active" id="pane-discover">
-  <div class="section-title">Active Origin</div>
-  <div id="base-url" style="font-family:monospace;font-size:.84em;color:#58a6ff;margin-bottom:8px">—</div>
+  <div class="card-box" style="margin-bottom:12px">
+    <div class="section-title">Active Origin</div>
+    <div id="base-url" style="font-family:'JetBrains Mono',monospace;font-size:.90em;color:var(--accent);word-break:break-all;font-weight:600">—</div>
+  </div>
   <div id="token-area" style="margin-bottom:8px"></div>
   <div id="key-warnings" style="margin-bottom:8px"></div>
-  <div class="section-title">API Endpoints (<span id="ep-count">0</span>)</div>
+  <div class="section-title">Discovered API Endpoints (<span id="ep-count">0</span>)</div>
   <div id="endpoints-list"><div class="empty">Browse any website to start capturing API calls.</div></div>
-  <div style="margin-top:10px;display:flex;gap:6px">
-    <button class="export-btn" id="btn-postman" style="flex:1">&#128197; Postman</button>
-    <button class="export-btn" id="btn-openapi" style="flex:1">&#128196; OpenAPI 3.0</button>
+  <div style="margin-top:12px;display:flex;gap:8px">
+    <button class="export-btn" id="btn-postman" style="flex:1">&#128197; Postman Collection</button>
+    <button class="export-btn" id="btn-openapi" style="flex:1">&#128196; OpenAPI 3.0 Spec</button>
   </div>
 </div>
 
 <!-- ── Tab 2: Auth Token Harvester ────────────────────────────────────────── -->
 <div class="pane" id="pane-auth">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section-title" style="margin:0">Harvested Auth Tokens &amp; Keys &nbsp;<span id="auth-count" class="keys-badge">0</span><span id="keys-count" style="display:none">0</span></div>
     <button class="clear-btn" id="btn-clear-keys">Clear Auth</button>
   </div>
@@ -81,7 +83,7 @@
       <b>JWT Inspector</b>
       <span id="jwt-alg-badge" class="badge">HS256</span>
     </div>
-    <div id="jwt-details-content" style="font-size:.8em;margin-top:6px;font-family:monospace;word-break:break-all"></div>
+    <div id="jwt-details-content" style="font-size:.8em;margin-top:6px;font-family:'JetBrains Mono',monospace;word-break:break-all"></div>
   </div>
 </div>
 
@@ -91,7 +93,7 @@
   <div class="field">
     <label>Endpoint / Target</label>
     <div style="display:flex;gap:6px">
-      <select id="replay-method" style="width:90px;padding:6px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+      <select id="replay-method" style="width:95px;font-weight:700">
         <option value="GET">GET</option>
         <option value="POST">POST</option>
         <option value="PUT">PUT</option>
@@ -106,28 +108,28 @@
   <div class="field">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <label style="margin:0">Smart Parameter Picker (IDOR / BOLA)</label>
-      <span style="font-size:.72em;color:var(--text2)">Observed params</span>
+      <span style="font-size:.72em;color:var(--text2);font-weight:600">Observed params</span>
     </div>
-    <select id="smart-param-picker" style="width:100%;margin-top:4px;padding:6px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px">
+    <select id="smart-param-picker" style="margin-top:4px">
       <option value="">-- Select parameter to insert/swap --</option>
     </select>
   </div>
 
   <div class="field">
     <label>Custom Headers (one per line, e.g. Authorization: Bearer ...)</label>
-    <textarea id="replay-headers" rows="3" style="width:100%;padding:6px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:.8em" placeholder="Authorization: Bearer ...&#10;Content-Type: application/json"></textarea>
+    <textarea id="replay-headers" rows="3" placeholder="Authorization: Bearer ...&#10;Content-Type: application/json"></textarea>
   </div>
 
   <div class="field">
     <label>Request Body (JSON / Payload)</label>
-    <textarea id="replay-body" rows="3" style="width:100%;padding:6px;background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:monospace;font-size:.8em" placeholder='{"role": "admin", "balance": 999999}'></textarea>
+    <textarea id="replay-body" rows="3" placeholder='{"role": "admin", "balance": 999999}'></textarea>
   </div>
 
   <button class="scan-btn" id="btn-replay-send">&#9654; Send Replay Request</button>
 
-  <div id="replay-response-area" style="display:none;margin-top:12px">
-    <div class="section-title">Replay Response <span id="replay-status-badge" class="badge">200 OK</span> <span id="replay-latency" style="font-size:.75em;color:var(--text2)">45ms</span></div>
-    <div id="replay-response-body" class="code-box" style="max-height:180px;overflow-y:auto"></div>
+  <div id="replay-response-area" style="display:none;margin-top:14px">
+    <div class="section-title">Replay Response <span id="replay-status-badge" class="badge">200 OK</span> <span id="replay-latency" style="font-size:.75em;color:var(--text2);font-family:'JetBrains Mono',monospace">45ms</span></div>
+    <div id="replay-response-body" class="code-box" style="max-height:200px;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -135,15 +137,15 @@
 <div class="pane" id="pane-openapi">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <div class="section-title" style="margin:0">OAS Endpoint Picker</div>
-    <div style="display:flex;gap:4px">
-      <button class="export-btn" id="btn-oas-select-all" style="padding:2px 6px;font-size:.72em">Select All</button>
-      <button class="export-btn" id="btn-oas-clear-all" style="padding:2px 6px;font-size:.72em">Clear</button>
+    <div style="display:flex;gap:6px">
+      <button class="export-btn" id="btn-oas-select-all" style="padding:3px 8px;font-size:.74em">Select All</button>
+      <button class="export-btn" id="btn-oas-clear-all" style="padding:3px 8px;font-size:.74em">Clear</button>
     </div>
   </div>
-  <div id="oas-endpoints-checkboxes" style="max-height:180px;overflow-y:auto;background:var(--input-bg);padding:6px;border:1px solid var(--border);border-radius:4px;margin-bottom:10px">
+  <div id="oas-endpoints-checkboxes" style="max-height:220px;overflow-y:auto;background:var(--input-bg);padding:8px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px">
     <div class="empty">No captured endpoints to export yet.</div>
   </div>
-  <div style="display:flex;gap:6px">
+  <div style="display:flex;gap:8px">
     <button class="export-btn" id="btn-export-oas-yaml" style="flex:1">&#128196; Download YAML</button>
     <button class="export-btn" id="btn-export-oas-json" style="flex:1">&#128196; Download JSON</button>
   </div>
@@ -168,7 +170,7 @@
     </div>
   </div>
   <div class="section-title">Attack-Surface Map</div>
-  <div id="attack-map" style="margin-bottom:12px"></div>
+  <div id="attack-map" style="margin-bottom:14px"></div>
   <div class="section-title">Correlated Attack Chains</div>
   <div id="chains-list">
     <div class="empty">No active attack chains correlated yet.</div>
@@ -196,24 +198,24 @@
   <div class="field">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <label style="margin:0">Dashboard Ingest URL (optional)</label>
-      <button class="clear-btn" id="btn-detect-port" style="padding:1px 6px;font-size:.7em">&#128269; Detect Port</button>
+      <button class="clear-btn" id="btn-detect-port" style="padding:2px 8px;font-size:.72em">&#128269; Detect Port</button>
     </div>
     <input type="text" id="scan-monitor-url" placeholder="http://localhost:9000" style="margin-top:4px">
-    <div id="port-detect-status" style="font-size:.72em;color:var(--text2);margin-top:2px"></div>
+    <div id="port-detect-status" style="font-size:.74em;color:var(--text2);margin-top:3px"></div>
   </div>
   <button class="scan-btn" id="btn-scan">&#9654; Run Full Scan</button>
-  <div id="scan-status" style="margin-top:8px;font-size:.8em;color:#8b949e;text-align:center"></div>
+  <div id="scan-status" style="margin-top:10px;font-size:.82em;color:var(--text2);text-align:center"></div>
 </div>
 
 <!-- ── Tab 7: Results ─────────────────────────────────────────────────────── -->
 <div class="pane" id="pane-results">
   <div id="score-area"></div>
-  <div id="export-bar" style="display:none;margin-bottom:10px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
-      <button class="export-btn" id="btn-export-json">&#8675; JSON</button>
-      <button class="export-btn" id="btn-export-sarif">&#8675; SARIF</button>
+  <div id="export-bar" style="display:none;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+      <button class="export-btn" id="btn-export-json">&#8675; JSON Export</button>
+      <button class="export-btn" id="btn-export-sarif">&#8675; SARIF Export</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
       <button class="export-btn" id="btn-export-html">&#128196; HTML Report</button>
       <button class="export-btn" id="btn-send-webhook">&#128276; Send Alert</button>
     </div>
@@ -226,7 +228,7 @@
 <!-- ── Tab 8: Live Feed ───────────────────────────────────────────────────── -->
 <div class="pane" id="pane-live">
   <div class="live-bar">
-    <div style="display:flex;align-items:center;gap:6px">
+    <div style="display:flex;align-items:center;gap:8px">
       <div class="live-dot" id="live-dot"></div>
       <div class="section-title" style="margin:0">Live Traffic Interception</div>
     </div>
@@ -244,14 +246,97 @@
 
 <!-- ── Tab 9: History ─────────────────────────────────────────────────────── -->
 <div class="pane" id="pane-history">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section-title" style="margin:0">Scan History</div>
     <button class="clear-btn" id="btn-clear-history">Clear History</button>
   </div>
   <div id="history-list"></div>
 </div>
 
-<!-- ── Tab 10: Settings ───────────────────────────────────────────────────── -->
+<!-- ── Tab 10: Guide & How to Use ─────────────────────────────────────────── -->
+<div class="pane" id="pane-guide">
+  <div class="section-title">&#128214; How to Use MazAPI BOLT</div>
+  
+  <div class="guide-card">
+    <div class="guide-header">
+      <div class="guide-num">1</div>
+      <div class="guide-title">Auto-Discovery &amp; Traffic Capture</div>
+    </div>
+    <div class="guide-desc">
+      MazAPI silently monitors network activity in this tab. As you browse, it normalizes parameter templates (e.g. <code>/users/42</code> &rarr; <code>/users/{id}</code>) and detects API documentation endpoints.
+    </div>
+    <div class="guide-action-box">
+      <b>How to try:</b> Navigate to your web app or API test target (e.g. <code>http://localhost:8000/ui</code>). Switch to the <b>Capture</b> tab to watch routes appear automatically.
+    </div>
+  </div>
+
+  <div class="guide-card">
+    <div class="guide-header">
+      <div class="guide-num">2</div>
+      <div class="guide-title">Auth Harvesting &amp; JWT Inspection</div>
+    </div>
+    <div class="guide-desc">
+      Harvests Authorization Bearer tokens, API keys, and cookies from headers and client-side JavaScript. Automatically parses JWTs to flag <code>alg:none</code> bypasses, symmetric <code>HS256</code> keys, and expired credentials.
+    </div>
+    <div class="guide-action-box">
+      <b>How to try:</b> Log into an account on your target web app. Open the <b>Auth</b> tab to view decoded JWT headers, payload claims, and expiration timers.
+    </div>
+  </div>
+
+  <div class="guide-card">
+    <div class="guide-header">
+      <div class="guide-num">3</div>
+      <div class="guide-title">Request Manipulator &amp; Replay (BOLA / IDOR)</div>
+    </div>
+    <div class="guide-desc">
+      Craft and tamper with API requests directly in the sidebar. Use the <i>Smart Parameter Picker</i> to swap observed user IDs, test cross-tenant object access (BOLA), and test privilege escalation.
+    </div>
+    <div class="guide-action-box">
+      <b>How to try:</b> Open the <b>Replay</b> tab, select an observed ID or admin payload (<code>user_id=2</code>, <code>role=admin</code>), and click <b>Send Replay Request</b> to test authorization enforcement.
+    </div>
+  </div>
+
+  <div class="guide-card">
+    <div class="guide-header">
+      <div class="guide-num">4</div>
+      <div class="guide-title">Selective OpenAPI 3.0 Export</div>
+    </div>
+    <div class="guide-desc">
+      Extract live browser traffic into standardized OpenAPI 3.0 specifications. Filter specific endpoints or export the entire discovered surface.
+    </div>
+    <div class="guide-action-box">
+      <b>How to try:</b> Open the <b>OAS</b> tab, check the endpoints you want, and click <b>Download YAML</b> or <b>Download JSON</b>.
+    </div>
+  </div>
+
+  <div class="guide-card">
+    <div class="guide-header">
+      <div class="guide-num">5</div>
+      <div class="guide-title">Correlated Threat Chains &amp; Scorecard</div>
+    </div>
+    <div class="guide-desc">
+      Combines active scan results, behavioral telemetry, and exposed keys to correlate multi-step attack paths (e.g. <i>Mass Assignment + Weak JWT = Full Account Takeover</i>).
+    </div>
+    <div class="guide-action-box">
+      <b>How to try:</b> After running a scan, visit the <b>Threats</b> tab to see your letter grade, threat counts, attack surface map, and correlated exploit chains.
+    </div>
+  </div>
+
+  <div class="guide-card">
+    <div class="guide-header">
+      <div class="guide-num">6</div>
+      <div class="guide-title">Active OWASP API Top 10 Scanner</div>
+    </div>
+    <div class="guide-desc">
+      Runs 12+ client-side active vulnerability tests: Broken Object Level Authorization, Rate Limiting, JWT forgery, Path Traversal, SSRF, CORS wildcard, GraphQL Introspection, and PII leaks.
+    </div>
+    <div class="guide-action-box">
+      <b>How to try:</b> Open the <b>Scan</b> tab, verify your target URL, click <b>Run Full Scan</b>, and explore findings in the <b>Results</b> tab with full request/response evidence and PCI-DSS / GDPR compliance mappings.
+    </div>
+  </div>
+</div>
+
+<!-- ── Tab 11: Settings ───────────────────────────────────────────────────── -->
 <div class="pane" id="pane-settings">
   <div class="field">
     <label>Organisation Name (for reports)</label>
@@ -264,22 +349,24 @@
     <input type="hidden" id="setting-webhook">
   </div>
   <div class="field">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-      <input type="checkbox" id="set-auto-webhook"> Automatically alert webhook on Critical findings
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="set-auto-webhook" style="width:16px;height:16px;accent-color:var(--accent)"> Automatically alert webhook on Critical findings
     </label>
   </div>
   <div class="field">
     <label>Local Dashboard Ingest URL</label>
     <input type="text" id="set-monitor-url" placeholder="http://localhost:9000">
+    <input type="hidden" id="setting-monitor-url">
   </div>
   <div class="field">
-    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-      <input type="checkbox" id="set-link-dashboard"> Stream completed scans to local dashboard
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input type="checkbox" id="set-link-dashboard" style="width:16px;height:16px;accent-color:var(--accent)"> Stream completed scans to local dashboard
     </label>
+    <input type="hidden" id="setting-link-dashboard">
   </div>
-  <button class="scan-btn" id="btn-save-settings" style="margin-top:10px">Save Settings</button>
+  <button class="scan-btn" id="btn-save-settings" style="margin-top:12px">Save Settings</button>
   <button class="export-btn" id="btn-open-dashboard" style="width:100%;margin-top:8px">&#128202; Open Monitoring Dashboard</button>
-  <div id="settings-status" style="margin-top:6px;font-size:.78em;color:#3fb950;text-align:center"></div>
+  <div id="settings-status" style="margin-top:8px;font-size:.82em;color:var(--green);text-align:center;font-weight:600"></div>
 </div>
 
 <script src="popup.js"></script>
