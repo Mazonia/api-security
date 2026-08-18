@@ -21,7 +21,7 @@
       <polygon points="100,24 161,59 161,129 100,164 39,129 39,59" fill="none" stroke="url(#epri)" stroke-width="3" filter="url(#egl)"/>
       <path d="M68,120 L68,65 L100,96 L132,65 L132,120" fill="none" stroke="#dde3ec" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    MazAPI <span>BOLT v2.3</span>
+    MazAPI <span>BOLT Side Panel</span>
   </div>
   <div class="header-actions">
     <button class="theme-toggle" id="btn-theme" aria-label="Toggle theme">
@@ -55,7 +55,9 @@
 <!-- ── Tab 1: Captured APIs ───────────────────────────────────────────────── -->
 <div class="pane active" id="pane-discover">
   <div class="section-title">Active Origin</div>
-  <div id="base-url" style="font-family:monospace;font-size:.84em;color:#58a6ff;margin-bottom:10px">—</div>
+  <div id="base-url" style="font-family:monospace;font-size:.84em;color:#58a6ff;margin-bottom:8px">—</div>
+  <div id="token-area" style="margin-bottom:8px"></div>
+  <div id="key-warnings" style="margin-bottom:8px"></div>
   <div class="section-title">API Endpoints (<span id="ep-count">0</span>)</div>
   <div id="endpoints-list"><div class="empty">Browse any website to start capturing API calls.</div></div>
   <div style="margin-top:10px;display:flex;gap:6px">
@@ -66,10 +68,14 @@
 
 <!-- ── Tab 2: Auth Token Harvester ────────────────────────────────────────── -->
 <div class="pane" id="pane-auth">
-  <div class="section-title">Harvested Auth Tokens &amp; Keys &nbsp;<span id="auth-count" class="keys-badge">0</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="section-title" style="margin:0">Harvested Auth Tokens &amp; Keys &nbsp;<span id="auth-count" class="keys-badge">0</span><span id="keys-count" style="display:none">0</span></div>
+    <button class="clear-btn" id="btn-clear-keys">Clear Auth</button>
+  </div>
   <div id="auth-tokens-list">
     <div class="empty">No tokens harvested yet. Log in to an application or make authenticated requests to populate.</div>
   </div>
+  <div id="keys-list" style="display:none"></div>
   <div id="jwt-inspect-modal" class="jwt-card" style="display:none;margin-top:12px">
     <div class="jwt-header">
       <b>JWT Inspector</b>
@@ -121,7 +127,7 @@
 
   <div id="replay-response-area" style="display:none;margin-top:12px">
     <div class="section-title">Replay Response <span id="replay-status-badge" class="badge">200 OK</span> <span id="replay-latency" style="font-size:.75em;color:var(--text2)">45ms</span></div>
-    <div id="replay-response-body" class="code-box" style="max-height:160px;overflow-y:auto"></div>
+    <div id="replay-response-body" class="code-box" style="max-height:180px;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -145,8 +151,25 @@
 
 <!-- ── Tab 5: Threats & Scorecard ─────────────────────────────────────────── -->
 <div class="pane" id="pane-threats">
-  <div id="threats-summary-card"></div>
-  <div class="section-title" style="margin-top:12px">Correlated Attack Chains</div>
+  <div class="threat-hero">
+    <div class="ring-wrap">
+      <svg id="threat-ring" width="90" height="90" viewBox="0 0 120 120">
+        <circle class="ring-track" cx="60" cy="60" r="56" fill="none" stroke="var(--surface2)" stroke-width="8"/>
+        <circle id="ring-arc" cx="60" cy="60" r="56" fill="none" stroke="var(--green)" stroke-width="8" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+        <text id="ring-grade" class="ring-grade" x="60" y="66" text-anchor="middle" fill="var(--text)">—</text>
+        <text id="ring-score" class="ring-score" x="60" y="82" text-anchor="middle" fill="var(--text2)"></text>
+      </svg>
+    </div>
+    <div class="threat-counts">
+      <div class="tc" data-sev="CRITICAL"><span class="tc-n" id="tc-crit">0</span><span class="tc-l">Critical</span></div>
+      <div class="tc" data-sev="HIGH"><span class="tc-n" id="tc-high">0</span><span class="tc-l">High</span></div>
+      <div class="tc" data-sev="MEDIUM"><span class="tc-n" id="tc-med">0</span><span class="tc-l">Medium</span></div>
+      <div class="tc" data-sev="LOW"><span class="tc-n" id="tc-low">0</span><span class="tc-l">Low</span></div>
+    </div>
+  </div>
+  <div class="section-title">Attack-Surface Map</div>
+  <div id="attack-map" style="margin-bottom:12px"></div>
+  <div class="section-title">Correlated Attack Chains</div>
   <div id="chains-list">
     <div class="empty">No active attack chains correlated yet.</div>
   </div>
@@ -170,6 +193,14 @@
     <label>Protected Path (JWT test)</label>
     <input type="text" id="scan-protected" placeholder="auto-detected from captured traffic">
   </div>
+  <div class="field">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <label style="margin:0">Dashboard Ingest URL (optional)</label>
+      <button class="clear-btn" id="btn-detect-port" style="padding:1px 6px;font-size:.7em">&#128269; Detect Port</button>
+    </div>
+    <input type="text" id="scan-monitor-url" placeholder="http://localhost:9000" style="margin-top:4px">
+    <div id="port-detect-status" style="font-size:.72em;color:var(--text2);margin-top:2px"></div>
+  </div>
   <button class="scan-btn" id="btn-scan">&#9654; Run Full Scan</button>
   <div id="scan-status" style="margin-top:8px;font-size:.8em;color:#8b949e;text-align:center"></div>
 </div>
@@ -182,7 +213,10 @@
       <button class="export-btn" id="btn-export-json">&#8675; JSON</button>
       <button class="export-btn" id="btn-export-sarif">&#8675; SARIF</button>
     </div>
-    <button class="export-btn" id="btn-export-html" style="width:100%">&#128196; Download HTML Report</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
+      <button class="export-btn" id="btn-export-html">&#128196; HTML Report</button>
+      <button class="export-btn" id="btn-send-webhook">&#128276; Send Alert</button>
+    </div>
   </div>
   <div id="results-list">
     <div class="empty">Run a scan to see vulnerability results.</div>
@@ -191,15 +225,29 @@
 
 <!-- ── Tab 8: Live Feed ───────────────────────────────────────────────────── -->
 <div class="pane" id="pane-live">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <div class="section-title" style="margin:0">Live Traffic Interception</div>
-    <button class="clear-btn" id="btn-pause-live">Pause</button>
+  <div class="live-bar">
+    <div style="display:flex;align-items:center;gap:6px">
+      <div class="live-dot" id="live-dot"></div>
+      <div class="section-title" style="margin:0">Live Traffic Interception</div>
+    </div>
+    <button class="clear-btn" id="btn-live-pause">Pause</button>
+    <button class="clear-btn" id="btn-pause-live" style="display:none">Pause</button>
   </div>
-  <div id="live-feed-list" style="max-height:300px;overflow-y:auto"></div>
+  <div class="live-legend">
+    <span><i class="lg safe"></i> Safe</span>
+    <span><i class="lg watch"></i> Watch</span>
+    <span><i class="lg suspicious"></i> Suspicious</span>
+  </div>
+  <div id="live-feed" class="live-feed"></div>
+  <div id="live-feed-list" style="display:none"></div>
 </div>
 
 <!-- ── Tab 9: History ─────────────────────────────────────────────────────── -->
 <div class="pane" id="pane-history">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div class="section-title" style="margin:0">Scan History</div>
+    <button class="clear-btn" id="btn-clear-history">Clear History</button>
+  </div>
   <div id="history-list"></div>
 </div>
 
@@ -207,13 +255,30 @@
 <div class="pane" id="pane-settings">
   <div class="field">
     <label>Organisation Name (for reports)</label>
-    <input type="text" id="setting-org" placeholder="Acme Corp AppSec">
+    <input type="text" id="set-orgname" placeholder="Acme Corp AppSec">
+    <input type="hidden" id="setting-org">
   </div>
   <div class="field">
     <label>Webhook URL (Slack / Discord / SIEM)</label>
-    <input type="text" id="setting-webhook" placeholder="https://hooks.slack.com/services/...">
+    <input type="text" id="set-webhook" placeholder="https://hooks.slack.com/services/...">
+    <input type="hidden" id="setting-webhook">
+  </div>
+  <div class="field">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" id="set-auto-webhook"> Automatically alert webhook on Critical findings
+    </label>
+  </div>
+  <div class="field">
+    <label>Local Dashboard Ingest URL</label>
+    <input type="text" id="set-monitor-url" placeholder="http://localhost:9000">
+  </div>
+  <div class="field">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+      <input type="checkbox" id="set-link-dashboard"> Stream completed scans to local dashboard
+    </label>
   </div>
   <button class="scan-btn" id="btn-save-settings" style="margin-top:10px">Save Settings</button>
+  <button class="export-btn" id="btn-open-dashboard" style="width:100%;margin-top:8px">&#128202; Open Monitoring Dashboard</button>
   <div id="settings-status" style="margin-top:6px;font-size:.78em;color:#3fb950;text-align:center"></div>
 </div>
 

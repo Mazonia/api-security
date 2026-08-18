@@ -985,9 +985,16 @@ function _setActionIcon() {
   } catch (e) { /* OffscreenCanvas not ready yet */ }
 }
 
-// ── Context menu ──────────────────────────────────────────────────────────────
-// Create inside onInstalled so it only runs once, not on every service-worker wake
+// ── Side Panel & Context menu ──────────────────────────────────────────────────
+// Configure side panel behavior so clicking extension icon opens the side panel
+if (chrome.sidePanel?.setPanelBehavior) {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+}
+
 chrome.runtime.onInstalled.addListener(() => {
+  if (chrome.sidePanel?.setPanelBehavior) {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  }
   chrome.contextMenus.create({
     id:       "mazapi-scan-link",
     title:    "Scan this API with MazAPI",
@@ -996,7 +1003,12 @@ chrome.runtime.onInstalled.addListener(() => {
   _setActionIcon();
 });
 
-chrome.runtime.onStartup.addListener(_setActionIcon);
+chrome.runtime.onStartup.addListener(() => {
+  if (chrome.sidePanel?.setPanelBehavior) {
+    chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  }
+  _setActionIcon();
+});
 
 chrome.contextMenus.onClicked.addListener((info) => {
   const url = info.linkUrl || info.selectionText?.trim() || "";

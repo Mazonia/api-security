@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "MazAPI Scanner",
-  "version": "1.1.0",
-  "description": "Automatic API security scanner. Captures API calls on every page visited and runs OWASP/CWE/MITRE vulnerability tests — no backend required. Runs entirely on your machine; no user data leaves the device.",
+  "name": "MazAPI Scanner & BOLT Security Suite",
+  "version": "2.3.0",
+  "description": "Enterprise API & AI Security Scanner. Side Panel inspection, AST App Surface, Agent Audit, MCP Security, and OWASP API Top 10 testing.",
   "author": "Team One — UMaT Ghana",
 
   "permissions": [
@@ -11,13 +11,18 @@
     "activeTab",
     "scripting",
     "tabs",
-    "contextMenus"
+    "contextMenus",
+    "sidePanel"
   ],
   "host_permissions": ["<all_urls>"],
 
   "background": {
     "service_worker": "background.js",
     "type": "module"
+  },
+
+  "side_panel": {
+    "default_path": "popup.html"
   },
 
   "content_scripts": [
@@ -29,8 +34,7 @@
   ],
 
   "action": {
-    "default_popup": "popup.html",
-    "default_title": "MazAPI Scanner",
+    "default_title": "Open MazAPI Security Side Panel",
     "default_icon": {
       "16":  "icons/icon16.png",
       "48":  "icons/icon48.png",

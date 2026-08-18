@@ -29,7 +29,7 @@ function applyTheme(theme) {
   }
 }
 
-document.getElementById('btn-theme').addEventListener('click', () => {
+document.getElementById('btn-theme')?.addEventListener('click', () => {
   const current = document.documentElement.getAttribute('data-theme') || 'dark';
   const next = current === 'dark' ? 'light' : 'dark';
   applyTheme(next);
@@ -232,7 +232,7 @@ function renderDiscovered(session, activeTabUrl = "") {
 
   list.innerHTML = epRows + toggleBtn;
   if (eps.length > 20) {
-    document.getElementById("btn-toggle-eps").addEventListener("click", () => {
+    document.getElementById("btn-toggle-eps")?.addEventListener("click", () => {
       _showAllEndpoints = !_showAllEndpoints;
       renderDiscovered(session, activeTabUrl);
     });
@@ -240,7 +240,7 @@ function renderDiscovered(session, activeTabUrl = "") {
 }
 
 // ── Clear session ─────────────────────────────────────────────────────────────
-document.getElementById("btn-clear").addEventListener("click", () => {
+document.getElementById("btn-clear")?.addEventListener("click", () => {
   _showAllEndpoints = false;
   getActiveTabOrigin(origin => {
     chrome.runtime.sendMessage({ type: "CLEAR_SESSION", origin }, () => {
@@ -256,7 +256,7 @@ document.getElementById("btn-clear").addEventListener("click", () => {
 });
 
 // ── Postman / OpenAPI export from Capture tab ─────────────────────────────────
-document.getElementById("btn-postman").addEventListener("click", () => {
+document.getElementById("btn-postman")?.addEventListener("click", () => {
   const target = document.getElementById("scan-target").value.trim() || _lastTarget;
   if (!target) { alert("Browse a site first to capture endpoints."); return; }
   chrome.runtime.sendMessage({ type: "GENERATE_POSTMAN", target }, col => {
@@ -264,7 +264,7 @@ document.getElementById("btn-postman").addEventListener("click", () => {
   });
 });
 
-document.getElementById("btn-openapi").addEventListener("click", () => {
+document.getElementById("btn-openapi")?.addEventListener("click", () => {
   const target = document.getElementById("scan-target").value.trim() || _lastTarget;
   if (!target) { alert("Browse a site first to capture endpoints."); return; }
   chrome.runtime.sendMessage({ type: "GENERATE_OPENAPI", target }, spec => {
@@ -309,7 +309,7 @@ function checkActiveScanStatus() {
   });
 }
 
-document.getElementById("btn-scan").addEventListener("click", () => {
+document.getElementById("btn-scan")?.addEventListener("click", () => {
   const target     = document.getElementById("scan-target").value.trim();
   const token      = document.getElementById("scan-token").value.trim();
   const authEp     = document.getElementById("scan-auth-ep").value.trim();
@@ -449,7 +449,7 @@ function getFalsePositives(target) {
 }
 
 // ── Export buttons ────────────────────────────────────────────────────────────
-document.getElementById("btn-export-json").addEventListener("click", () => {
+document.getElementById("btn-export-json")?.addEventListener("click", () => {
   if (!_lastResults.length) return;
   downloadJSON({
     tool: "MazAPI Scanner v2.0", target: _lastTarget,
@@ -459,14 +459,14 @@ document.getElementById("btn-export-json").addEventListener("click", () => {
   }, `mazapi-scan-${Date.now()}.json`);
 });
 
-document.getElementById("btn-export-sarif").addEventListener("click", () => {
+document.getElementById("btn-export-sarif")?.addEventListener("click", () => {
   if (!_lastResults.length) return;
   chrome.runtime.sendMessage({ type: "GENERATE_SARIF", target: _lastTarget, results: _lastResults }, sarif => {
     downloadJSON(sarif, `mazapi-sarif-${Date.now()}.sarif`);
   });
 });
 
-document.getElementById("btn-export-html").addEventListener("click", () => {
+document.getElementById("btn-export-html")?.addEventListener("click", () => {
   if (!_lastResults.length) return;
   chrome.storage.local.get("mazapi_settings", d => {
     const orgName = d?.mazapi_settings?.orgName || "MazAPI Scanner";
@@ -482,89 +482,40 @@ document.getElementById("btn-export-html").addEventListener("click", () => {
   });
 });
 
-document.getElementById("btn-send-webhook").addEventListener("click", () => {
+document.getElementById("btn-send-webhook")?.addEventListener("click", () => {
   chrome.storage.local.get("mazapi_settings", d => {
     const url = d?.mazapi_settings?.webhookUrl || "";
     if (!url) { alert("No webhook URL set. Go to Settings tab."); return; }
+    const btn = document.getElementById("btn-send-webhook");
     chrome.runtime.sendMessage({ type: "SEND_WEBHOOK", webhookUrl: url, target: _lastTarget, score: _lastScore, results: _lastResults }, resp => {
-      document.getElementById("btn-send-webhook").textContent = resp?.ok ? "&#10003; Sent!" : "&#10007; Failed";
-      setTimeout(() => { document.getElementById("btn-send-webhook").textContent = "&#128276; Send Alert"; }, 2500);
+      if (btn) btn.innerHTML = resp?.ok ? "&#10003; Sent!" : "&#10007; Failed";
+      setTimeout(() => { if (btn) btn.innerHTML = "&#128276; Send Alert"; }, 2500);
     });
   });
 });
 
 // ── Keys tab ──────────────────────────────────────────────────────────────────
 function renderKeys() {
-  chrome.runtime.sendMessage({ type: "GET_SESSION" }, session => {
-    const keys    = session?.hardcoded_keys || [];
-    const list    = document.getElementById("keys-list");
-    const countEl = document.getElementById("keys-count");
-    countEl.textContent = keys.length;
-    countEl.className   = "keys-badge" + (keys.length ? " keys-badge-alert" : "");
-
-    if (!keys.length) {
-      list.innerHTML = '<div class="empty">No API keys detected yet.<br>Navigate to a website — MazAPI will scan its JavaScript automatically.</div>';
-      return;
-    }
-
-    const SEV = k => {
-      const n = (k.name || "").toLowerCase();
-      const s = (k.service || "").toLowerCase();
-      if (n.includes("live") || s.includes("live") || n.includes("aws") || n.includes("private") || n.includes("anthropic")) return "CRITICAL";
-      if (n.includes("test") || s.includes("test") || n.includes("generic")) return "HIGH";
-      return "CRITICAL";
-    };
-    const SEV_COLOR = { CRITICAL: "#f85149", HIGH: "#e3b341" };
-    const KEY_ICON  = k => {
-      const n = (k.name || "").toLowerCase();
-      if (n.includes("google"))    return "🔵";
-      if (n.includes("openai"))    return "🟢";
-      if (n.includes("anthropic")) return "🟣";
-      if (n.includes("aws"))       return "🟠";
-      if (n.includes("stripe"))    return "💜";
-      if (n.includes("github"))    return "⚫";
-      if (n.includes("gitlab"))    return "🟠";
-      if (n.includes("slack"))     return "🔴";
-      if (n.includes("twilio") || n.includes("sendgrid")) return "🔴";
-      if (n.includes("hugging"))   return "🟡";
-      if (n.includes("mapbox"))    return "🔵";
-      if (n.includes("notion"))    return "⬜";
-      return "🔑";
-    };
-
-    list.innerHTML = keys.map(k => {
-      const sev   = SEV(k);
-      const color = SEV_COLOR[sev] || "#f85149";
-      let srcLabel = "";
-      try {
-        const u = new URL(k.source || "");
-        srcLabel = u.pathname.length > 40 ? "…" + u.pathname.slice(-38) : u.pathname || "/";
-        if (k.source && k.source.includes("(inline)")) srcLabel = "inline script";
-      } catch { srcLabel = k.source || "page"; }
-
-      return `<div class="key-card">
-        <div class="key-card-hdr">
-          <span class="key-name">${KEY_ICON(k)} ${k.name || "API Key"}</span>
-          <span class="key-sev" style="color:${color}">${sev}</span>
-        </div>
-        <div class="key-service">&#128279; ${k.service || "Unknown service"}</div>
-        <div class="key-masked"><code>${k.maskedValue || (k.value || "").slice(0, 8) + "****"}</code></div>
-        <div class="key-source">&#128196; ${srcLabel}</div>
-      </div>`;
-    }).join("");
-  });
+  renderAuth();
 }
 
-document.getElementById("btn-clear-keys").addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "CLEAR_SESSION" }, () => {
-    document.getElementById("keys-list").innerHTML = '<div class="empty">Session cleared.</div>';
-    document.getElementById("keys-count").textContent = "0";
-    document.getElementById("keys-count").className = "keys-badge";
-    // Also reset the capture tab counters
-    document.getElementById("base-url").textContent = "—";
-    document.getElementById("token-area").innerHTML = "";
-    document.getElementById("endpoints-list").innerHTML = '<div class="empty">Session cleared.</div>';
-    document.getElementById("ep-count").textContent = "0";
+document.getElementById("btn-clear-keys")?.addEventListener("click", () => {
+  getActiveTabOrigin(origin => {
+    chrome.runtime.sendMessage({ type: "CLEAR_SESSION", origin }, () => {
+      const authList = document.getElementById("auth-tokens-list");
+      if (authList) authList.innerHTML = '<div class="empty">No tokens harvested yet. Log in to an application or make authenticated requests to populate.</div>';
+      const authCount = document.getElementById("auth-count");
+      if (authCount) authCount.textContent = "0";
+      const keysList = document.getElementById("keys-list");
+      if (keysList) keysList.innerHTML = '<div class="empty">Session cleared.</div>';
+      const keysCount = document.getElementById("keys-count");
+      if (keysCount) {
+        keysCount.textContent = "0";
+        keysCount.className = "keys-badge";
+      }
+      const tokenArea = document.getElementById("token-area");
+      if (tokenArea) tokenArea.innerHTML = "";
+    });
   });
 });
 
@@ -741,7 +692,7 @@ function stopLivePolling() {
   if (_liveTimer) { clearInterval(_liveTimer); _liveTimer = null; }
 }
 
-document.getElementById("btn-live-pause").addEventListener("click", () => {
+document.getElementById("btn-live-pause")?.addEventListener("click", () => {
   _livePaused = !_livePaused;
   document.getElementById("btn-live-pause").textContent = _livePaused ? "Resume" : "Pause";
   document.getElementById("live-dot").classList.toggle("paused", _livePaused);
@@ -833,7 +784,7 @@ function loadHistoryResults(h, allHistory) {
   document.querySelector(".tab[data-tab='results']").click();
 }
 
-document.getElementById("btn-clear-history").addEventListener("click", () => {
+document.getElementById("btn-clear-history")?.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "CLEAR_HISTORY" }, () => renderHistory());
 });
 
@@ -841,34 +792,41 @@ document.getElementById("btn-clear-history").addEventListener("click", () => {
 function loadSettings() {
   chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, s => {
     if (!s) return;
-    document.getElementById("set-orgname").value         = s.orgName || "";
-    document.getElementById("set-webhook").value         = s.webhookUrl || "";
-    document.getElementById("set-auto-webhook").checked   = !!s.autoWebhook;
-    const monUrl = s.monitorUrl || "http://localhost:9000";
-    document.getElementById("set-monitor-url").value     = monUrl;
-    document.getElementById("set-link-dashboard").checked = !!s.linkDashboard;
+    const org = document.getElementById("set-orgname") || document.getElementById("setting-org");
+    const wh = document.getElementById("set-webhook") || document.getElementById("setting-webhook");
+    const autoWh = document.getElementById("set-auto-webhook");
+    const monUrlEl = document.getElementById("set-monitor-url") || document.getElementById("setting-monitor-url");
+    const linkDash = document.getElementById("set-link-dashboard") || document.getElementById("setting-link-dashboard");
+    
+    if (org) org.value = s.orgName || "";
+    if (wh) wh.value = s.webhookUrl || "";
+    if (autoWh) autoWh.checked = !!s.autoWebhook;
+    const mUrl = s.monitorUrl || "http://localhost:9000";
+    if (monUrlEl) monUrlEl.value = mUrl;
+    if (linkDash) linkDash.checked = !!s.linkDashboard;
 
     const scanMonInput = document.getElementById("scan-monitor-url");
-    if (scanMonInput) scanMonInput.value = monUrl;
+    if (scanMonInput) scanMonInput.value = mUrl;
   });
 }
 
-document.getElementById("btn-save-settings").addEventListener("click", () => {
-  const monUrl = document.getElementById("set-monitor-url").value.trim() || "http://localhost:9000";
-  const settings = {
-    orgName:       document.getElementById("set-orgname").value.trim(),
-    webhookUrl:    document.getElementById("set-webhook").value.trim(),
-    autoWebhook:   document.getElementById("set-auto-webhook").checked,
-    monitorUrl:    monUrl,
-    linkDashboard: document.getElementById("set-link-dashboard").checked,
-  };
+document.getElementById("btn-save-settings")?.addEventListener("click", () => {
+  const monUrl = (document.getElementById("set-monitor-url")?.value || document.getElementById("setting-monitor-url")?.value || "http://localhost:9000").trim();
+  const orgName = (document.getElementById("set-orgname")?.value || document.getElementById("setting-org")?.value || "").trim();
+  const webhookUrl = (document.getElementById("set-webhook")?.value || document.getElementById("setting-webhook")?.value || "").trim();
+  const autoWebhook = !!document.getElementById("set-auto-webhook")?.checked;
+  const linkDashboard = !!document.getElementById("set-link-dashboard")?.checked;
+
+  const settings = { orgName, webhookUrl, autoWebhook, monitorUrl: monUrl, linkDashboard };
   const scanMonInput = document.getElementById("scan-monitor-url");
   if (scanMonInput) scanMonInput.value = monUrl;
 
   chrome.runtime.sendMessage({ type: "SAVE_SETTINGS", settings }, () => {
     const st = document.getElementById("settings-status");
-    st.textContent = "&#10003; Settings saved";
-    setTimeout(() => { st.textContent = ""; }, 2000);
+    if (st) {
+      st.innerHTML = "&#10003; Settings saved";
+      setTimeout(() => { st.innerHTML = ""; }, 2000);
+    }
   });
 });
 
