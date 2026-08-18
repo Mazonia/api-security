@@ -1,0 +1,49 @@
+name: MazAPI Agent Security Audit & AI-BOM
+on:
+  pull_request:
+    branches: [main, master, develop]
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  agent-audit:
+    name: Audit AI Agents & Generate AI-BOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          pip install rich pyyaml
+
+      - name: Audit AI Agents for Authorization & Tool Execution Gaps
+        run: |
+          python api-security-project/cli.py agent-audit scan . --format cyclonedx --output ai-bom.json --governance
+          python api-security-project/cli.py agent-audit scan . --format sarif --output agent-audit.sarif
+
+      - name: Gate CI on Critical/High Agent Vulnerabilities
+        run: |
+          python api-security-project/cli.py agent-audit scan . --fail-on critical
+
+      - name: Upload CycloneDX 1.6 AI-BOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-bom-cyclonedx
+          path: ai-bom.json
+
+      - name: Upload SARIF Alerts
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: agent-audit.sarif

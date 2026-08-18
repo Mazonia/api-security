@@ -129,6 +129,30 @@ def vuln_eval(lang):
     return 'const result = eval(req.query.expr);', "eval on user input"
 
 
+def vuln_agent_shell_tool(lang):
+    if lang == "python":
+        return '@tool\ndef run_cmd(cmd: str):\n    return subprocess.run(f"bash -c {cmd}", shell=True)', "agent tool executes unsanitized shell command"
+    return 'server.tool("run_cmd", async (args) => child_process.execSync(args.cmd));', "MCP tool executes unsanitized shell command"
+
+
+def vuln_agent_financial(lang):
+    if lang == "python":
+        return '@tool\ndef refund_order(order_id: str, amount: int):\n    return stripe.Refund.create(charge=order_id, amount=amount)', "agent tool triggers autonomous financial mutations without human approval"
+    return 'server.tool("refund", async (args) => stripe.refunds.create({ charge: args.id }));', "agent tool triggers autonomous financial mutations without human approval"
+
+
+def vuln_rag_tenant_leak(lang):
+    if lang == "python":
+        return 'def search_docs(query):\n    return pinecone_index.query(vector=embed(query), top_k=5)', "vector similarity query lacks tenant isolation metadata filter"
+    return 'async function searchDocs(q) {\n  return chroma.similaritySearch(q, 5);\n}', "vector similarity query lacks tenant isolation metadata filter"
+
+
+def vuln_confused_deputy(lang):
+    if lang == "python":
+        return '@tool\ndef delete_account(user_id: str):\n    db.users.delete_one({"_id": user_id})', "agent tool executes deletion without verifying calling user authorization"
+    return 'server.tool("delete_user", async (args) => db.users.delete({ id: args.id }));', "agent tool executes deletion without verifying calling user authorization"
+
+
 VULN_GENS = {
     "hardcoded-key":        vuln_hardcoded_key,
     "sql-injection":        vuln_sql_injection,
@@ -143,6 +167,10 @@ VULN_GENS = {
     "path-traversal":       vuln_path_traversal,
     "unauth-ops-endpoint":  vuln_unauth_health,
     "code-injection":       vuln_eval,
+    "agent-shell-tool":     vuln_agent_shell_tool,
+    "agent-financial":      vuln_agent_financial,
+    "rag-tenant-leak":      vuln_rag_tenant_leak,
+    "confused-deputy":      vuln_confused_deputy,
 }
 
 
@@ -238,6 +266,30 @@ def benign_json_parse(lang):
     return 'const data = JSON.parse(req.query.payload || "{}");', "JSON.parse, not eval"
 
 
+def benign_agent_shell_safe(lang):
+    if lang == "python":
+        return '@tool\ndef run_cmd(cmd_name: str):\n    if cmd_name in ALLOWED_COMMANDS:\n        return subprocess.run([cmd_name], shell=False)', "tool validates command against allowlist and uses array invocation"
+    return 'server.tool("run_cmd", async (args) => { if (ALLOWED.has(args.cmd)) child_process.execFile(args.cmd, []); });', "tool validates command against allowlist and uses execFile"
+
+
+def benign_agent_hitl_financial(lang):
+    if lang == "python":
+        return '@tool\ndef request_refund(order_id: str):\n    return create_pending_human_approval_ticket(order_id)', "financial action creates pending human-in-the-loop approval ticket"
+    return 'server.tool("request_refund", async (args) => queueForHumanReview(args.id));', "financial action creates pending human-in-the-loop approval ticket"
+
+
+def benign_rag_tenant_filtered(lang):
+    if lang == "python":
+        return 'def search_docs(query, current_org_id):\n    return pinecone_index.query(vector=embed(query), filter={"org_id": current_org_id})', "vector query enforces metadata tenant filter"
+    return 'async function searchDocs(q, orgId) {\n  return chroma.similaritySearch(q, 5, { org_id: orgId });\n}', "vector query enforces metadata tenant filter"
+
+
+def benign_tool_auth_checked(lang):
+    if lang == "python":
+        return '@tool\ndef delete_account(user_id: str, context_user_id: str):\n    if user_id == context_user_id:\n        db.users.delete(user_id)', "tool verifies calling user authorization before mutating state"
+    return 'server.tool("delete_user", async (args, ctx) => { if (args.id === ctx.userId) db.users.delete(args.id); });', "tool verifies calling user authorization before mutating state"
+
+
 BENIGN_GENS = {
     "hardcoded-key":        [benign_hardcoded_key, benign_placeholder_key],
     "sql-injection":        [benign_sql_param],
@@ -252,6 +304,10 @@ BENIGN_GENS = {
     "path-traversal":       [benign_path_basename],
     "unauth-ops-endpoint":  [benign_auth_health],
     "code-injection":       [benign_json_parse],
+    "agent-shell-tool":     [benign_agent_shell_safe],
+    "agent-financial":      [benign_agent_hitl_financial],
+    "rag-tenant-leak":      [benign_rag_tenant_filtered],
+    "confused-deputy":      [benign_tool_auth_checked],
 }
 
 LANGS = ["javascript", "typescript", "python"]

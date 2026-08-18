@@ -48,6 +48,9 @@ document.querySelectorAll(".tab").forEach(tab => {
       if (tab.dataset.tab === "history")  renderHistory();
       if (tab.dataset.tab === "settings") loadSettings();
       if (tab.dataset.tab === "keys")     renderKeys();
+      if (tab.dataset.tab === "auth")     renderAuth();
+      if (tab.dataset.tab === "replay")   initReplay();
+      if (tab.dataset.tab === "openapi")  initOAS();
       if (tab.dataset.tab === "threats")  renderThreats();
       if (tab.dataset.tab === "live")     { renderLive(); startLivePolling(); }
       else stopLivePolling();
@@ -126,6 +129,8 @@ function loadSession() {
     chrome.runtime.sendMessage({ type: "GET_SESSION", origin, url: activeTabUrl }, session => {
       if (!session) return;
       renderDiscovered(session, origin || activeTabUrl);
+      // Update live threat banner
+      updateThreatBanner(session);
       // Update Keys tab badge count without switching to it
       const keyCount = (session.hardcoded_keys || []).length;
       const countEl  = document.getElementById("keys-count");
@@ -922,6 +927,283 @@ if (chrome.tabs?.onUpdated) {
     }
   });
 }
+
+// ── Auth Token Harvester ──────────────────────────────────────────────────────
+function renderAuth() {
+  getActiveTabOrigin((origin, activeUrl) => {
+    chrome.runtime.sendMessage({ type: "GET_SESSION", origin, url: activeUrl }, session => {
+      const list = document.getElementById("auth-tokens-list");
+      const badge = document.getElementById("auth-count");
+      if (!session) return;
+      
+      const tokens = session.tokens || [];
+      const apiKeys = session.apiKeys || [];
+      const totalAuth = tokens.length + apiKeys.length;
+      if (badge) badge.textContent = totalAuth;
+
+      if (totalAuth === 0) {
+        list.innerHTML = '<div class="empty">No tokens harvested yet. Log in to an application or make authenticated requests to populate.</div>';
+        return;
+      }
+
+      let html = "";
+      tokens.forEach((tok, idx) => {
+        const short = tok.length > 50 ? tok.slice(0, 24) + "..." + tok.slice(-16) : tok;
+        html += `
+          <div class="key-card" style="border-left-color: var(--indigo); margin-bottom: 8px;">
+            <div class="key-card-hdr">
+              <span class="key-name">Bearer Token #${idx + 1}</span>
+            </div>
+            <div class="key-masked"><code>${short}</code></div>
+            ${decodeJWT(tok)}
+          </div>
+        `;
+      });
+
+      apiKeys.forEach((k) => {
+        html += `
+          <div class="key-card" style="border-left-color: var(--amber); margin-bottom: 8px;">
+            <div class="key-card-hdr">
+              <span class="key-name">${k.header}</span>
+            </div>
+            <div class="key-masked"><code>${k.value}</code></div>
+          </div>
+        `;
+      });
+
+      list.innerHTML = html;
+    });
+  });
+}
+
+// ── Request Manipulator & Replay ───────────────────────────────────────────────
+function initReplay() {
+  getActiveTabOrigin((origin, activeUrl) => {
+    chrome.runtime.sendMessage({ type: "GET_SESSION", origin, url: activeUrl }, session => {
+      const picker = document.getElementById("smart-param-picker");
+      const urlInput = document.getElementById("replay-url");
+      const headersInput = document.getElementById("replay-headers");
+      if (!session) return;
+
+      const paramMap = {};
+      Object.keys(session.endpoints || {}).forEach(path => {
+        const pathMatches = path.match(/\{([^\}]+)\}|:([a-zA-Z0-9_]+)/g);
+        if (pathMatches) {
+          pathMatches.forEach(p => {
+            paramMap[p] = "1";
+          });
+        }
+      });
+
+      if (session.tokens?.length && headersInput && !headersInput.value) {
+        headersInput.value = `Authorization: Bearer ${session.tokens[0]}\nContent-Type: application/json`;
+      }
+
+      if (urlInput && !urlInput.value && session.baseUrl) {
+        const firstEp = Object.keys(session.endpoints || {})[0] || "/api";
+        urlInput.value = session.baseUrl + firstEp.replace(/\{id\}/g, "1");
+      }
+
+      if (picker) {
+        let optionsHtml = '<option value="">-- Select parameter to insert/swap --</option>';
+        optionsHtml += '<option value="user_id=2">user_id=2 (BOLA Cross-Tenant Swap)</option>';
+        optionsHtml += '<option value="id=9999">id=9999 (IDOR Enumeration)</option>';
+        optionsHtml += '<option value="role=admin">role=admin (Privilege Escalation)</option>';
+        optionsHtml += '<option value="is_admin=true">is_admin=true (Mass Assignment)</option>';
+        Object.keys(paramMap).forEach(p => {
+          optionsHtml += `<option value="${p}=2">${p}=2 (Observed in Path)</option>`;
+        });
+        picker.innerHTML = optionsHtml;
+      }
+    });
+  });
+}
+
+document.getElementById("smart-param-picker")?.addEventListener("change", (e) => {
+  const val = e.target.value;
+  if (!val) return;
+  const urlInput = document.getElementById("replay-url");
+  const bodyInput = document.getElementById("replay-body");
+  if (urlInput && (val.startsWith("{") || val.includes("id="))) {
+    urlInput.value = urlInput.value.replace(/\/\d+(?=\/|$)/, "/2");
+  } else if (bodyInput && (val.includes("admin") || val.includes("role"))) {
+    try {
+      const parsed = JSON.parse(bodyInput.value || "{}");
+      const [k, v] = val.split("=");
+      parsed[k] = v === "true" ? true : v;
+      bodyInput.value = JSON.stringify(parsed, null, 2);
+    } catch {
+      bodyInput.value = `{"${val.split('=')[0]}": "${val.split('=')[1]}"}`;
+    }
+  }
+});
+
+document.getElementById("btn-replay-send")?.addEventListener("click", async () => {
+  const method = document.getElementById("replay-method")?.value || "GET";
+  const url = document.getElementById("replay-url")?.value.trim();
+  const rawHeaders = document.getElementById("replay-headers")?.value.trim() || "";
+  const body = document.getElementById("replay-body")?.value.trim();
+  const respArea = document.getElementById("replay-response-area");
+  const respBadge = document.getElementById("replay-status-badge");
+  const latencyEl = document.getElementById("replay-latency");
+  const respBody = document.getElementById("replay-response-body");
+
+  if (!url) return;
+
+  const headers = {};
+  rawHeaders.split("\n").forEach(l => {
+    const idx = l.indexOf(":");
+    if (idx > 0) headers[l.slice(0, idx).trim()] = l.slice(idx + 1).trim();
+  });
+
+  if (respArea) respArea.style.display = "block";
+  if (respBody) respBody.textContent = "Sending request...";
+  const start = performance.now();
+
+  try {
+    const fetchOpts = { method, headers };
+    if (["POST", "PUT", "PATCH"].includes(method) && body) {
+      fetchOpts.body = body;
+    }
+    const res = await fetch(url, fetchOpts);
+    const duration = Math.round(performance.now() - start);
+    const text = await res.text();
+
+    if (respBadge) {
+      respBadge.textContent = `${res.status} ${res.statusText || ""}`;
+      respBadge.className = `badge ${res.status < 300 ? 'badge-get' : res.status < 500 ? 'badge-delete' : 'badge-post'}`;
+    }
+    if (latencyEl) latencyEl.textContent = `${duration}ms`;
+
+    if (respBody) {
+      try {
+        respBody.textContent = JSON.stringify(JSON.parse(text), null, 2);
+      } catch {
+        respBody.textContent = text || "(Empty response)";
+      }
+    }
+  } catch (err) {
+    if (respBadge) {
+      respBadge.textContent = "FETCH ERROR";
+      respBadge.className = "badge badge-delete";
+    }
+    if (respBody) respBody.textContent = err.message;
+  }
+});
+
+// ── OAS Picker & OpenAPI Spec ─────────────────────────────────────────────────
+function initOAS() {
+  getActiveTabOrigin((origin, activeUrl) => {
+    chrome.runtime.sendMessage({ type: "GET_SESSION", origin, url: activeUrl }, session => {
+      const container = document.getElementById("oas-endpoints-checkboxes");
+      if (!container) return;
+      if (!session || !session.endpoints || !Object.keys(session.endpoints).length) {
+        container.innerHTML = '<div class="empty">No captured endpoints to export yet. Browse the target app to populate.</div>';
+        return;
+      }
+
+      let html = "";
+      Object.entries(session.endpoints).forEach(([path, data]) => {
+        const methods = (data.methods || ["GET"]).join(", ");
+        html += `
+          <label class="oas-check-item">
+            <input type="checkbox" checked class="oas-ep-checkbox" data-path="${path}" data-methods="${methods}" data-auth="${data.authRequired}">
+            <span style="color: var(--accent); font-weight: 700;">${methods}</span>
+            <span style="flex: 1; overflow: hidden; text-overflow: ellipsis;">${path}</span>
+          </label>
+        `;
+      });
+      container.innerHTML = html;
+    });
+  });
+}
+
+document.getElementById("btn-oas-select-all")?.addEventListener("click", () => {
+  document.querySelectorAll(".oas-ep-checkbox").forEach(cb => cb.checked = true);
+});
+document.getElementById("btn-oas-clear-all")?.addEventListener("click", () => {
+  document.querySelectorAll(".oas-ep-checkbox").forEach(cb => cb.checked = false);
+});
+
+document.getElementById("btn-export-oas-yaml")?.addEventListener("click", () => {
+  getActiveTabOrigin((origin) => {
+    chrome.runtime.sendMessage({ type: "GET_SESSION", origin }, session => {
+      const selectedPaths = {};
+      document.querySelectorAll(".oas-ep-checkbox:checked").forEach(cb => {
+        const path = cb.dataset.path;
+        selectedPaths[path] = (session && session.endpoints && session.endpoints[path]) || { methods: [cb.dataset.methods], authRequired: cb.dataset.auth === 'true' };
+      });
+      const spec = generateOpenAPI(origin || (session && session.baseUrl) || "http://localhost:8000", selectedPaths);
+      downloadYAML(spec, `openapi_${new URL(origin || 'http://localhost').hostname}.yaml`);
+    });
+  });
+});
+
+document.getElementById("btn-export-oas-json")?.addEventListener("click", () => {
+  getActiveTabOrigin((origin) => {
+    chrome.runtime.sendMessage({ type: "GET_SESSION", origin }, session => {
+      const selectedPaths = {};
+      document.querySelectorAll(".oas-ep-checkbox:checked").forEach(cb => {
+        const path = cb.dataset.path;
+        selectedPaths[path] = (session && session.endpoints && session.endpoints[path]) || { methods: [cb.dataset.methods], authRequired: cb.dataset.auth === 'true' };
+      });
+      const spec = generateOpenAPI(origin || (session && session.baseUrl) || "http://localhost:8000", selectedPaths);
+      downloadJSON(spec, `openapi_${new URL(origin || 'http://localhost').hostname}.json`);
+    });
+  });
+});
+
+function downloadYAML(obj, filename) {
+  function toYaml(data, indent = 0) {
+    const pad = "  ".repeat(indent);
+    let str = "";
+    if (typeof data === "object" && data !== null) {
+      if (Array.isArray(data)) {
+        data.forEach(item => {
+          str += `${pad}- ${typeof item === 'object' ? '\n' + toYaml(item, indent + 1) : item}\n`;
+        });
+      } else {
+        Object.entries(data).forEach(([k, v]) => {
+          if (typeof v === "object" && v !== null) {
+            str += `${pad}${k}:\n${toYaml(v, indent + 1)}`;
+          } else {
+            str += `${pad}${k}: ${v}\n`;
+          }
+        });
+      }
+    }
+    return str;
+  }
+  const yamlStr = "openapi: 3.0.3\n" + toYaml(obj);
+  const blob = new Blob([yamlStr], { type: "text/yaml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function updateThreatBanner(session) {
+  const banner = document.getElementById("live-threat-banner");
+  const textEl = document.getElementById("threat-banner-text");
+  if (!banner || !session) return;
+
+  const behs = session.behavioral || [];
+  const keys = session.hardcoded_keys || [];
+  if (behs.length > 0) {
+    const worst = behs[behs.length - 1];
+    if (textEl) textEl.textContent = `[${worst.severity}] ${worst.title}: ${worst.path}`;
+    banner.style.display = "flex";
+  } else if (keys.length > 0) {
+    if (textEl) textEl.textContent = `[CRITICAL] Hardcoded API key detected in page JavaScript`;
+    banner.style.display = "flex";
+  } else {
+    banner.style.display = "none";
+  }
+}
+
+document.getElementById("btn-view-threat")?.addEventListener("click", () => {
+  document.querySelector(".tab[data-tab='threats']")?.click();
+});
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadSettings();

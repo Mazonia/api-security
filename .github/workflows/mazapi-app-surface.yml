@@ -1,0 +1,47 @@
+name: MazAPI App Surface Check
+on:
+  pull_request:
+    branches: [main, master, develop]
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  app-surface:
+    name: Map App & API Surface
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install MazAPI Dependencies
+        run: |
+          pip install pyyaml rich
+
+      - name: Run App Surface Static Route Discovery
+        run: |
+          python api-security-project/cli.py app-surface scan . --format openapi --output apisec-bolt-code-discovery/openapi_spec.yaml
+          python api-security-project/cli.py app-surface scan . --format sarif --output app-surface.sarif
+
+      - name: Upload OpenAPI Specification
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: apisec-bolt-code-discovery/openapi_spec.yaml
+
+      - name: Upload SARIF Code Scanning Alerts
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: app-surface.sarif

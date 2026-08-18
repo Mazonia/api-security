@@ -1,0 +1,1344 @@
+```
+The page introduces **apisec Surface**, a free, open-source toolset designed to
+help organizations discover, inventory, and secure the expanding "attack
+surface" of modern applications?especially those incorporating AI, APIs, and
+agents.
+```
+
+```
+Its core mission is to **find every entry point** (from code to live traffic)
+before attackers do, without sending data outside your environment. It focuses
+on **AI-specific risks** (like LLM SDKs, agent frameworks, and MCP servers)
+alongside traditional API and application endpoints.
+```
+
+# `### Key Capabilities` 
+
+```
+*   **AI Surface**: A static code analyzer that scans source code for AI
+components across 12+ providers and frameworks (LangChain, CrewAI, etc.). It
+flags 13 risk indicators and runs 100% locally as a GitHub Action.
+```
+
+```
+*   **APIsec Bolt (Code)**: A GitHub Action that detects API frameworks (Spring
+Boot, FastAPI, etc.) and generates OpenAPI 3.0 specs from code to catch
+undocumented "shadow" endpoints in CI.
+```
+
+```
+*   **APIsec Bolt (Browser Extension)**: Captures live API traffic directly from
+your browser, filtering noise to build a real-time inventory of endpoints
+without proxies.
+```
+
+```
+*   **MCP Audit**: Scans Model Context Protocol configurations for secrets,
+shadow APIs, and misconfigurations, generating AI-BOMs for compliance.
+```
+
+```
+*   **App Surface**: Maps routes and parameters from source code to identify
+undocumented endpoints before they reach production.
+```
+
+```
+*   **Agent Audit**: Checks AI agents for authorization gaps and over-
+permissioned tool calls.
+```
+
+# `### Outputs & Integration` 
+
+```
+Instead of just listing endpoints, the tools generate three types of Bill of
+Materials (BOMs):
+```
+
+`1.  **AI-BOM**: Inventory of AI components and risks.` 
+
+`2.  **API-BOM**: List of all API endpoints.` 
+
+`3.  **S-BOM**: Software Bill of Materials.` 
+
+```
+These can be gated in your CI/CD pipeline at the **Pull Request (PR)** stage,
+ensuring high-risk findings are caught as a "diff" rather than in production.
+```
+
+# `### Philosophy` 
+
+```
+The page emphasizes a two-part approach:
+```
+
+`1.  **Mapping**: apisec Surface provides a free, static map of your entire attack surface at PR time.` 
+
+`2.  **Proof**: apisec (the commercial platform) proves which of those mapped endpoints are actually *exploitable* at runtime.` 
+
+```
+The tools are designed to be **private by design**?nothing leaves your machine?
+and to give CISOs a one-page summary to justify security investments.
+```
+
+# `ai-surface` 
+
+```
+Find the AI attack surface your code is about to ship. Locally, offline, before
+the PR merges.
+```
+
+```
+License: MIT Python 3.9+ Version Tests Runs offline
+```
+
+```
+ai-surface maps the AI attack surface in your codebase: LLM calls, agents, MCP
+servers, RAG/vector stores, model gateways, self-hosted runtimes, provider keys,
+and the HTTP APIs that expose them. Run it locally or in CI to see what AI
+surfaces a PR introduces, generate an AI-BOM, and gate new high-risk findings
+before merge.
+```
+
+```
+Most layers of a codebase already have a check that runs before merge: Trivy for
+```
+
+```
+container images, Gitleaks for committed secrets, an SCA for dependencies. The
+AI layer, the agents, MCP servers, RAG, and LLM calls, has not had one. ai-
+surface is that check.
+```
+
+```
+Every risky finding carries a verdict: confirmed risk (an unambiguous fact of
+the code as written, like a financial-action tool with no approval step) or
+likely risk (inferred, wants a human look). Every scan ends on a scorecard with
+a posture grade. CI setup is one command: ai-surface init.
+```
+
+```
+It runs as a local static analysis pass that executes no code, makes no network
+calls, sends no telemetry, and requires no credentials, so your source never
+leaves the host.
+```
+
+```
+Try it without installing:
+```
+
+```
+uvx --from apisec-ai-surface ai-surface scan .
+If ai-surface is useful to you, star the repo so more engineers find it.
+```
+
+```
+Findings map to the OWASP LLM Top 10 and the EU AI Act, NIST AI RMF, and ISO
+42001, so the AI-BOM doubles as governance evidence (see Compliance). Runtime
+exploit validation is out of scope for this OSS scanner.
+```
+
+```
+ai-surface attack surface map
+```
+
+```
+The optional --ui map shows detected AI surfaces as nodes grouped by category.
+It is served on loopback and runs locally.
+```
+
+```
+Who is this for?
+Use ai-surface if you are:
+```
+
+```
+adding agents, MCP servers, RAG, model gateways, or LLM calls to an application
+reviewing AI-related pull requests before they merge
+adding an AI risk gate to CI/CD
+building an AI-BOM or AI-governance inventory from source code
+trying to understand where AI risk enters your codebase
+Built for DevOps, DevSecOps, platform engineering, AppSec, and security-minded
+engineering teams.
+```
+
+```
+Table of Contents
+Who is this for?
+Quick start
+What the output looks like
+First run on a mature repo
+GitHub Action and CI gating
+Open the local UI
+What it detects
+Proven on real code
+Output formats
+CLI reference
+Compliance and governance
+How it works
+Comparison with adjacent tools
+What it does not do
+Roadmap
+Runtime validation
+Development
+Project
+License
+Quick start
+Install once, then run ai-surface anywhere:
+```
+
+```
+pipx install apisec-ai-surface
+ai-surface scan .
+# if the ai-surface command is not found after install, run: pipx ensurepath
+```
+
+```
+# then open a new shell
+```
+
+```
+# or run once with no install
+uvx --from apisec-ai-surface ai-surface scan .
+```
+
+```
+# or in a project venv
+pip install apisec-ai-surface && ai-surface scan .
+```
+
+```
+# explore the results visually
+ai-surface scan . --ui
+Requires Python 3.9+. The CLI runs locally; --ui serves on loopback only.
+```
+
+```
+What the output looks like
+Reproduce this yourself on the bundled demo app: ai-surface scan examples/demo-
+app --governance (add --ui for the interactive map). Each risky finding carries
+a verdict: CONFIRMED RISK when the risk is a fact of the code as written (a
+declared capability, a present secret, a financial tool with no approval step)
+or LIKELY RISK when it is inferred and wants a human look. The run ends on a
+scorecard. The block is shown with --governance so the per-finding EU AI Act /
+NIST / ISO clauses are visible; by default those collapse to a single summary
+line (Governance: evidence for EU AI Act, NIST AI RMF, ISO/IEC 42001, OWASP LLM
+Top 10). Add --ai-only to drop the plain API-endpoint section. Output below is
+trimmed for length.
+```
+
+```
+AI Attack Surface Report
+```
+
+```
+????????????????????????????????????????????????????????????????
+Project:    demo-app
+19 production AI surfaces ? 25 risk indicators ? across 8 detector(s)
+Severity: 3 high ? 1 medium
+```
+
+# `AGENT FRAMEWORKS` 
+
+```
+  ? AWS Strands Agent: triage_agent (in src/support_workflow.py)
+      Tools/perms: fetch_customer_profile, search_knowledge_base,
+escalate_to_human
+  ? LangChain Agent: support_agent (in src/chat_agent.py)  CONFIRMED RISK
+[HIGH]
+      Tools/perms: lookup_order, refund_payment, cancel_subscription
+       financial action exposed    high blast-radius combination??
+       [HIGH] financial-action?
+        Agent can invoke financial tools (refund_payment)
+        OWASP: LLM06    Governance: EU AI Act Art. 9
+        Fix: Gate financial tools behind human approval; least-privilege the
+agent.
+```
+
+```
+       [HIGH] no-human-oversight?
+        High-risk action runs with no human approval / in-the-loop gate detected
+        OWASP: LLM06, LLM09    Governance: EU AI Act Art. 14
+```
+
+# `MCP SERVERS` 
+
+```
+  ? MCP Server: stripe-mcp  CONFIRMED RISK  [HIGH]   Trust: verified (90/100)
+      Tools/perms: read_charges, refund, customer:read
+```
+
+```
+       [HIGH] financial-action?
+        MCP exposes financial tools (refund, charge, payout) to the model.
+        OWASP: LLM06    Governance: EU AI Act Art. 9
+       [MEDIUM] unverified-source?
+        MCP is not from a known/verified publisher; its posture is unknown.
+        OWASP: LLM03    Governance: ISO 42001 A.10
+  ? MCP Server: github-mcp  CONFIRMED RISK  [MEDIUM]
+       [MEDIUM] remote-mcp        MCP connects to a remote server via URL?
+       [MEDIUM] broad-permissions MCP is granted broad (admin/write) scopes?
+```
+
+# `LLM SDK CALL SITES` 
+
+- `Anthropic SDK  LIKELY RISK ? claude-3-5-sonnet ? src/llm_service.py non-literal data flows into LLM call? ? AWS Bedrock ? us.anthropic.claude-sonnet-4 ? src/support_workflow.py` 
+
+```
+VECTOR-STORE
+  ? Vector store: pgvector  LIKELY RISK         retrieved content reaches the ?
+model (RAG)
+  ? RAG pipeline: LangChain  LIKELY RISK        ingests external content (RAG ?
+poisoning surface)
+API ENDPOINTS
+  ? REST API: GET   /orders/{order_id}         LIKELY RISK    object-id in path?
+(BOLA candidate)
+  ? REST API: PATCH /customers/{customer_id}   LIKELY RISK    object-id in path?
+(BOLA candidate)
+Governance: evidence for EU AI Act, NIST AI RMF, ISO/IEC 42001, OWASP LLM Top 10
+????????????????????????????????????????????????????????????????
+AI Surface Scorecard   D
+  19 surfaces ? 4 confirmed risk ? 11 likely risk
+  Worst finding: MCP Server: stripe-mcp: MCP exposes financial tools (refund,
+charge, payout) to the model.
+First run on a mature repo
+The first run maps the AI surfaces already present in the codebase. The pattern
+that scales is to baseline existing surfaces, then gate only new high-risk
+findings in pull requests:
+ai-surface scan . --update-baseline           # 1. snapshot today's inventory
+ai-surface scan . --baseline                  # 2. show only what changed
+ai-surface scan . --baseline --fail-on high   # 3. in CI, fail only on NEW high+
+risk
+--baseline --fail-on high is the recommended PR gate: low-noise, non-blocking on
+pre-existing debt, and actionable.
+```
+
+```
+GitHub Action and CI gating
+The fastest path is one command from your repo root:
+ai-surface init
+It writes the recommended workflow below into .github/workflows/ai-surface.yml
+and prints a pre-commit snippet for local scans (the repo ships .pre-commit-
+hooks.yaml).
+```
+
+```
+Or drop this into .github/workflows/ai-surface.yml yourself:
+```
+
+```
+name: AI Surface Check
+on: [pull_request]
+permissions:
+  contents: read
+  pull-requests: write   # required when comment-on-pr is true
+jobs:
+  ai-surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # required for base-vs-head diff
+      - uses: apisec-inc/AI-Surface@v1
+        with:
+          path: '.'
+          comment-on-pr: 'true'
+          fail-on: 'high'  # fail only on NEW high-or-critical findings
+Every PR gets a sticky comment showing what changed in the PR, not just the
+current repo state. fail-on gates on assessed severity, so inventory-only
+findings do not fail the build. With fail-on: high, the build fails only when
+the PR introduces a new high-or-critical finding.
+```
+
+```
+No API keys are required. The action uses the built-in GITHUB_TOKEN to post or
+update the PR comment.
+```
+
+```
+For non-GitHub CI, the gate is just an exit code:
+```
+
+# `ai-surface scan . --fail-on high` 
+
+```
+See docs/CI_INTEGRATION.md for permissions, fork PR behavior, baseline options,
+SARIF upload, policy files, and multi-repo rollups.
+```
+
+# `Open the local UI` 
+
+```
+After installing ai-surface, you can open the interactive AI attack-surface map
+from any repo:
+```
+
+# `ai-surface scan . --ui` 
+
+```
+The UI shows detected AI surfaces as nodes grouped by category, with risk
+indicators, governance badges, evidence, and AI-BOM download where available.
+```
+
+```
+The UI is served locally over 127.0.0.1 from a temporary directory.
+```
+
+```
+The analysis never runs in the browser, your source code never leaves your
+machine, and no telemetry is collected.
+```
+
+```
+To stop the local UI server, press Ctrl-C in the terminal.
+```
+
+# `What it detects` 
+
+```
+ai-surface looks for eight categories of AI surface. Configuration files,
+provider keys, manifests, and specs are detected across stacks; deeper code-
+level detection is strongest today for Python and TypeScript/JavaScript. See
+docs/LANGUAGE_SUPPORT.md for the full matrix.
+```
+
+```
+CategoryCoverageWhat it finds
+Agent frameworks11 Python + 7 JS/TS frameworksLangChain, LangGraph,
+CrewAI, LlamaIndex, AutoGen, Haystack, Semantic Kernel, Pydantic AI, AWS
+Strands, the OpenAI Agents SDK and the Claude Agent SDK (Python); LangChain.js,
+LangGraph.js, Vercel AI SDK, Mastra, OpenAI Agents SDK, LlamaIndex.ts, and the
+Claude Agent SDK (TS/JS). Extracts agent tool inventories and flags financial,
+destructive, and high-blast-radius authority.
+```
+
+```
+MCP serversDiscovery + deep-dive auditConfigured MCP servers such
+as .mcp.json entries and in-house source servers. Audited findings include risk
+flags, remediation, detected secrets by name/type only, and registry/trust
+signals.
+```
+
+```
+Vector stores / RAG13 stores + 2 frameworksPinecone, Weaviate, Chroma,
+Qdrant, Milvus, FAISS, LanceDB, pgvector, Elasticsearch/OpenSearch/Vespa/Redis
+in vector mode, plus LangChain and LlamaIndex retrieval pipelines. Flags
+managed-store egress, RAG data flow, embeddings, and external ingestion.
+LLM SDK call sites13 providersAnthropic, OpenAI, Azure OpenAI, AWS
+Bedrock, Google Generative AI, Vertex AI, Together, Mistral, Cohere, Replicate,
+Groq, LiteLLM, and Vercel AI SDK. Extracts models where visible and flags non-
+literal prompt/message flow.
+```
+
+```
+API endpointsHTTP/REST + OpenAPIOpenAPI/Swagger specs and framework
+routes including FastAPI, Starlette, Flask, Express, Spring, and Django.
+Captures method, path, framework, auth style, and object-id path segments that
+may need BOLA review.
+```
+
+```
+Model gatewaysConfigs + sourceLiteLLM proxy, Portkey, Helicone, Cloudflare
+AI Gateway, and OpenRouter. Captures routed-model inventories where visible.
+AI infrastructureManifests + IaCKubernetes, Helm, Docker Compose,
+Dockerfiles, and Terraform for AI runtimes and managed AI services such as
+Ollama, vLLM, TGI, SGLang, Triton, llama.cpp, Bedrock, SageMaker, and Vertex
+endpoints.
+```
+
+```
+AI provider keysNames onlyCommon provider key names such as OPENAI_API_KEY,
+ANTHROPIC_API_KEY, and AZURE_OPENAI_* across environment files and config.
+Values are never read or printed.
+```
+
+```
+Inventory categories do not get severity by default. Severity is assigned only
+```
+
+```
+when the deep-dive audit has enough evidence, currently in MCP, agent, and RAG
+findings. See docs/DETECTORS.md for every pattern matched.
+```
+
+```
+Proven on real code
+```
+
+```
+We tested ai-surface against 19 popular open-source AI projects on GitHub,
+representing about 941k combined stars at the time of analysis. The set included
+AutoGPT, Dify, RAGFlow, AutoGen, CrewAI, LlamaIndex, Continue, Danswer, and
+others.
+```
+
+```
+This was a static, offline analysis only: each repo was shallow-cloned, analyzed
+locally, and deleted. No application was run. No code left the host.
+```
+
+```
+The set split into 12 applications and 7 framework/library repos. Frameworks and
+libraries are reported separately because they often include many integrations
+as code paths, so their raw component counts are not comparable to applications.
+```
+
+```
+Across the 12 application repos, ai-surface found:
+```
+
+```
+SignalApps
+Ship AI agents83%
+Have a vector store / RAG layer83%
+Expose API endpoints83%
+Have API endpoints that may need BOLA review67%
+Expose MCP servers42%
+Run an agent/MCP surface with no observability wired33%
+Interpolate PII into prompts17%
+Trip at least one risk and one governance rule100%
+These are category-presence signals, not exploitability claims. The numbers are
+a floor, not a ceiling: tool resolution is regex/AST-light today, so some
+agent/tool risks can under-fire on larger platforms. Raw per-component counts
+are useful for investigation but can vary by framework, coding style, and
+detector coverage.
+```
+
+```
+Full methodology, per-app appendix, framework/library appendix, and caveats are
+in the State of AI Surface report.
+```
+
+```
+State of AI Surface report
+```
+
+```
+Output formats
+ai-surface scan .                      # terminal report
+ai-surface scan . --ui                 # interactive map in a local browser
+ai-surface scan . --output json        # machine-readable JSON (schema 1.0)
+ai-surface scan . --output markdown    # human-readable Markdown report
+ai-surface scan . --output cyclonedx   # CycloneDX AI-BOM
+ai-surface scan . --output sarif       # SARIF 2.1.0 for GitHub code scanning
+ai-surface scan . --write-inventory    # write .ai-inventory.md to the project
+root
+ai-surface scan . --quiet              # one-line CI summary
+CycloneDX output is the AI-BOM: an inventory artifact generated in CI the way
+teams already generate SBOMs, with AI governance mappings attached.
+```
+
+```
+SARIF output can be uploaded to GitHub code scanning for Security tab visibility
+and inline PR annotations.
+```
+
+```
+The --ui viewer serves over 127.0.0.1 from a throwaway temp directory; the
+analysis never runs in the browser, nothing is sent off your machine, and there
+is no telemetry.
+```
+
+```
+CLI reference
+# Map the current project
+ai-surface scan .
+# Open the local interactive map
+ai-surface scan . --ui
+```
+
+```
+# Produce machine-readable or human-readable output
+ai-surface scan . --output json
+ai-surface scan . --output markdown
+ai-surface scan . --output cyclonedx
+ai-surface scan . --output sarif
+```
+
+```
+# Filter to specific categories
+# aliases: mcp, agents, llm, gateway, infra, keys, api, vector
+ai-surface scan . --categories mcp,agents
+ai-surface scan . --categories vector
+```
+
+```
+# Focus on AI-specific surface (drop plain, non-AI API endpoints)
+ai-surface scan . --ai-only
+```
+
+```
+# Show per-finding governance clauses (EU AI Act / NIST / ISO)
+# Off by default; a one-line governance summary always shows.
+ai-surface scan . --governance
+```
+
+```
+# Gate CI by assessed severity
+ai-surface scan . --fail-on high       # fail on high or critical findings
+ai-surface scan . --fail-on critical   # fail only on critical findings
+```
+
+```
+# Severity floor the baseline cannot suppress (closes baseline-acceptance gap)
+# New high+ blocks the PR; any critical always blocks, even if pre-existing.
+ai-surface scan . --baseline --fail-on high --always-fail-on critical
+```
+
+```
+# Aggressive gate: fail on any risk indicator
+ai-surface scan . --fail-on-risk
+```
+
+```
+# Baseline existing AI surfaces, then show only what changed
+ai-surface scan . --update-baseline
+ai-surface scan . --baseline
+ai-surface scan . --baseline --fail-on high
+```
+
+```
+# Compare two reports
+ai-surface compare base.json head.json
+Compliance and governance
+ai-surface maps audited findings to the OWASP LLM Top 10 and to evidence-
+relevant clauses in the EU AI Act, NIST AI RMF, and ISO/IEC 42001.
+```
+
+```
+In terminal and markdown output, the per-finding clauses are off by default and
+a single governance summary line is shown instead; pass --governance to print
+the clause under each risk flag. The UI shows these mappings as badges. JSON
+output always carries them as structured standards fields. CycloneDX output
+carries them as component properties, making it your AI-BOM artifact.
+```
+
+```
+ai-surface produces evidence; it does not certify, attest, or assert compliance.
+A framework requirement is reported only when the analysis produced that kind of
+evidence.
+```
+
+```
+Governance evidence and AI-BOM
+```
+
+```
+What the mappings cover
+Evidence kindExamplesFramework use
+Inventoryagents, MCP servers, RAG/vector stores, LLM calls, gateways, AI
+infraAI-BOM, system documentation, governance inventory
+Riskfinancial tools, destructive tools, high-blast-radius agents, secret-
+bearing MCP configrisk review and assessment evidence
+Human oversighthigh-risk action with no detected approval gate EU AI Act Art.
+14 review signal
+Logging / monitoringagent or MCP execution surface with no detected tracing
+EU AI Act Art. 12, NIST MEASURE 3, ISO A.6.2.6 evidence
+Data governanceRAG/vector layer, PII interpolated into prompts EU AI Act Art.
+```
+
+```
+10, ISO A.7 evidence
+Example risk-flag mappings
+Risk flagOWASPEU AI ActNIST AI RMFISO/IEC 42001
+secrets-in-envLLM02Art. 15--
+financial-action / destructive-action / high-blast-radiusLLM06Art. 9-
+-
+no-human-oversightLLM06 / LLM09Art. 14--
+no-observability-Art. 12MEASURE 3A.6.2.6
+pii-to-llmLLM02Art. 10-A.7
+unverified-source / remote-mcp / local-binaryLLM03--A.10
+vector store / RAG presentLLM08Art. 10dataA.7
+The reported footprint is a floor, not a ceiling: static analysis can miss risks
+in code that builds tools dynamically or through factory functions.
+```
+
+```
+Full mapping details, caveats, and AI-BOM generation guidance are in
+docs/COMPLIANCE.md.
+```
+
+# `How it works` 
+
+```
+ai-surface maps AI surfaces from source code and configuration. It reads files,
+matches known AI-surface signatures, runs deep-dive audits where enough evidence
+exists, attaches governance mappings, and produces reports for developers, CI
+systems, and security teams.
+```
+
+```
+The CLI executes no code, uses no credentials, sends no telemetry, and makes no
+network calls.
+```
+
+```
+When PR comments are enabled, the GitHub Action uses the repository's
+GITHUB_TOKEN to post or update a comment through the GitHub API. It does not
+send source code, findings, or metadata to APIsec.
+```
+
+```
+Deep dive: docs/ARCHITECTURE.md.
+```
+
+```
+Comparison with adjacent tools
+Trivy checks container images, Gitleaks checks git history, an SCA checks
+dependencies. ai-surface is the equivalent pre-merge check for the AI layer. It
+sits alongside the tools below rather than replacing any of them.
+```
+
+```
+ToolWhat it tells youWhen it sees AI
+SAST (Semgrep, CodeQL)Code-pattern vulnerabilitiesAfter commit; usually does
+not build an AI surface inventory
+DAST (Burp, ZAP)Reachable web vulnerabilitiesAfter deploy; sees HTTP behavior,
+not LLM/agent internals
+SCA (Snyk, Dependabot)Vulnerable dependenciesAfter commit; sees packages, not
+how AI components are used
+Observability (Helicone, LangSmith, Arize, Phoenix)What LLM calls happened at
+runtimeAfter deploy; requires runtime traffic
+AI-SPM / AI governance toolsCloud/runtime AI inventory and postureOften
+runtime/cloud-first; not usually a local PR-time gate
+ai-surfaceWhat AI attack surface is about to ship, mapped to governance
+evidenceAt PR time, before merge, offline
+APIsec platformWhich AI/API surfaces are actually exploitableRuntime
+validation with replayable evidence
+ai-surface does not replace these tools. It focuses on the local, PR-time AI
+attack-surface gap that most adjacent tools do not cover directly.
+```
+
+# `What it does not do` 
+
+```
+Runtime telemetry or behavior monitoring. Use tools like Helicone, LangSmith,
+Arize, or Phoenix.
+```
+
+```
+Runtime exploit validation. ai-surface maps and audits statically; it does not
+prove exploitability against a running app (see Runtime validation).
+Prompt injection, jailbreak, bias, or accuracy testing. Out of scope by design.
+ai-surface is a structural analyzer, not a model evaluator.
+Full cross-file dataflow for tool resolution. Regex/AST-light today; agent tools
+```
+
+```
+built through factory functions may not be fully resolved. Treat the map as a
+strong floor, not proof of complete coverage. AST/dataflow is the top roadmap
+item.
+```
+
+```
+Secret-value reads or PII classification. Secrets are reported by name and type
+only, with values redacted. Use a dedicated secret scanner for value-level
+coverage.
+Roadmap
+VersionStatusWhat's in it
+v1.0Shipped8-category mapping, MCP + agent + RAG audits, OWASP +
+EU/NIST/ISO governance mapping, AI-BOM + SARIF, interactive --ui map, frozen
+schema 1.0, GitHub Action with PR diff comments, --baseline and --fail-on gates.
+Fast-followPlannedAST / cross-file dataflow for tool resolution, .ai-
+surface.yml policy file, GitLab CI component.
+LaterPlannedkubectl plugin, live cluster discovery, continuous mode +
+drift alerts, multi-repo rollup, plugin SDK.
+Runtime validation
+```
+
+```
+ai-surface maps AI attack surfaces from source code and configuration. It
+identifies where agents, MCP servers, RAG paths, LLM calls, gateways,
+infrastructure, provider keys, and AI-exposed APIs exist, and flags risk
+indicators where static evidence is present.
+```
+
+```
+It does not prove exploitability against a running application.
+```
+
+```
+For runtime validation with replayable evidence, see APIsec:
+```
+
+```
+Source surfaceRuntime validation path
+AI / agent surfacesagent validation
+MCP serversMCP runtime validation
+Discovered APIsAPI outside-in runtime testing
+The boundary is intentional: free local discovery here, runtime exploit
+validation in APIsec. Bridges are an upgrade path, not a data-sharing
+integration. No finding data leaves your machine; the bridge is a deep link.
+```
+
+```
+Development
+git clone https://github.com/apisec-inc/AI-Surface
+cd AI-Surface
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest                       # tests
+ruff check src/ tests/       # lint
+mypy src/                    # types
+To add a detector, implement the Detector protocol in types.py, register it in
+default_detectors(), and add fixtures and tests under tests/.
+```
+
+```
+The report shape is frozen in docs/SCHEMA_v1.md. See CONTRIBUTING.md for
+contributor guidance.
+```
+
+```
+Project
+ResourceLink
+Detectorsdocs/DETECTORS.md
+Compliance mappingdocs/COMPLIANCE.md
+Language supportdocs/LANGUAGE_SUPPORT.md
+Architecturedocs/ARCHITECTURE.md
+CI integrationdocs/CI_INTEGRATION.md
+Report schemadocs/SCHEMA_v1.md
+State of AI Surfacedocs/STATE_OF_AI_SURFACE.md
+Privacydocs/PRIVACY.md
+ChangelogCHANGELOG.md
+License
+MIT. See LICENSE.
+```
+
+```
+Maintained by APIsec. Part of the APIsec Labs OSS family.
+```
+
+```
+Code Discovery GitHub Action
+Automatically discover API endpoints in your repository and upload them to the
+APIsec platform. This action uses the Code Discovery CLI to scan your codebase,
+generate OpenAPI specifications, and create pull requests with the results.
+```
+
+`Features` ? `Automatic Framework Detection - Detects Spring Boot, Micronaut, Argos, FastAPI, Flask, Django, Express, ASP.NET Core, Gin and more ? OpenAPI Generation - Generates OpenAPI 3.0 specifications from your code ? State Management - Tracks application and instance IDs across runs ? Pull Request Creation - Automatically creates PRs with discovered endpoints ?? Non-Blocking - Warnings don't fail your workflow Usage Basic Example name: API Discovery on: push: branches: [main] jobs: discover: runs-on: ubuntu-latest permissions: contents: write pull-requests: write steps: - uses: actions/checkout@v4 - uses: apisec-inc/apisec-bolt-code-discovery-github-action@v0.1.7 with: api-endpoint: ${{ secrets.API_DISCOVERY_ENDPOINT }} api-token: ${{ secrets.API_DISCOVERY_TOKEN }} Scheduled Runs name: API Discovery on: schedule: - cron: '0 2 * * *' # Daily at 2 AM jobs: discover: runs-on: ubuntu-latest permissions: contents: write pull-requests: write steps: - uses: actions/checkout@v4 - uses: apisec-inc/apisec-bolt-code-discovery-github-action@v0.1.7 with: api-endpoint: ${{ secrets.API_DISCOVERY_ENDPOINT }} api-token: ${{ secrets.API_DISCOVERY_TOKEN }} pr-title: 'chore: update OpenAPI specification [skip ci]' pr-body: 'Automatically generated OpenAPI specification from code discovery' Custom Configuration - uses: apisec-inc/apisec-bolt-code-discovery-github-action@v0.1.7 with: api-endpoint: ${{ secrets.API_DISCOVERY_ENDPOINT }} api-token: ${{ secrets.API_DISCOVERY_TOKEN }} repo-path: './backend' config-path: './backend/.codediscovery.yml' Dry Run (Testing) - uses: apisec-inc/apisec-bolt-code-discovery-github-action@v0.1.7` 
+
+```
+  with:
+    api-endpoint: ${{ secrets.API_DISCOVERY_ENDPOINT }}
+    api-token: ${{ secrets.API_DISCOVERY_TOKEN }}
+    dry-run: true  # Skip API upload, still generates spec
+Inputs
+InputRequiredDefaultDescription
+api-endpoint? Yes-External API endpoint URL
+api-token? Yes-Bearer token for API authentication
+repo-path? No.Path to repository root to analyze
+config-path? No.codediscovery.ymlPath to .codediscovery.yml config file
+pr-title? Nochore: update OpenAPI specification Pull request title
+pr-body? NoAutomatically generated OpenAPI specificationPull request
+body
+dry-run? NofalseSkip API upload (for testing)
+host-url?? Recommended''OpenAPI server URL (e.g.
+https://api.example.com). Required when no parser can extract a host from your
+sources; without it, state isn't saved across runs.
+Outputs
+OutputDescription
+spec-pathPath to generated OpenAPI specification (apisec-bolt-code-
+discovery/openapi_spec.yaml)
+application-idApplication ID from API (if uploaded)
+instance-idInstance ID from API (if uploaded)
+pr-urlURL of created pull request
+successWhether discovery succeeded
+Required Permissions
+This action requires the following GitHub permissions:
+```
+
+```
+contents: write - To commit generated files
+pull-requests: write - To create pull requests
+Add these permissions to your workflow:
+```
+
+```
+permissions:
+  contents: write
+  pull-requests: write
+How It Works
+Install CLI - Installs Code Discovery CLI (version 0.7.2)
+Configure Credentials - Sets up API credentials from inputs
+Run Discovery - Scans repository and generates OpenAPI spec
+Create PR - Creates a new branch, commits files, and opens a pull request
+Generated Files
+The action generates files in the apisec-bolt-code-discovery/ directory:
+```
+
+```
+openapi_spec.yaml - OpenAPI 3.0 specification
+state.yaml - State file tracking application and instance IDs
+Both files are automatically committed to the pull request.
+```
+
+# `State Management` 
+
+```
+The action uses state management to track your application across runs:
+```
+
+```
+First Run: Creates a new application and stores IDs in state.yaml
+Subsequent Runs: Updates the existing application using stored IDs
+The state file (apisec-bolt-code-discovery/state.yaml) is safe to commit and
+contains no sensitive data.
+```
+
+# `Error Handling` 
+
+```
+The action is designed to be non-blocking:
+```
+
+```
+?? Discovery warnings don't fail the workflow
+?? API errors are logged but don't stop execution
+? Workflow continues even if discovery encounters issues
+Supported Frameworks
+Java: Spring Boot, Micronaut, Argos
+Python: FastAPI, Flask, Django
+```
+
+```
+Node.js: Express
+.NET: ASP.NET Core
+Go: Gin
+More frameworks coming soon!
+```
+
+```
+Requirements
+Python 3.9+ (available on GitHub Actions runners)
+Git (for PR creation)
+GitHub CLI (gh) - pre-installed on GitHub Actions runners
+License
+MIT License - see LICENSE file for details.
+```
+
+```
+Support
+For issues and questions, please open an issue in the repository.
+```
+
+```
+Quick Start
+Add workflow file .github/workflows/api-discovery.yml:
+```
+
+```
+name: API Discovery
+on:
+  push:
+    branches: [main]
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: apisec-inc/apisec-bolt-code-discovery-github-action@v0.1.7
+        with:
+          api-endpoint: ${{ secrets.API_DISCOVERY_ENDPOINT }}
+          api-token: ${{ secrets.API_DISCOVERY_TOKEN }}
+Configure secrets in repository Settings ? Secrets:
+```
+
+```
+API_DISCOVERY_ENDPOINT - Your API endpoint URL
+API_DISCOVERY_TOKEN - Your Bearer token
+Push to trigger - The action will run automatically!
+```
+
+```
+API SEC BOLT WEB EXTENSION
+Overview
+Discover APIs from browser traffic and auto-generate OpenAPI specs.
+```
+
+```
+APIsec BOLT automatically discovers and security-tests APIs by capturing real
+application traffic directly from your browser?without proxies, agents, or
+configuration.
+```
+
+```
+As you interact with an application, BOLT identifies API endpoints, detects
+security vulnerabilities in real time, and provides a streamlined path to
+analyze and test those APIs using APIsec.ai.
+```
+
+```
+BOLT converts real runtime behavior into accurate API definitions and actionable
+security findings, eliminating guesswork and accelerating documentation,
+onboarding, and security workflows.
+```
+
+```
+?
+```
+
+```
+Key Capabilities
+```
+
+```
+1. Automatic capture of application traffic
+BOLT captures API calls directly from your active browser tab. No proxies or
+traffic redirection required. Start capture and browse normally; BOLT records
+API interactions on the fly.
+```
+
+# `2. Real-time threat detection` 
+
+```
+As traffic is captured, BOLT automatically surfaces BOLA, RBAC misconfiguration,
+and Mass Assignment findings ? no manual trigger needed. A live findings banner
+alerts you to issues as they appear, with grade badges and expandable threat
+details in the APIs tab.
+```
+
+# `3. Automatic identification of API endpoints` 
+
+```
+Captured traffic is analyzed to identify API methods, paths, parameters,
+hostnames, and request/response metadata ? producing a reliable API inventory
+based on how your application actually behaves.
+```
+
+# `4. Auth token harvesting` 
+
+```
+BOLT automatically detects and catalogs auth tokens from captured traffic ? JWT,
+API keys, Basic auth, and cookies ? in a dedicated Auth tab. Your token
+inventory builds itself as you browse.
+```
+
+# `5. Request editing and replay` 
+
+```
+The Manipulator tab lets you edit and resend any captured request. A smart param
+picker surfaces suggestions from all captured traffic, with editable path
+parameters for IDOR and BOLA testing.
+```
+
+# `6. Automatic generation of OpenAPI (Swagger) specifications` 
+
+```
+BOLT converts captured API calls into structured OpenAPI definitions. Use the
+OAS picker to select exactly which APIs to export for documentation, modeling,
+or integration with APIsec.ai's testing workflows.
+```
+
+# `7. APIsec.ai?powered API security analysis` 
+
+```
+API definitions discovered by BOLT can be analyzed using APIsec.ai's automated
+security engine, covering authentication and authorization issues, BOLA/IDOR,
+logic flaws, injection risks, misconfigurations, and complex multi-step attack
+paths.
+```
+
+# `8. One-click onboarding to APIsec.ai` 
+
+```
+From BOLT, send API definitions or captured request data to APIsec.ai to
+initiate onboarding or run automated test generation ? including advanced
+scenarios that traditionally require manual effort or specialized expertise.
+```
+
+# `?` 
+
+```
+How It Works
+```
+
+`1. Open a web application and launch APIsec BOLT from the Chrome or Firefox toolbar.` 
+
+`2. Start capture to automatically collect API traffic from your active browser tab.` 
+
+`3. Review discovered endpoints, real-time threat findings, and captured auth tokens.` 
+
+`4. Use the Manipulator to edit and replay requests, or export auto-generated OpenAPI specs.` 
+
+`5. Send APIs to APIsec.ai to onboard or run automated security analysis.` 
+
+# `?` 
+
+```
+Non-intrusive and privacy-respecting by design
+```
+
+```
+APIsec BOLT operates completely on the user's local machine. All traffic
+capture, API identification, threat detection, and OpenAPI generation occur
+locally within the browser extension.
+```
+
+```
+BOLT does not intercept, modify, or block network traffic. It passively observes
+requests from the active browser tab solely for the purpose of API discovery,
+documentation, and security analysis.
+```
+
+```
+Transmission of API data to APIsec.ai occurs only when the user explicitly
+initiates it. No data is sent externally without user action.
+```
+
+```
+Privacy
+APIsec BOLT has disclosed the following information regarding the collection and
+usage of your data. More detailed information can be found in the developer's
+privacy policy.
+```
+
+```
+APIsec BOLT handles the following:
+Personally identifiable information
+Authentication information
+User activity
+Website content
+This developer declares that your data is
+Not being sold to third parties, outside of the approved use cases
+Not being used or transferred for purposes that are unrelated to the item's core
+functionality
+Not being used or transferred to determine creditworthiness or for lending
+purposes
+```
+
+```
+MCP AUDIT
+MCP Audit
+License: MIT Python 3.9+ GitHub release
+See what your AI agents can access - before they go live.
+```
+
+```
+Web App MCP Audit Web App
+CLI MCP Audit CLI
+Quick Start
+# Install
+pip install -e .
+# Scan your machine
+mcp-audit scan
+# Or try the web app (no install)
+# https://apisec-inc.github.io/mcp-audit/?demo=true
+What It Does
+MCP Audit scans your AI development tools (Claude Desktop, Cursor, VS Code) and
+reveals:
+```
+
+```
+Secrets - Exposed API keys, tokens, database passwords
+APIs - Every endpoint your AI agents connect to
+AI Models - Which LLMs are configured (GPT-4, Claude, Llama)
+Risk Flags - Shell access, filesystem access, unverified sources
+??  2 SECRET(S) DETECTED - IMMEDIATE ACTION REQUIRED
+[CRITICAL] GitHub Personal Access Token
+  Location: github-tools ? env.GITHUB_TOKEN
+  Remediation: https://github.com/settings/tokens ? Delete ? Recreate
+[HIGH] Database Connection String
+  Location: postgres-mcp ? env.DATABASE_URL
+  Remediation: Rotate credentials, use secrets manager
+Source-level Scanning (new in v1.1)
+mcp-audit scan inventories MCP server configurations. The new mcp-audit source-
+scan command goes one level deeper ? it reads the MCP server's own source code
+and flags code-level vulnerabilities the server author may have introduced.
+```
+
+```
+Today it catches the "Prompt In, Shell Out" attack chain: an MCP server that
+pipes an LLM-controlled tool argument into a shell-spawning API
+```
+
+```
+(child_process.exec, util.promisify(exec), subprocess.run(shell=True),
+os.system, os.popen) without sanitization. An attacker controlling the LLM input
+can inject shell metacharacters and execute arbitrary code on the host running
+the MCP server.
+```
+
+```
+$ mcp-audit source-scan ./packages/my-mcp-server
+```
+
+```
+MCP source-scan: packages/my-mcp-server
+1 critical ? 0 high ? 1 finding(s) total
+```
+
+```
+  Severity  Conf  File:Line      API
+Snippet
+  CRITICAL  high  server.js:19   util.promisify(child_process.exec) ...
+const { stdout } = await execAsync(
+Outputs:
+```
+
+```
+--format table (default, human-readable)
+--format json (CI integrations, jq pipelines)
+--format sarif (upload to GitHub code-scanning / GitLab / similar)
+Gate merges on critical findings:
+```
+
+```
+mcp-audit source-scan ./my-mcp --exit-code
+The scanner is intentionally narrow ? it only opens files that look like MCP
+server source (imports an MCP SDK). It won't try to find shell-injection bugs in
+random Node / Python code; that's not the job.
+```
+
+```
+After running mcp-audit scan, you'll see a nudge in the summary suggesting
+source-scan against any in-house or unverified servers it discovers.
+```
+
+```
+What It Finds (and Doesn't Find)
+What It Finds
+Scan TypeFinds
+GitHub ScanMCP configs committed to repositories (mcp.json, .mcp/,
+claude_desktop_config.json, etc.)
+Local ScanMCP configs on your machine (Claude Desktop, Cursor, VS Code,
+Windsurf, Zed)
+Source Scan (v1.1)Code-level vulnerabilities in MCP server source
+(JS/TS/Python): shell-injection sinks (child_process.exec, util.promisify(exec),
+subprocess.run(shell=True), os.system, os.popen) called with interpolated tool
+arguments
+What It Won't Find
+Blind SpotWhy
+Secrets in environment variables at runtimeWe scan config files, not running
+processes
+Configs pulled from secrets managersVault, AWS Secrets Manager, etc. are
+not scanned
+Dynamically generated configsConfigs created at runtime aren't in files
+MCPs installed but not configuredNo config file = nothing to scan
+Private repos you don't have access toGitHub scan is limited by your PAT
+scope
+Encrypted or obfuscated secretsPattern matching won't catch encoded values
+Non-standard config locationsCustom paths outside known locations
+Important
+A clean scan does not mean zero risk.
+```
+
+```
+Developers may have MCPs configured on machines you haven't scanned
+Configs may exist in repos outside your GitHub org
+Runtime behavior may differ from static configuration
+MCP Audit provides visibility, not guarantees. Use alongside runtime monitoring
+and security reviews.
+```
+
+```
+CI/CD Integration
+Fail builds on critical risks:
+```
+
+```
+# .github/workflows/mcp-audit.yml
+name: MCP Security Audit
+on: [push, pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MCP Audit
+        run: pip install mcp-audit
+      - name: Run Security Scan
+        run: mcp-audit scan --path . --format json -o mcp-report.json
+      - name: Fail on Critical
+        run: |
+          CRITICAL=$(jq '[.mcps[] | select(.risk == "critical")] | length' mcp-
+report.json)
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "? Found $CRITICAL critical-risk MCPs"
+            exit 1
+          fi
+      - name: Upload AI-BOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-bom
+          path: mcp-report.json
+Source-level scan in CI (v1.1)
+If you ship an in-house MCP server, gate merges on critical code-level findings:
+# .github/workflows/mcp-source-scan.yml
+name: MCP Source Scan
+on: [pull_request]
+jobs:
+  source-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install mcp-audit
+      # Fail the PR if any critical shell-injection findings are detected.
+      - name: Source-scan in-house MCP server
+        run: mcp-audit source-scan ./packages/my-mcp-server --exit-code
+      # OR: upload findings to GitHub code-scanning instead of failing.
+      - name: Source-scan -> SARIF
+        run: mcp-audit source-scan ./packages/my-mcp-server --format sarif --
+output mcp.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: mcp.sarif
+Export Formats
+# JSON (for CI/CD)
+mcp-audit scan --format json -o report.json
+# AI-BOM (CycloneDX 1.6)
+mcp-audit scan --format cyclonedx -o ai-bom.json
+# SARIF (GitHub Security integration)
+mcp-audit scan --format sarif -o results.sarif
+```
+
+```
+# CSV / Markdown
+mcp-audit scan --format csv -o report.csv
+mcp-audit scan --format markdown -o report.md
+```
+
+```
+# PDF Report via Email
+mcp-audit scan --email security@company.com
+Key Features
+FeatureDescription
+MCP DiscoveryFind MCPs in Claude Desktop, Cursor, VS Code, Windsurf, Zed
+Secrets Detection25+ secret patterns with provider-specific remediation
+API InventoryDatabase, REST, SSE, SaaS, Cloud endpoints
+AI Model DetectionOpenAI, Anthropic, Google, Meta, Mistral, Ollama
+OWASP LLM Top 10Maps findings to OWASP LLM Top 10 (2025) framework
+AI-BOM ExportCycloneDX 1.6 for supply chain compliance
+SARIF OutputGitHub Security integration with OWASP tags
+Registry50+ known MCPs with risk classifications
+Two Ways to Use
+Web AppCLI Tool
+ScansGitHub repositoriesLocal machine
+InstallNone (browser)Python 3.9+
+Best forOrg-wide visibilityDeep local analysis
+PrivacyToken stays in browser100% local
+Web App: https://apisec-inc.github.io/mcp-audit/
+```
+
+```
+CLI Reference
+Scan Commands
+mcp-audit scan                    # Full inventory scan
+mcp-audit scan --secrets-only     # Only secrets
+mcp-audit scan --apis-only        # Only API endpoints
+mcp-audit scan --models-only      # Only AI models
+mcp-audit scan --verbose          # Detailed output
+mcp-audit scan --path ./project   # Specific directory
+Source-level Scan Commands (new in v1.1)
+source-scan is a separate command from scan. scan inventories MCP
+configurations; source-scan reads MCP server source code and flags code-level
+vulnerabilities. See docs/SOURCE_SCAN.md for the full guide.
+```
+
+`mcp-audit source-scan ./my-mcp                         # Table output (default) mcp-audit source-scan ./my-mcp --format json           # JSON for jq pipelines mcp-audit source-scan ./my-mcp --format sarif          # SARIF for code-scanning mcp-audit source-scan ./my-mcp --output mcp.sarif      # Write to file mcp-audit source-scan ./my-mcp --exit-code             # CI gate (non-zero on critical) mcp-audit source-scan ./my-mcp --explain               # Inline remediation guidance Export Options mcp-audit scan --format json -o report.json       # JSON output mcp-audit scan --format csv -o report.csv         # CSV output mcp-audit scan --format markdown -o report.md     # Markdown output mcp-audit scan --format cyclonedx -o ai-bom.json  # CycloneDX 1.6 AI-BOM mcp-audit scan --format sarif -o results.sarif    # SARIF for GitHub Security mcp-audit scan --email security@company.com       # PDF report via email Registry Commands mcp-audit registry                    # List all known MCPs mcp-audit registry --risk critical    # Filter by risk mcp-audit registry lookup "stripe"    # Search registry Explain a Risk Flag mcp-audit explain shell-injection-in-source   # Full remediation guidance mcp-audit explain --list                      # All known risk flags Risk Levels Level Meaning Examples ? CRITICAL Full system access Database admin, shell access, cloud IAM` ? `HIGH Write access Filesystem write, API mutations` 
+
+? `MEDIUM Read + limited write SaaS integrations, read-only DB` ? `LOW Read-only Public APIs, memory storage Detected Secrets Severity Types ? Critical AWS Keys, GitHub PATs, Stripe Live Keys, DB Credentials` ? `High Slack Tokens, OpenAI Keys, Anthropic Keys, SendGrid` ? `Medium Webhooks, Generic API Keys Privacy Web App: GitHub token never leaves your browser CLI: Runs 100% locally, no telemetry PDF Reports: Only summary data sent (no secrets) Installation Option 1: Python (pip) # Clone and install git clone https://github.com/apisec-inc/mcp-audit.git cd mcp-audit pip install -e . # Verify mcp-audit --help Requires Python 3.9+ Option 2: Docker # Build image docker build -t mcp-audit . # Scan current directory docker run -v $(pwd):/scan mcp-audit scan # Scan with JSON output docker run -v $(pwd):/scan mcp-audit scan --format json -o /scan/report.json Verify Download Integrity All MCP Audit releases include SHA256 checksums. Verify CLI Download # Download the checksum file curl -O https://github.com/apisec-inc/mcp-audit/releases/latest/download/CHECKSUMS.txt # Verify the zip file shasum -a 256 -c CHECKSUMS.txt --ignore-missing Expected output: mcp-audit-cli.zip: OK Current Release Checksum File SHA256 mcp-audit-cli.zip 4917a451742038355265b0d9a74c0bb2b3a5ada28798ce3dd43238a8defcaa73 Full checksums: CHECKSUMS.txt Documentation Risk Scoring - How risk levels and flags are assigned Contributing - Guidelines for contributors License MIT - see LICENSE Built by APIsec` 
+

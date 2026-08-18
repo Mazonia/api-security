@@ -1,0 +1,31 @@
+name: MazAPI MCP Server Source Scan
+on:
+  pull_request:
+    branches: [main, master, develop]
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  mcp-source-scan:
+    name: MCP Source-Level Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          pip install rich
+
+      - name: Source-Scan In-House MCP Server
+        run: |
+          python api-security-project/cli.py mcp-audit source-scan . --exit-code

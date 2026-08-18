@@ -592,8 +592,46 @@ footer .privacy-note { color: var(--green); display: block; margin-top: 2px; }
 .diff-banner {
   display: flex; gap: 12px; align-items: center; justify-content: center;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 8px 11px; margin-bottom: 10px; font-size: .8em;
+/* ═══════════════════════════════════════════════════════════════════
+   THREAT BANNER & BOLT TOOLS
+   ═══════════════════════════════════════════════════════════════════ */
+.threat-banner {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(244,63,94,.14); border-bottom: 1px solid var(--red);
+  padding: 8px 12px; font-size: .8em; color: var(--red);
+  animation: pulse-glow 2s infinite;
 }
+@keyframes pulse-glow {
+  0%, 100% { background: rgba(244,63,94,.12); }
+  50% { background: rgba(244,63,94,.22); }
+}
+.threat-icon { font-size: 1.1em; }
+.threat-msg { flex: 1; font-weight: 600; }
+.threat-btn {
+  background: var(--red); color: #fff; border: none; border-radius: 4px;
+  padding: 2px 8px; font-size: .75em; font-weight: 700; cursor: pointer;
+}
+
+.jwt-card {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.jwt-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; font-size: .85em;
+}
+.code-box {
+  background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 10px; font-family: 'SF Mono', Consolas, monospace; font-size: .78em;
+  color: var(--text); white-space: pre-wrap; word-break: break-all;
+}
+
+.oas-check-item {
+  display: flex; align-items: center; gap: 6px; padding: 4px 0;
+  border-bottom: 1px solid var(--border); font-size: .8em; font-family: monospace;
+}
+.oas-check-item:last-child { border-bottom: none; }
+.oas-check-item input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
 
 /* ── Scrollbar ─────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }
