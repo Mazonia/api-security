@@ -378,6 +378,7 @@ def scan_workspace_mcp(target_dir: str = ".") -> dict:
 
     vulnerable_count = sum(1 for t in all_tests if t["vulnerable"])
     return {
+        "category": "AI-BOM - MCP & AI Agent Audit",
         "module": "AI-BOM / MCP Security Audit",
         "total": len(all_tests),
         "vulnerable_count": vulnerable_count,

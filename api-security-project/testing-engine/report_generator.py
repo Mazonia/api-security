@@ -48,7 +48,7 @@ def generate_sarif(results: list, target: str) -> dict:
             sarif_results.append({
                 "ruleId": cat_id,
                 "level": "error" if t.get("severity") in ("CRITICAL", "HIGH") else "warning",
-                "message": {"text": f"{t['test']}: {t['actual']}"},
+                "message": {"text": f"{t['test']}: {t.get('actual', t.get('detail', 'Vulnerability detected'))}"},
                 "locations": [{"physicalLocation": {"artifactLocation": {"uri": target, "uriBaseId": "TARGETROOT"}}}],
                 "properties": {
                     "severity": t.get("severity"),
@@ -383,7 +383,7 @@ def generate(results: list, target: str, report_dir: str = "/reports", detail: s
 
     suffix = f"_{detail}" if detail != "brief" else ""
     json_path = os.path.join(report_dir, f"report_{slug}_{ts_file}{suffix}.json")
-    with open(json_path, "w") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump({"target": target, "timestamp": ts_label,
                    "score": round(score, 1), "detail": detail, "results": results}, f, indent=2)
 
@@ -395,12 +395,12 @@ def generate(results: list, target: str, report_dir: str = "/reports", detail: s
         cve_db=CVE_DB,
         detail=detail,
     )
-    with open(html_path, "w") as f:
+    with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)
 
     # SARIF export (always generated alongside JSON/HTML)
     sarif_path = os.path.join(report_dir, f"report_{slug}_{ts_file}{suffix}.sarif")
-    with open(sarif_path, "w") as f:
+    with open(sarif_path, "w", encoding="utf-8") as f:
         json.dump(generate_sarif(results, target), f, indent=2)
 
     return json_path, html_path, sarif_path

@@ -1,0 +1,1189 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "MazAPI Testing Engine",
+          "version": "2.0.0",
+          "informationUri": "https://github.com/Mazonia/api-security",
+          "rules": [
+            {
+              "id": "API1:2023---Broken-Object-Level-Authorization",
+              "name": "API1:2023",
+              "shortDescription": {
+                "text": "Broken Object Level Authorization"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API2:2023---Broken-Authentication",
+              "name": "API2:2023",
+              "shortDescription": {
+                "text": "Broken Authentication"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API3:2023---Broken-Object-Property-Level-Authorization",
+              "name": "API3:2023",
+              "shortDescription": {
+                "text": "Broken Object Property Level Authorization"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API4:2023---Unrestricted-Resource-Consumption",
+              "name": "API4:2023",
+              "shortDescription": {
+                "text": "Unrestricted Resource Consumption"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API5:2023---Broken-Function-Level-Authorization",
+              "name": "API5:2023",
+              "shortDescription": {
+                "text": "Broken Function Level Authorization"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API8:2023---Security-Misconfiguration",
+              "name": "API8:2023",
+              "shortDescription": {
+                "text": "Security Misconfiguration"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API9:2023---Improper-Inventory-Management-(GraphQL)",
+              "name": "API9:2023",
+              "shortDescription": {
+                "text": "Improper Inventory Management (GraphQL)"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "CWE-312---GDPR---PII-Exposure-in-API-Responses",
+              "name": "CWE-312 / GDPR",
+              "shortDescription": {
+                "text": "PII Exposure in API Responses"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "AI-BOM---MCP-&-AI-Agent-Audit",
+              "name": "AI-BOM",
+              "shortDescription": {
+                "text": "MCP & AI Agent Audit"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "API1:2023---Broken-Object-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "Read another user's order by guessing ID: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "403 Forbidden",
+            "compliance": {
+              "pci_dss": [
+                "6.2.4",
+                "8.2.3"
+              ],
+              "gdpr": [
+                "Art. 5(1)(f)",
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.9.4.1",
+                "A.14.2.5"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API1:2023---Broken-Object-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "List another user's orders by guessing user ID: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "403 Forbidden",
+            "compliance": {
+              "pci_dss": [
+                "6.2.4",
+                "8.2.3"
+              ],
+              "gdpr": [
+                "Art. 5(1)(f)",
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.9.4.1",
+                "A.14.2.5"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API2:2023---Broken-Authentication",
+          "level": "error",
+          "message": {
+            "text": "Brute-force login \u2014 no rate limiting / lockout: 0/10 requests returned 429"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "429 Too Many Requests before 10 attempts",
+            "compliance": {
+              "pci_dss": [
+                "8.2.1",
+                "8.3.1"
+              ],
+              "gdpr": [
+                "Art. 32(1)(b)"
+              ],
+              "iso27001": [
+                "A.9.4.3",
+                "A.10.1.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API2:2023---Broken-Authentication",
+          "level": "error",
+          "message": {
+            "text": "JWT forged with weak hardcoded secret: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": "401 Unauthorized",
+            "compliance": {
+              "pci_dss": [
+                "8.2.1",
+                "8.3.1"
+              ],
+              "gdpr": [
+                "Art. 32(1)(b)"
+              ],
+              "iso27001": [
+                "A.9.4.3",
+                "A.10.1.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API2:2023---Broken-Authentication",
+          "level": "warning",
+          "message": {
+            "text": "JWT issued without expiry claim: 'exp' present: False"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "MEDIUM",
+            "expected": "'exp' claim present in payload",
+            "compliance": {
+              "pci_dss": [
+                "8.2.1",
+                "8.3.1"
+              ],
+              "gdpr": [
+                "Art. 32(1)(b)"
+              ],
+              "iso27001": [
+                "A.9.4.3",
+                "A.10.1.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API3:2023---Broken-Object-Property-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "Privilege escalation via role field in PUT body: HTTP 200 \u2014 role is now 'admin'"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": "422 Unprocessable Entity or role field silently ignored",
+            "compliance": {
+              "pci_dss": [
+                "6.2.4"
+              ],
+              "gdpr": [
+                "Art. 5(1)(c)",
+                "Art. 25"
+              ],
+              "iso27001": [
+                "A.14.2.5",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API3:2023---Broken-Object-Property-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "Arbitrary balance injection via PUT body: HTTP 200 \u2014 balance is now 999999.99"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "422 Unprocessable Entity or balance field silently ignored",
+            "compliance": {
+              "pci_dss": [
+                "6.2.4"
+              ],
+              "gdpr": [
+                "Art. 5(1)(c)",
+                "Art. 25"
+              ],
+              "iso27001": [
+                "A.14.2.5",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API4:2023---Unrestricted-Resource-Consumption",
+          "level": "warning",
+          "message": {
+            "text": "No rate limiting on authenticated data endpoint: 50/50 requests returned 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "MEDIUM",
+            "expected": "429 Too Many Requests before 50 requests",
+            "compliance": {
+              "pci_dss": [
+                "6.2.4",
+                "6.3.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.12.6.1",
+                "A.17.2.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API4:2023---Unrestricted-Resource-Consumption",
+          "level": "error",
+          "message": {
+            "text": "No rate limiting on login endpoint (brute-force vector): 0/10 requests returned 429"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "429 after 5 attempts",
+            "compliance": {
+              "pci_dss": [
+                "6.2.4",
+                "6.3.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.12.6.1",
+                "A.17.2.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API5:2023---Broken-Function-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "Regular user calls GET /admin/users: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "403 Forbidden",
+            "compliance": {
+              "pci_dss": [
+                "7.1.1",
+                "7.2.1"
+              ],
+              "gdpr": [
+                "Art. 32(4)"
+              ],
+              "iso27001": [
+                "A.9.2.3",
+                "A.9.4.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API5:2023---Broken-Function-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "Regular user calls GET /admin/orders: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "403 Forbidden",
+            "compliance": {
+              "pci_dss": [
+                "7.1.1",
+                "7.2.1"
+              ],
+              "gdpr": [
+                "Art. 32(4)"
+              ],
+              "iso27001": [
+                "A.9.2.3",
+                "A.9.4.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "error",
+          "message": {
+            "text": "Debug endpoint exposes secret key unauthenticated: 200 \u2014 secret_key in body: True"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": "404 Not Found",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "warning",
+          "message": {
+            "text": "Swagger UI docs accessible without authentication: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "LOW",
+            "expected": "404 Not Found",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "warning",
+          "message": {
+            "text": "Verbose auth error reveals username existence: {\"detail\":\"Wrong password for user 'alice'\"}"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "MEDIUM",
+            "expected": "Generic 'Invalid credentials' message",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "warning",
+          "message": {
+            "text": "CORS wildcard (*) allows any origin: Access-Control-Allow-Origin: *"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "MEDIUM",
+            "expected": "No wildcard Access-Control-Allow-Origin header",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Python Server (test_agent_audit.py:26): Tool arguments passed to subprocess.run(shell=True) or os.system. Snippet: `y bash command.\"\"\"\n    return subprocess.run(command, shell=True)\n\n@tool\ndef refund_customer(charge_id:`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Python Server (test_agent_audit.py:55): Tool arguments passed to subprocess.run(shell=True) or os.system. Snippet: `f run_query(user_prompt):\n    os.system(f\"grep {user_prompt} logs.txt\")\n'''\n        rule`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Python Server (test_mcp_audit.py:29): Tool arguments passed to subprocess.run(shell=True) or os.system. Snippet: `hell injection sink\n    res = subprocess.run(command, shell=True, capture_output=True, text=True)\n    re`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Python Server (generate_training_data.py:134): Tool arguments passed to subprocess.run(shell=True) or os.system. Snippet: `un_cmd(cmd: str):\\n    return subprocess.run(f\"bash -c {cmd}\", shell=True)', \"agent tool executes unsanitized she`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (chart.min.js:19): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `360}function Bt(t){const e=Tt.exec(t);let i,s=255;if(!e)return;e[5]!==i&&(s=`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (chart.min.js:19): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `rAt(0)?function(t){const e=$t.exec(t);let i,s,n,o=255;if(e){if(e[7]!==i){con`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (chart.min.js:19): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `|s===this.plugins&&e.id?this._exec(t,s,e):u(e,(e=>{const s=i||this._getRegis`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (chart.min.js:19): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `._getRegistryForType(e);this._exec(t,s,e)}))}))}_exec(t,e,i){const s=w(t);d(`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (chart.min.js:19): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `e(e);this._exec(t,s,e)}))}))}_exec(t,e,i){const s=w(t);d(i[\"before\"+s],[],i)`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Python Server (mcp_audit.py:62): Tool arguments passed to subprocess.run(shell=True) or os.system. Snippet: `commands (child_process.exec, subprocess.run(shell=True), os.system) using interpolated or unsa`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Python Server (mcp_audit.py:264): Tool arguments passed to subprocess.run(shell=True) or os.system. Snippet: `l\": \"Tool arguments passed to subprocess.run(shell=True) or os.system.\"`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Python Server (mcp_audit.py:308): Tool arguments passed to subprocess.run(shell=True) or os.system. Snippet: `l\": \"Tool arguments passed to subprocess.run(shell=True) or os.system.\"\n                })`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.js:1225): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `;\n        while ((m = pattern.exec(text)) !== null) {\n            const ln = ra`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.js:1282): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((em = ASSIGN_RE.exec(text)) !== null) {\n            const varName`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.js:1337): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((m = pattern.exec(text)) !== null) {\n                // Skip t`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.js:1365): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((m = pattern.exec(text)) !== null) {\n                const wln`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.js:1426): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `;\n        while ((m = pattern.exec(text)) !== null) {\n            findings.push`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.js:1448): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((vm = API_VERSION_RE.exec(text)) !== null) {\n            const v = par`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.ts:1243): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `;\n        while ((m = pattern.exec(text)) !== null) {\n            const ln = ra`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.ts:1298): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((em = ASSIGN_RE.exec(text)) !== null) {\n            const varName`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.ts:1347): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((m = pattern.exec(text)) !== null) {\n                // Skip t`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.ts:1374): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((m = pattern.exec(text)) !== null) {\n                const wln`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.ts:1432): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `;\n        while ((m = pattern.exec(text)) !== null) {\n            findings.push`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        },
+        {
+          "ruleId": "AI-BOM---MCP-&-AI-Agent-Audit",
+          "level": "error",
+          "message": {
+            "text": "MCP Source Vulnerability: Shell Injection Sink in MCP Tool Handler (scanner.ts:1455): Tool arguments interpolated into child_process.exec without token escaping. Snippet: `while ((vm = API_VERSION_RE.exec(text)) !== null) {\n            const v = par`"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:9000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "CRITICAL",
+            "expected": null,
+            "compliance": {}
+          }
+        }
+      ],
+      "properties": {
+        "target": "http://localhost:9000",
+        "scannedAt": "2026-08-19T09:44:43.602036"
+      }
+    }
+  ]
+}

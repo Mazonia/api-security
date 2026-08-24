@@ -85,6 +85,27 @@ GOVERNANCE_REGISTRY: Dict[str, Dict[str, Any]] = {
         "eu_ai_act": "Art. 15 (Cybersecurity & Key Management)",
         "nist_ai_rmf": "GOVERN 1.1",
         "iso_42001": "A.9 (Information Security Management)"
+    },
+    "cyber-physical-actuation-tool": {
+        "title": "Unconstrained Cyber-Physical IoT Actuation Tool",
+        "owasp_llm": "LLM06: Excessive Agency / IoT OWASP Top 10",
+        "eu_ai_act": "Art. 14 (Human Oversight for Cyber-Physical AI)",
+        "nist_ai_rmf": "MANAGE 2.4, GOVERN 1.2",
+        "iso_42001": "A.10 (Operational Control of Physical Actuators)"
+    },
+    "unencrypted-iot-telemetry-tool": {
+        "title": "Unencrypted IoT Telemetry / Protocol Communication",
+        "owasp_llm": "LLM02: Sensitive Information Disclosure",
+        "eu_ai_act": "Art. 15 (Cybersecurity & Encryption)",
+        "nist_ai_rmf": "MEASURE 2.6",
+        "iso_42001": "A.9 (Data Transport Protection)"
+    },
+    "unsigned-ota-firmware-tool": {
+        "title": "Unsigned OTA Firmware Update Tool Capability",
+        "owasp_llm": "LLM06: Excessive Agency / OWASP IoT I3",
+        "eu_ai_act": "Art. 15 (Hardware & Firmware Integrity)",
+        "nist_ai_rmf": "MANAGE 2.4",
+        "iso_42001": "A.10 (Software & Firmware Supply Chain Control)"
     }
 }
 

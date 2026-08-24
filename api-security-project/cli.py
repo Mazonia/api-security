@@ -46,6 +46,10 @@ def cmd_app_surface(args):
         out_path = args.output or f"apisec-bolt-code-discovery/openapi_spec.{fmt}"
         scanner.export_openapi(res["endpoints"], out_path, fmt=fmt)
         console.print(f"[green]? OpenAPI 3.0 specification exported -> {out_path}[/]")
+    elif args.format == "asyncapi":
+        out_path = args.output or "asyncapi_spec.json"
+        scanner.export_asyncapi(res["endpoints"], out_path)
+        console.print(f"[green]? AsyncAPI 3.0 IoT specification exported -> {out_path}[/]")
     elif args.format == "sarif":
         out_path = args.output or "app-surface.sarif"
         scanner.export_sarif(res, out_path)
@@ -132,6 +136,18 @@ def cmd_mcp_audit(args):
             console.print(f"Available risk flags: {', '.join(mcp_audit.RISK_EXPLANATIONS.keys())}")
 
 
+def cmd_iot_audit(args):
+    te_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testing-engine")
+    if te_dir not in sys.path:
+        sys.path.insert(0, te_dir)
+    from owasp_tests.test_iot_api import run_iot_security_tests
+    findings = run_iot_security_tests(args.target)
+    console.print(f"[bold cyan]MazAPI IoT Security Audit for:[/] {args.target}")
+    console.print(f"Discovered [bold red]{len(findings)}[/] IoT vulnerability findings.\n")
+    for f in findings:
+        console.print(f"[{f['severity']}] {f['title']} on {f['endpoint']}\n  CWE: {f['cwe']}\n  Evidence: {f['evidence']}\n")
+
+
 def cmd_train_models(args):
     from monitoring.train_model import train_and_save
     train_and_save()
@@ -145,7 +161,7 @@ def main():
     p_app = subparsers.add_parser("app-surface", help="Static code API & route discovery at PR time")
     p_app.add_argument("action", choices=["scan"], default="scan", nargs="?")
     p_app.add_argument("path", default=".", nargs="?")
-    p_app.add_argument("--format", choices=["table", "json", "openapi", "openapi-yaml", "openapi-json", "sarif"], default="table")
+    p_app.add_argument("--format", choices=["table", "json", "openapi", "openapi-yaml", "openapi-json", "asyncapi", "sarif"], default="table")
     p_app.add_argument("--output", "-o", help="Output file destination")
     p_app.add_argument("--baseline", help="Compare against baseline JSON file")
     p_app.add_argument("--update-baseline", help="Save current endpoints as new baseline JSON")
@@ -167,7 +183,11 @@ def main():
     p_mcp.add_argument("--flag", default="shell-injection-in-source", help="Risk flag for explain command")
     p_mcp.add_argument("--exit-code", action="store_true", help="Exit with non-zero code on critical findings")
 
-    # 4. train-models
+    # 4. iot-audit
+    p_iot = subparsers.add_parser("iot-audit", help="Audit IoT endpoints, MQTT brokers, CoAP, and OTA update surfaces")
+    p_iot.add_argument("--target", default="http://localhost:8000", help="Target IoT API URL")
+
+    # 5. train-models
     subparsers.add_parser("train-models", help="Train 32-feature calibrated ML anomaly and threat models")
 
     args = parser.parse_args()
@@ -178,10 +198,13 @@ def main():
         cmd_agent_audit(args)
     elif args.subcommand == "mcp-audit":
         cmd_mcp_audit(args)
+    elif args.subcommand == "iot-audit":
+        cmd_iot_audit(args)
     elif args.subcommand == "train-models":
         cmd_train_models(args)
     else:
         parser.print_help()
+
 
 
 if __name__ == "__main__":

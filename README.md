@@ -34,29 +34,32 @@ api-security/
 ## 🌟 Key Platform Capabilities
 
 ### 1. App Surface Discovery Engine (PR-Time Static Analysis)
-Detect application and API attack surfaces directly from source code during Pull Request review:
-*   **Multi-Language AST Parsers**: Native syntax tree extraction for 6 enterprise ecosystems:
-    *   **Python**: FastAPI, Flask, Django REST Framework
-    *   **Node.js**: Express, NestJS, Fastify
+Detect application, API, and IoT edge attack surfaces directly from source code during Pull Request review:
+*   **Multi-Language AST Parsers**: Native syntax tree extraction for 7 enterprise & embedded ecosystems:
+    *   **Python**: FastAPI, Flask, Django REST Framework, Paho MQTT, aiocoap
+    *   **Node.js**: Express, NestJS, Fastify, MQTT.js, CoAP.js
+    *   **C/C++ Embedded IoT**: ESP-IDF `esp_http_server`, Arduino `WebServer`, FreeRTOS MQTT handlers, and micro-REST endpoints
     *   **Java**: Spring Boot (`@RestController`, `@RequestMapping`), JAX-RS
     *   **.NET**: ASP.NET Core Controllers & C# Minimal APIs
     *   **Go**: Gin, Echo, Fiber, Chi
     *   **PHP**: Laravel routing & Symfony Controller attributes
 *   **Shadow API & Undocumented Route Diffing**: Compares Git commits (`--base` vs `--head`) to pinpoint newly introduced, altered, or deprecated routes before deployment.
-*   **OpenAPI 3.0 & SARIF Synthesis**: Automatically synthesizes OpenAPI 3.0 specifications straight from code and exports findings to GitHub Code Scanning (SARIF).
+*   **OpenAPI 3.0 & AsyncAPI 3.0 Synthesis**: Automatically synthesizes OpenAPI 3.0 and event-driven AsyncAPI 3.0 specifications straight from code and exports findings to GitHub Code Scanning (SARIF).
 
-### 2. AI Agent Audit Engine (AI Supply-Chain & Tool Execution Guardrails)
-Audit LLM applications and autonomous agentic workflows before shipping to production:
+### 2. AI Agent Audit Engine (AI Supply-Chain & Cyber-Physical Guardrails)
+Audit LLM applications, autonomous agentic workflows, and cyber-physical actuation tools before shipping to production:
 *   **11+ AI Frameworks Analyzed**: LangChain, LangGraph, CrewAI, AutoGen, Semantic Kernel, LlamaIndex, Haystack, DSPy, OpenAI Swarm, AWS Bedrock Agents, and Custom Tool decorators.
 *   **Deterministic Security Engines**:
+    *   **Cyber-Physical IoT Actuation Guardrails**: Flags AI agent tools triggering physical actuators (locks, relays, motors, valves, HVAC) executing without Human-in-the-Loop (HITL) authorization or safety parameters.
     *   **Authorization Gaps & Confused Deputy**: Detects unauthenticated tool execution sinks where unvalidated inputs invoke privileged backend tools.
-    *   **Excessive Agency**: Flags unconstrained operating system shells, dynamic SQL, file writes, and financial mutation operations (e.g., Stripe charges) executing without Human-in-the-Loop (HITL) approval.
+    *   **Excessive Agency**: Flags unconstrained operating system shells, dynamic SQL, file writes, and financial mutation operations (e.g., Stripe charges) executing without HITL approval.
     *   **Provider Key Exposure**: Masked detection of 15+ LLM provider API credentials (OpenAI, Anthropic, Cohere, Groq, Replicate, Hugging Face).
     *   **RAG Multi-Tenant Isolation**: Flags vector database queries (Pinecone, Chroma, Qdrant, Weaviate, Pgvector) missing tenant isolation filter constraints.
 *   **CycloneDX 1.6 AI-BOM**: Generates structured AI Software Bill of Materials tracking models, parameters, data flows, and tool sinks.
 
-### 3. Model Context Protocol (MCP) Auditor
-Evaluate Model Context Protocol servers for vulnerabilities:
+### 3. Model Context Protocol (MCP) & IoT API Security Auditor
+Evaluate Model Context Protocol servers and IoT protocol endpoints for vulnerabilities:
+*   **IoT API Protocol Auditor**: Audits MQTT broker ACLs, CoAP UDP reflection vulnerabilities, cleartext telemetry disclosure, and insecure OTA firmware updates.
 *   **Security Registry**: Evaluates server configurations against a database of 50+ vetted community and enterprise MCP servers.
 *   **Static Source Scans**: Analyzes custom Python and Node.js MCP server implementations for shell injection and path traversal sinks.
 

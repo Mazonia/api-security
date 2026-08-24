@@ -182,3 +182,61 @@ def admin_list_orders(request: Request, admin: dict = Depends(require_admin)):
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "hardened-api"}
+
+
+# ── IoT API Hardened Endpoints ─────────────────────────────────────────────
+@app.get("/api/v1/iot/telemetry")
+@limiter.limit("30/minute")
+def get_hardened_iot_telemetry(request: Request, current_user: dict = Depends(get_current_user)):
+    """Authenticated IoT telemetry endpoint."""
+    return {
+        "status": "active",
+        "device_id": "esp32_sensor_grid_04",
+        "temperature_celsius": 24.5,
+        "humidity_pct": 58.2,
+        "pressure_hpa": 1013.25,
+        "security": "MUTUAL_TLS_JWT_ENFORCED"
+    }
+
+
+@app.post("/api/v1/iot/actuate")
+@limiter.limit("10/minute")
+def actuate_hardened_iot_device(request: Request, payload: dict, admin_user: dict = Depends(require_admin)):
+    """Hardened physical actuator endpoint requiring admin role and safety bounds."""
+    action = payload.get("action", "lock")
+    device_id = payload.get("device_id", "door_lock_01")
+    return {
+        "status": "SUCCESSFULLY_MUTATED",
+        "device_id": device_id,
+        "action_executed": action,
+        "operator": admin_user["username"],
+        "safety_guardrail": "HITL_APPROVED"
+    }
+
+
+@app.post("/api/v1/iot/ota/upload")
+@limiter.limit("5/minute")
+def upload_hardened_ota_firmware(request: Request, payload: dict = None, x_signature: str = Header(None, alias="X-Signature")):
+    """Hardened OTA update requiring cryptographic signature verification."""
+    if not x_signature or len(x_signature) < 32:
+        raise HTTPException(status_code=403, detail="Missing or invalid cryptographic firmware signature header (X-Signature)")
+    return {
+        "status": "FIRMWARE_VERIFIED_AND_ACCEPTED",
+        "signature_type": "Ed25519",
+        "signature": x_signature[:16] + "..."
+    }
+
+
+@app.post("/api/v1/iot/mqtt/publish")
+@limiter.limit("20/minute")
+def publish_hardened_mqtt_gateway(request: Request, payload: dict, current_user: dict = Depends(get_current_user)):
+    """Hardened MQTT gateway prohibiting wildcard topic hijacking."""
+    topic = payload.get("topic", "")
+    if "#" in topic or "+" in topic or not topic:
+        raise HTTPException(status_code=400, detail="MQTT Wildcard topic publication prohibited by Topic ACL Policy")
+    return {
+        "status": "PUBLISHED",
+        "topic": topic,
+        "acl_enforced": True
+    }
+

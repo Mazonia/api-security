@@ -12,6 +12,7 @@ from rich.panel import Panel
 
 from .parsers import ALL_PARSERS
 from .openapi_generator import OpenAPIGenerator
+from .asyncapi_generator import AsyncAPIGenerator
 from .diff_engine import DiffEngine
 from .sarif_exporter import AppSurfaceSarifExporter
 
@@ -161,3 +162,9 @@ class AppSurfaceScanner:
         with open(output_path, "w", encoding="utf-8") as f:
             import json
             json.dump(sarif_dict, f, indent=2)
+
+    def export_asyncapi(self, endpoints: List[Dict[str, Any]], output_path: str) -> None:
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        gen = AsyncAPIGenerator()
+        gen.export_json(endpoints, output_path)
+

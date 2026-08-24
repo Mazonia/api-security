@@ -5,6 +5,7 @@ from .java_parser import JavaRouteParser
 from .dotnet_parser import DotnetRouteParser
 from .go_parser import GoRouteParser
 from .php_parser import PhpRouteParser
+from .cpp_parser import CppRouteParser
 
 ALL_PARSERS = [
     PythonRouteParser(),
@@ -13,4 +14,5 @@ ALL_PARSERS = [
     DotnetRouteParser(),
     GoRouteParser(),
     PhpRouteParser(),
+    CppRouteParser(),
 ]

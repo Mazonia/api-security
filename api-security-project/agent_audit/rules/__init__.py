@@ -4,6 +4,7 @@ from .authz_gaps import AuthorizationGapsRule
 from .tool_injection import ToolInjectionRule
 from .rag_security import RagSecurityRule
 from .provider_keys import ProviderKeysRule
+from .iot_actuation import IoTActuationRule
 
 ALL_AGENT_RULES = [
     ExcessiveAgencyRule(),
@@ -11,4 +12,5 @@ ALL_AGENT_RULES = [
     ToolInjectionRule(),
     RagSecurityRule(),
     ProviderKeysRule(),
+    IoTActuationRule(),
 ]

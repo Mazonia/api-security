@@ -40,6 +40,16 @@ class PythonRouteParser:
             re.IGNORECASE
         )
 
+        # MQTT and CoAP IoT regexes for Python
+        self.mqtt_sub_re = re.compile(
+            r'(?:@mqtt\.subscribe|client\.subscribe|mqtt_client\.subscribe)\s*\(\s*[\'"]([^\'"]+)[\'"]',
+            re.IGNORECASE
+        )
+        self.coap_res_re = re.compile(
+            r'(?:root\.add_resource|site\.add_resource|CoapResource)\s*\(\s*\[?[\'"]([^\'"]+)[\'"]\]?',
+            re.IGNORECASE
+        )
+
     def parse_file(self, file_path: str, content: str) -> List[Dict[str, Any]]:
         endpoints = []
         try:
@@ -48,6 +58,9 @@ class PythonRouteParser:
         except Exception:
             # Fall back to high-res regex scanning if AST fails
             endpoints.extend(self._parse_regex(file_path, content))
+
+        # Scan for MQTT and CoAP IoT handlers in Python
+        endpoints.extend(self._parse_iot(file_path, content))
 
         return endpoints
 
@@ -233,3 +246,50 @@ class PythonRouteParser:
         if not path or path == "/":
             return prefix if prefix.startswith("/") else "/" + prefix
         return "/" + prefix.strip("/") + "/" + path.strip("/")
+
+    def _parse_iot(self, file_path: str, content: str) -> List[Dict[str, Any]]:
+        endpoints = []
+        lines = content.splitlines()
+
+        for m in self.mqtt_sub_re.finditer(content):
+            topic = m.group(1)
+            line_no = content[:m.start()].count("\n") + 1
+            has_auth = bool(re.search(r'(?:tls|ssl|auth|cert|jwt)', content[max(0, m.start()-150):min(len(content), m.end()+150)], re.I))
+            endpoints.append({
+                "file": file_path,
+                "line": line_no,
+                "framework": "FastAPI/Paho MQTT",
+                "method": "SUBSCRIBE",
+                "path": topic,
+                "handler": "on_message",
+                "parameters": [],
+                "has_auth": has_auth,
+                "auth_type": "MQTT ACL/TLS" if has_auth else "None",
+                "is_bola_candidate": "+" in topic or "#" in topic,
+                "is_bfla_candidate": not has_auth,
+                "risk_level": "HIGH" if ("#" in topic or not has_auth) else "LOW",
+                "protocol": "MQTT"
+            })
+
+        for m in self.coap_res_re.finditer(content):
+            path = "/" + m.group(1).lstrip("/")
+            line_no = content[:m.start()].count("\n") + 1
+            has_auth = bool(re.search(r'(?:dtls|psk|auth)', content[max(0, m.start()-150):min(len(content), m.end()+150)], re.I))
+            endpoints.append({
+                "file": file_path,
+                "line": line_no,
+                "framework": "aiocoap / CoAP",
+                "method": "GET",
+                "path": path,
+                "handler": "render",
+                "parameters": [],
+                "has_auth": has_auth,
+                "auth_type": "DTLS/PSK" if has_auth else "None",
+                "is_bola_candidate": False,
+                "is_bfla_candidate": not has_auth,
+                "risk_level": "MEDIUM" if not has_auth else "LOW",
+                "protocol": "CoAP"
+            })
+
+        return endpoints
+

@@ -180,6 +180,59 @@ def health():
     return {"status": "ok", "service": "vulnerable-api"}
 
 
+# ── IoT API Vulnerable Endpoints ──────────────────────────────────────────
+@app.get("/api/v1/iot/telemetry")
+def get_iot_telemetry():
+    """Unauthenticated cleartext IoT sensor telemetry disclosure."""
+    return {
+        "status": "active",
+        "device_id": "esp32_sensor_grid_04",
+        "temperature_celsius": 24.5,
+        "humidity_pct": 58.2,
+        "pressure_hpa": 1013.25,
+        "location": "Server Room Rack B",
+        "security": "NONE_CLEARTEXT"
+    }
+
+
+@app.post("/api/v1/iot/actuate")
+def actuate_iot_device(payload: dict):
+    """Unauthenticated physical actuator trigger (relay/lock)."""
+    action = payload.get("action", "lock")
+    device_id = payload.get("device_id", "door_lock_01")
+    return {
+        "status": "SUCCESS",
+        "device_id": device_id,
+        "action_executed": action,
+        "warning": "UNAUTHENTICATED_ACTUATE_TRIGGERED"
+    }
+
+
+@app.post("/api/v1/iot/ota/upload")
+def upload_ota_firmware(binary_data: bytes = None):
+    """Insecure unsigned OTA firmware upload endpoint."""
+    return {
+        "status": "FIRMWARE_UPLOADED",
+        "size_bytes": 1024,
+        "signature_verified": False,
+        "warning": "UNSIGNED_FIRMWARE_ACCEPTED"
+    }
+
+
+@app.post("/api/v1/iot/mqtt/publish")
+def publish_mqtt_gateway(payload: dict):
+    """Anonymous MQTT broker gateway simulation."""
+    topic = payload.get("topic", "#")
+    msg = payload.get("message", "hello")
+    return {
+        "status": "PUBLISHED",
+        "topic": topic,
+        "message": msg,
+        "acl_enforced": False
+    }
+
+
+
 @app.get("/ui", response_class=HTMLResponse, include_in_schema=False)
 def shopapp_ui():
     return _SHOPAPP_HTML

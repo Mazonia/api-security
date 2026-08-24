@@ -130,6 +130,46 @@ class AnomalyDetector:
         status = record.get("status_code", 200)
 
         # Rule-based fast deterministic triage
+        raw_path = record.get("raw_path") or path or ""
+        body_str = str(record.get("body") or record.get("payload") or "")
+        has_auth = record.get("has_auth") or record.get("authorization") or record.get("token")
+
+        if "/ota/" in raw_path.lower() or "/firmware" in raw_path.lower():
+            if not has_auth:
+                return {
+                    "anomaly": True,
+                    "score": -0.95,
+                    "confidence": 1.0,
+                    "reason": "Unauthenticated & Unsigned OTA Firmware Upload Attempt",
+                    "model": "rule",
+                    "attack_type": "iot_ota_tampering",
+                    "top_features": ["is_debug_path", "payload_length"]
+                }
+
+        if "/actuate" in raw_path.lower() or "unlock" in body_str.lower() or "relay" in raw_path.lower():
+            if not has_auth:
+                return {
+                    "anomaly": True,
+                    "score": -0.90,
+                    "confidence": 1.0,
+                    "reason": "Unauthenticated Cyber-Physical Actuation Trigger",
+                    "model": "rule",
+                    "attack_type": "iot_actuation_hijack",
+                    "top_features": ["is_admin_path", "has_auth"]
+                }
+
+        if record.get("protocol") == "MQTT" or "/mqtt/" in raw_path.lower():
+            if ("#" in raw_path or "+" in raw_path or "#" in body_str) and not has_auth:
+                return {
+                    "anomaly": True,
+                    "score": -0.85,
+                    "confidence": 1.0,
+                    "reason": "Anonymous MQTT Wildcard Topic Hijack Attempt",
+                    "model": "rule",
+                    "attack_type": "iot_topic_hijack",
+                    "top_features": ["path_length", "has_auth"]
+                }
+
         if record.get("bola_suspected"):
             return {
                 "anomaly": True,

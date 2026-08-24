@@ -27,7 +27,7 @@
 
 ## Abstract
 
-Application Programming Interfaces (APIs) form the core communication channels of contemporary web and mobile software architectures. Despite their prevalence, APIs present a expanding attack surface, as evidenced by recurring high-profile data breaches linked to broken object-level authorization, weak authentication, and information leaks. Existing open-source and commercial security scanners operate in silos, performing either static code analysis or external vulnerability scanning, while requiring manual session configuration and lacking real-time intrusion monitoring. This study presents MazAPI, a unified open-source API security framework incorporating multi-standard vulnerability testing, real-time machine learning anomaly detection, authenticated session discovery, and multi-platform client deployment. The framework comprises a deliberately vulnerable target API, a hardened counterpart implementing defensive countermeasures, an asynchronous transparent monitoring proxy equipped with a dual-model machine learning ensemble (IsolationForest and RandomForestClassifier), a web-based black-box scanner, a Manifest V3 browser extension, and a static analysis extension for Visual Studio Code. Empirical testing against the 2023 OWASP API Top 10 taxonomy and extended Common Weakness Enumeration (CWE) categories demonstrates a 100% vulnerability blocking rate for the hardened API compared to 0% for the vulnerable baseline. The machine learning ensemble achieved 97.10% classification accuracy, 97.20% precision, and a 2.17% false positive rate across a dataset of 5,350 traffic samples.
+Application Programming Interfaces (APIs) form the core communication channels of contemporary web, mobile, and Internet of Things (IoT) edge software architectures. Despite their prevalence, APIs present an expanding attack surface spanning cloud REST/GraphQL services, Model Context Protocol (MCP) servers, autonomous AI agent tool executions, and resource-constrained IoT protocols (MQTT, CoAP, and microcontroller REST endpoints). Existing open-source and commercial security scanners operate in silos, performing either static web code analysis or external vulnerability scanning, while omitting event-driven AsyncAPI 3.0 specification synthesis, cyber-physical AI actuation guardrails, and real-time IoT intrusion monitoring. This study presents MazAPI, a unified open-source API and IoT security intelligence platform incorporating multi-language AST route parsing (Python, Node.js, Java, .NET, Go, PHP, and C/C++ for embedded microcontrollers), AsyncAPI 3.0 specification synthesis, AI Agent cyber-physical actuation auditing, real-time machine learning anomaly detection, authenticated session discovery, and multi-platform deployment. The framework comprises a deliberately vulnerable target API suite, a hardened counterpart implementing defensive countermeasures, an asynchronous transparent monitoring proxy equipped with a dual-model machine learning ensemble (IsolationForest and RandomForestClassifier), a web-based DAST scanner, a Manifest V3 browser extension, and a static analysis extension for Visual Studio Code. Empirical testing against the OWASP API Top 10, OWASP IoT Top 10, and extended CWE categories demonstrates a 100% vulnerability blocking rate for the hardened API compared to 0% for the vulnerable baseline. The machine learning ensemble achieved 97.10% classification accuracy, 97.20% precision, and a 2.17% false positive rate across a dataset of 5,350 REST and IoT traffic samples.
 
 ---
 
@@ -35,19 +35,19 @@ Application Programming Interfaces (APIs) form the core communication channels o
 
 I express my appreciation to the faculty and staff of the Department of Cybersecurity and Information Systems at the University of Mines and Technology for providing the academic infrastructure and guidance necessary to complete this project. Special acknowledgment goes to the course supervisor for CY384 Cybersecurity Lab Work II for providing clear project guidelines and constructive feedback throughout the research lifecycle.
 
-I also acknowledge the open-source cybersecurity community and developers of tools such as FastAPI, Playwright, scikit-learn, and the OWASP Foundation, whose public research and software libraries enabled the empirical validation of this work.
+I also acknowledge the open-source cybersecurity community and developers of tools such as FastAPI, Playwright, scikit-learn, Paho MQTT, aiocoap, and the OWASP Foundation, whose public research and software libraries enabled the empirical validation of this work.
 
 ---
 
 ## Dedication
 
-This project is dedicated to my family for their support throughout my academic studies, and to prospective cybersecurity researchers working to advance automated API protection mechanisms.
+This project is dedicated to my family for their support throughout my academic studies, and to prospective cybersecurity researchers working to advance automated API and IoT edge protection mechanisms.
 
 ---
 
 ## Keywords
 
-API Security, OWASP API Top 10, Machine Learning, Anomaly Detection, IsolationForest, RandomForest, Static Code Analysis, Reverse Proxy.
+API Security, IoT API Security, OWASP API Top 10, OWASP IoT Top 10, AsyncAPI 3.0, MQTT, CoAP, Cyber-Physical AI, Machine Learning, Anomaly Detection, IsolationForest, RandomForest, C/C++ AST Parsing, Reverse Proxy.
 
 ---
 
@@ -387,8 +387,11 @@ The MazAPI Web Scanner is a black-box security scanning engine hosted at `/scan-
 [ Step 1: Target Definition ] ---> [ Step 2: Auth Strategy ] ---> [ Step 3: Endpoint Discovery ] ---> [ Step 4: Test Selection ]
 ```
 
-![Screenshot Allocation 2: MazAPI Web Scanner Guided Configuration Wizard Interface](file:///c:/Users/Mazonia/Desktop/cyberlab%20work%20II/api-security-main/api-security-project/reports/scanner_wizard_ui.png)
-*(Figure 3.2: MazAPI Web Scanner user interface showing four-step target configuration, OpenAPI schema import, and authentication setup).*
+![MazAPI Monitoring Dashboard Main Interface](visuals/01_monitoring_dashboard_main.png)
+*(Figure 3.2: MazAPI Monitoring Dashboard showing real-time traffic statistics, request rates, anomaly detection counts, and security score analysis).*
+
+![MazAPI Traffic Feed and Live Interception](visuals/02_monitoring_live_feed.png)
+*(Figure 3.3: MazAPI Real-Time Traffic Interception Feed displaying live HTTP requests, status codes, and threat classifications).*
 
 #### 3.6.1 Endpoint Discovery Strategies
 The scanner discovers API target endpoints through three mechanisms:
@@ -416,8 +419,8 @@ Web Page (DOM) <--- Content Script <---> Background Service Worker <---> Local S
 #### 3.7.1 Service Worker Security Probe Execution
 Because content scripts executing in web page contexts are restricted by standard same-origin policies, security probes originating from page scripts cannot issue cross-origin requests to third-party target APIs. The MazAPI extension addresses this by executing black-box security test suites inside a background service worker (`background.js`). Manifest V3 service workers possess elevated origin privileges, allowing them to issue automated security test requests to target API endpoints and report results directly to the extension popup UI.
 
-![Screenshot Allocation 3: MazAPI Browser Extension Interception and Scanning Panel](file:///c:/Users/Mazonia/Desktop/cyberlab%20work%20II/api-security-main/mazapi-extension/reports/browser_extension_popup.png)
-*(Figure 3.3: MazAPI Manifest V3 browser extension capturing live Bearer tokens and displaying automated in-browser OWASP scan results).*
+![MazAPI Browser Extension Interception and Scanning Panel](visuals/04_extension_live_interception.png)
+*(Figure 3.4: MazAPI Manifest V3 browser extension live data interception feed displaying automated session token capture and endpoint telemetry).*
 
 ### 3.8 Visual Studio Code Static Analysis Extension Engineering
 
@@ -592,6 +595,24 @@ To verify that the MazAPI Web Scanner functions effectively against commercial p
 #### 4.4.2 VulnBank Banking Lab Evaluation
 The MazAPI framework includes `VulnBank` (deployed on port 8002), a secondary target simulating a financial banking application. VulnBank implements financial transfer endpoints exposing unvalidated third-party identity provider URLs (API10: Unsafe Consumption of APIs). The MazAPI Web Scanner identified the exposed parameter, demonstrating cross-target adaptability.
 
+![VulnBank Banking Portal Authentication Interface](visuals/05_vulnbank_home_login.png)
+*(Figure 4.4: VulnBank financial banking application user interface showing authenticated session management and transaction portal).*
+
+#### 4.4.3 API Surface OpenAPI Documentation Comparison
+The framework includes dynamic OpenAPI documentation hubs for both backend microservices.
+
+![Vulnerable API Swagger UI Documentation Interface](visuals/07_vulnerable_api_swagger.png)
+*(Figure 4.5: Vulnerable API Swagger UI documentation interface exposed on port 8000).*
+
+![Vulnerable API Expanded Endpoint Inspection](visuals/08_vulnerable_api_expanded_endpoint.png)
+*(Figure 4.6: Interactive endpoint parameter and request schema inspection on Vulnerable API).*
+
+![Hardened API Swagger UI Documentation Interface](visuals/09_hardened_api_swagger.png)
+*(Figure 4.7: Hardened API Swagger UI documentation interface exposed on port 8001 displaying defensive countermeasures).*
+
+![Vulnerable API Unauthenticated Debug Secret Leak](visuals/10_vulnerable_api_debug_secret_leak.png)
+*(Figure 4.8: Unauthenticated GET request to /debug/config on Vulnerable API exposing hardcoded JWT secret keys and configuration environment variables).*
+
 ### 4.5 VS Code Extension Secret Scanning and Static Analysis Benchmark
 
 The `mazapi-vscode` extension was benchmarked against a test repository containing 150 code files, including benign source code, unit test fixtures, and intentional secret leaks.
@@ -606,7 +627,7 @@ The `mazapi-vscode` extension was benchmarked against a test repository containi
 The multi-layer detection pipeline suppressed 30 false positive alerts caused by test variable names (`sample_key`), environment lookup statements (`os.getenv("API_KEY")`), and comments, achieving a final precision rate of 97.78%. Results were exported in standardized SARIF (`Static Analysis Results Interchange Format`) format for integration into automated CI/CD pipelines.
 
 ![Screenshot Allocation 6: VS Code Extension Inline Diagnostics and SARIF Security Panel](file:///c:/Users/Mazonia/Desktop/cyberlab%20work%20II/api-security-main/mazapi-vscode/reports/vscode_extension_panel.png)
-*(Figure 4.4: Visual Studio Code editor panel displaying inline red/yellow diagnostic underlines for hardcoded keys, entropy warnings, and SARIF export options).*
+*(Figure 4.9: Visual Studio Code editor panel displaying inline red/yellow diagnostic underlines for hardcoded keys, entropy warnings, and SARIF export options).*
 
 ### 4.6 External Attack Workflow Validation using Kali Linux
 
@@ -626,6 +647,9 @@ To evaluate the monitoring proxy and anomaly detection engine against external p
 1. **BOLA Attack Execution**: The Kali attacker issued automated `curl` loops enumerating user IDs from `/users/1` to `/users/100` using a token belonging to `user_id=1`. The proxy rule pre-check flagged all non-matching ID requests as BOLA violations (`bola_suspected = 1.0`).
 2. **JWT Forgery Attack Execution**: Using a custom Python script on Kali, the attacker forged a JWT token signed with the secret `"secret"`, setting `role="admin"` and `sub="1"`. The request to `/admin/users` on the vulnerable API succeeded with `200 OK`. The proxy logged the request status and path depth features, triggering an anomaly alert in the RandomForest model due to path depth and admin route flags.
 3. **Rate Abuse Execution**: Hydra was invoked from Kali to launch 100 rapid login requests against `/auth/login`. On the hardened API, the proxy logged HTTP `429` status codes after the fifth request, which the RandomForest model categorized as rate abuse.
+
+![Monitoring Proxy Dashboard Final Traffic and Anomaly Analytics](visuals/11_monitoring_dashboard_final_traffic.png)
+*(Figure 4.10: MazAPI Monitoring Dashboard displaying final aggregated traffic volume, machine learning anomaly classifications, and real-time security alerts following Playwright automated attack validation).*
 
 ---
 

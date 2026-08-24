@@ -35,6 +35,15 @@ class NodeRouteParser:
             r'(?:app|router)\.use\s*\(\s*[\'"`]([^\'"`]+)[\'"`]\s*,\s*([a-zA-Z0-9_]+)\s*\)',
             re.IGNORECASE
         )
+        # Node.js MQTT and CoAP patterns
+        self.mqtt_sub_re = re.compile(
+            r'(?:client|mqttClient)\.subscribe\s*\(\s*[\'"`]([^\'"`]+)[\'"`]',
+            re.IGNORECASE
+        )
+        self.coap_server_re = re.compile(
+            r'coap\.createServer\s*\(\s*function\s*\(\s*req\s*,\s*res\s*\)',
+            re.IGNORECASE
+        )
 
     def parse_file(self, file_path: str, content: str) -> List[Dict[str, Any]]:
         endpoints = []
@@ -109,6 +118,27 @@ class NodeRouteParser:
                 "is_bola_candidate": is_bola,
                 "is_bfla_candidate": is_admin and not has_auth,
                 "risk_level": "HIGH" if (is_admin and not has_auth) else ("MEDIUM" if is_bola and not has_auth else "LOW")
+            })
+
+        # Scan for MQTT topic subscriptions in Node.js
+        for m in self.mqtt_sub_re.finditer(content):
+            topic = m.group(1)
+            line_no = content[:m.start()].count("\n") + 1
+            has_auth = bool(self.auth_middleware_re.search(content[max(0, m.start()-150):min(len(content), m.end()+150)]))
+            endpoints.append({
+                "file": file_path,
+                "line": line_no,
+                "framework": "MQTT.js",
+                "method": "SUBSCRIBE",
+                "path": topic,
+                "handler": "on_message",
+                "parameters": [],
+                "has_auth": has_auth,
+                "auth_type": "MQTT ACL" if has_auth else "None",
+                "is_bola_candidate": "+" in topic or "#" in topic,
+                "is_bfla_candidate": not has_auth,
+                "risk_level": "HIGH" if ("#" in topic or not has_auth) else "LOW",
+                "protocol": "MQTT"
             })
 
         return endpoints

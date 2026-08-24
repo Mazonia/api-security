@@ -260,4 +260,44 @@ CVE_DB = {
             "    return {'status': 'debug mode active'}"
         ),
     },
+    "IoT API:2026 - Constrained Device & Protocol Security": {
+        "cves": ["CVE-2020-11896", "CVE-2021-3157", "CVE-2022-26531", "CVE-2023-28312"],
+        "owasp_ref": "https://owasp.org/www-project-internet-of-things/",
+        "severity": "CRITICAL",
+        "description": (
+            "Embedded microcontrollers, MQTT brokers, and CoAP servers exhibit protocol-level vulnerabilities "
+            "including unauthenticated OTA firmware flashing, topic hijacking, cleartext telemetry, and amplification DoS."
+        ),
+        "fixes": [
+            "Enforce cryptographic Ed25519 or ECDSA signature verification on all OTA firmware update binaries.",
+            "Mandate TLS (port 8883) for MQTT and DTLS (port 5684) for CoAP communications.",
+            "Implement granular per-device Topic Access Control Lists (ACLs) to prevent wildcard '#' topic hijacking.",
+            "Implement rate limiting and token authentication on physical actuator control endpoints.",
+        ],
+        "impact": (
+            "Rogue actors can hijack physical actuators (doors, power relays, industrial equipment), flash malicious "
+            "firmware, exfiltrate unencrypted sensor telemetry, or launch reflection DoS attacks against cloud infrastructure."
+        ),
+        "poc_steps": [
+            "Send POST /api/v1/iot/ota/upload containing an unsigned binary payload without authentication.",
+            "Publish to MQTT topic '#' using an unauthenticated client connection.",
+            "Trigger POST /api/v1/iot/actuate with action 'unlock' without presenting a valid JWT or client certificate.",
+        ],
+        "code_before": (
+            "@app.post('/api/v1/iot/actuate')\n"
+            "async def actuate(req: Dict):\n"
+            "    # Unauthenticated actuator trigger\n"
+            "    relay.toggle(req['action'])\n"
+            "    return {'status': 'executed'}"
+        ),
+        "code_after": (
+            "@app.post('/api/v1/iot/actuate')\n"
+            "async def actuate(req: Dict, current_user=Depends(verify_signed_jwt)):\n"
+            "    # Requires JWT signature & physical safety policy check\n"
+            "    verify_actuator_safety(req['action'])\n"
+            "    relay.toggle(req['action'])\n"
+            "    return {'status': 'securely_executed'}"
+        ),
+    },
 }
+

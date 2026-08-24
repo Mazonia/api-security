@@ -11,6 +11,7 @@ if __name__ == "__main__":
         "test_agent_audit",
         "test_mcp_audit",
         "test_cli",
+        "test_iot_api",
     ]:
         mod = __import__(test_module)
         suite.addTests(loader.loadTestsFromModule(mod))
@@ -20,4 +21,4 @@ if __name__ == "__main__":
 
     if not result.wasSuccessful():
         sys.exit(1)
-    print("\n[ALL 22 UNIT & INTEGRATION TESTS PASSED SUCCESSFULLY!]")
+    print("\n[ALL UNIT & INTEGRATION TESTS INCLUDING IOT MODULE PASSED SUCCESSFULLY!]")
