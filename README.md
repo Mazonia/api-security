@@ -80,6 +80,8 @@ A persistent Chrome/Brave Side Panel workbench (Manifest V3) running 100% locall
 
 ## 📊 Comprehensive Industry & Open Source Feature Comparison Matrix
 
+![Feature Comparison Matrix](visuals/12_feature_comparison_matrix.png)
+
 | Capability / Feature | **MazAPI Platform** (Ours) | **APISec / BOLT** | **Akamai / Noname** | **Salt Security** | **Traceable AI** | **42Crunch** | **StackHawk** | **OWASP ZAP** | **Nuclei** | **Schemathesis** |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **PR-Time AST Route Discovery (7 Langs)** | **Yes (7 Langs)** | ⚠️ (3 Langs) | ❌ | ❌ | ⚠️ (eBPF) | ⚠️ (Spec only) | ❌ | ❌ | ❌ | ❌ |

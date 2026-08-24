@@ -200,6 +200,8 @@ The Common Weakness Enumeration (CWE) provides unique identifiers for software w
 
 API security evaluation tools divide into three main operational categories: active security scanners, passive network monitoring tools, and static application security testing (SAST) linters.
 
+![Feature Comparison Matrix Graphic](visuals/12_feature_comparison_matrix.png)
+
 | Tool / Platform | Category | PR AST Discovery | AsyncAPI & OpenAPI | IoT & Edge Protocols | AI Agent & MCP Audit | Active DAST Scan | ML Threat Detection | Zero-Egress Privacy |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **MazAPI Platform (Ours)** | **Unified Security Intelligence** | **Yes (7 Langs)** | **Yes (Both)** | **Yes (MQTT/CoAP/OTA)**| **Yes (11+ Fwks/BOM)** | **Yes (Zero-Egress)**| **Yes (99.73% RF)** | **100% On-Device** |
