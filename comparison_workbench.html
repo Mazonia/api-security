@@ -139,6 +139,7 @@ p.subtitle {
   cursor: pointer;
   transition: all 0.2s ease;
   user-select: none;
+  position: relative;
 }
 
 .badge-yes { background: var(--emerald-bg); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
@@ -159,6 +160,7 @@ p.subtitle {
   overflow-x: auto;
   box-shadow: var(--shadow-glass);
   backdrop-filter: var(--glass-blur);
+  position: relative;
 }
 
 table {
@@ -180,6 +182,12 @@ th {
   position: sticky;
   top: 0;
   z-index: 10;
+  cursor: pointer;
+}
+
+th:hover {
+  color: #ffffff;
+  background: rgba(99, 102, 241, 0.15);
 }
 
 th.mazapi-header {
@@ -193,10 +201,11 @@ td {
   border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
   vertical-align: middle;
+  cursor: pointer;
 }
 
 tr:hover td {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .feature-name {
@@ -212,6 +221,64 @@ tr:hover td {
 
 td.mazapi-cell {
   background: rgba(16, 185, 129, 0.04);
+}
+
+/* Floating Hover Tooltip Popover Card */
+.hover-popover {
+  position: fixed;
+  z-index: 2000;
+  width: 320px;
+  background: #0e1424;
+  border: 1px solid var(--border-glow);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  backdrop-filter: blur(16px);
+}
+
+.hover-popover.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.popover-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+
+.popover-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.popover-desc {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+.popover-footer {
+  font-size: 0.75rem;
+  color: var(--indigo);
+  font-weight: 600;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
 }
 
 /* Detail Drawer Modal */
@@ -372,7 +439,7 @@ footer {
   <header>
     <div class="brand-badge">⚡ MazAPI Security Workbench</div>
     <h1>Interactive API Security Feature Matrix</h1>
-    <p class="subtitle">Click on any feature or badge to explore technical comparative deep-dives, architectural risk analyses, and feature gaps across enterprise & open-source security tools.</p>
+    <p class="subtitle">Hover over any column header, badge, or row for quick tooltip insights, or click to lock open the full comparative deep-dive drawer.</p>
   </header>
 
   <div class="controls-bar">
@@ -390,17 +457,16 @@ footer {
       <thead>
         <tr>
           <th style="width: 28%;">Feature / Capability</th>
-          <th class="mazapi-header" style="width: 14%;">MazAPI (Ours)</th>
-          <th style="width: 10%;">APISec / BOLT</th>
-          <th style="width: 10%;">Akamai/Noname</th>
-          <th style="width: 10%;">Salt Security</th>
-          <th style="width: 10%;">Traceable AI</th>
-          <th style="width: 9%;">42Crunch</th>
-          <th style="width: 9%;">StackHawk</th>
+          <th class="mazapi-header" style="width: 14%;" onmouseenter="showToolHeaderPopover(event, 'mazapi')" onmouseleave="hidePopover()">MazAPI (Ours)</th>
+          <th style="width: 10%;" onmouseenter="showToolHeaderPopover(event, 'apisec')" onmouseleave="hidePopover()">APISec / BOLT</th>
+          <th style="width: 10%;" onmouseenter="showToolHeaderPopover(event, 'akamai')" onmouseleave="hidePopover()">Akamai/Noname</th>
+          <th style="width: 10%;" onmouseenter="showToolHeaderPopover(event, 'salt')" onmouseleave="hidePopover()">Salt Security</th>
+          <th style="width: 10%;" onmouseenter="showToolHeaderPopover(event, 'traceable')" onmouseleave="hidePopover()">Traceable AI</th>
+          <th style="width: 9%;" onmouseenter="showToolHeaderPopover(event, 'crunch')" onmouseleave="hidePopover()">42Crunch</th>
+          <th style="width: 9%;" onmouseenter="showToolHeaderPopover(event, 'stackhawk')" onmouseleave="hidePopover()">StackHawk</th>
         </tr>
       </thead>
       <tbody id="tableBody">
-        <!-- Injected dynamically by JavaScript -->
       </tbody>
     </table>
   </div>
@@ -408,6 +474,16 @@ footer {
   <footer>
     <p>MazAPI Security Platform — Open-Source Zero-Egress API & AI Intelligence Architecture</p>
   </footer>
+</div>
+
+<!-- Dynamic Hover Popover Card -->
+<div class="hover-popover" id="hoverPopover">
+  <div class="popover-header">
+    <div class="popover-title" id="popoverTitle">Title</div>
+    <div class="popover-badge" id="popoverBadge">STATUS</div>
+  </div>
+  <div class="popover-desc" id="popoverDesc">Description goes here...</div>
+  <div class="popover-footer" id="popoverFooter">💡 Click row for full technical deep-dive →</div>
 </div>
 
 <!-- Interactive Deep-Dive Modal -->
@@ -444,6 +520,16 @@ footer {
 </div>
 
 <script>
+const TOOL_INFO = {
+  mazapi: { name: "MazAPI Platform", type: "Unified Security Intelligence", model: "100% Local Zero-Egress", desc: "Shift-Left static AST parsing, AsyncAPI 3.0 synthesis, active DAST, AI Agent rules, and real-time ML anomaly proxy." },
+  apisec: { name: "APISec / BOLT", type: "Active Scanner & Surface", model: "Cloud SaaS Required", desc: "Focuses on static OpenAPI linting and cloud DAST scanning. Lacks C/C++ IoT parsing, AsyncAPI, and offline zero-egress." },
+  akamai: { name: "Akamai / Noname", type: "Enterprise Gateway WAF", model: "Cloud / On-Prem", desc: "Inspects API gateway traffic at runtime. Lacks PR-time AST code parsing, AI Agent BOMs, and local-first execution." },
+  salt: { name: "Salt Security", type: "Enterprise API Protection", model: "Cloud SaaS Required", desc: "Uses behavioral baselining on cloud gateways. Does not scan source code, AI tools, MCP servers, or IoT microcontrollers." },
+  traceable: { name: "Traceable AI", type: "eBPF API Security", model: "Hybrid Cloud", desc: "Deploys eBPF kernel agents for traffic collection. Requires cloud telemetry and lacks static IoT firmware AST parsing." },
+  crunch: { name: "42Crunch", type: "OpenAPI Spec Security", model: "Cloud / IDE", desc: "Lints OpenAPI 3.0 YAML/JSON files. Does not parse source code ASTs, active DAST vulnerabilities, or ML anomalies." },
+  stackhawk: { name: "StackHawk", type: "ZAP-based DAST Scanner", model: "Cloud SaaS", desc: "Runs OWASP ZAP vulnerability scans in CI/CD pipelines. Lacks AST surface discovery, ML anomaly proxy, and AI-BOMs." }
+};
+
 const COMPARISON_DATA = [
   {
     id: "ast_discovery",
@@ -638,22 +724,24 @@ function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
-  COMPARISON_DATA.forEach(row => {
+  COMPARISON_DATA.forEach((row, rIdx) => {
     const tr = document.createElement("tr");
     tr.onclick = () => openModal(row.id);
+    tr.onmouseenter = (e) => showRowPopover(e, row);
+    tr.onmouseleave = () => hidePopover();
 
     tr.innerHTML = `
       <td>
         <div class="feature-name">${row.name}</div>
         <div class="feature-category">${row.category}</div>
       </td>
-      <td class="mazapi-cell"><span class="badge badge-mazapi">${row.mazapi.text}</span></td>
-      <td><span class="badge ${getBadgeClass(row.apisec.status)}">${row.apisec.text}</span></td>
-      <td><span class="badge ${getBadgeClass(row.akamai.status)}">${row.akamai.text}</span></td>
-      <td><span class="badge ${getBadgeClass(row.salt.status)}">${row.salt.text}</span></td>
-      <td><span class="badge ${getBadgeClass(row.traceable.status)}">${row.traceable.text}</span></td>
-      <td><span class="badge ${getBadgeClass(row.crunch.status)}">${row.crunch.text}</span></td>
-      <td><span class="badge ${getBadgeClass(row.stackhawk.status)}">${row.stackhawk.text}</span></td>
+      <td class="mazapi-cell" onmouseenter="showCellPopover(event, '${row.id}', 'mazapi')"><span class="badge badge-mazapi">${row.mazapi.text}</span></td>
+      <td onmouseenter="showCellPopover(event, '${row.id}', 'apisec')"><span class="badge ${getBadgeClass(row.apisec.status)}">${row.apisec.text}</span></td>
+      <td onmouseenter="showCellPopover(event, '${row.id}', 'akamai')"><span class="badge ${getBadgeClass(row.akamai.status)}">${row.akamai.text}</span></td>
+      <td onmouseenter="showCellPopover(event, '${row.id}', 'salt')"><span class="badge ${getBadgeClass(row.salt.status)}">${row.salt.text}</span></td>
+      <td onmouseenter="showCellPopover(event, '${row.id}', 'traceable')"><span class="badge ${getBadgeClass(row.traceable.status)}">${row.traceable.text}</span></td>
+      <td onmouseenter="showCellPopover(event, '${row.id}', 'crunch')"><span class="badge ${getBadgeClass(row.crunch.status)}">${row.crunch.text}</span></td>
+      <td onmouseenter="showCellPopover(event, '${row.id}', 'stackhawk')"><span class="badge ${getBadgeClass(row.stackhawk.status)}">${row.stackhawk.text}</span></td>
     `;
     tbody.appendChild(tr);
   });
@@ -678,7 +766,69 @@ function filterFeatures() {
   });
 }
 
+/* Hover Tooltip Popover Functions */
+const popover = document.getElementById("hoverPopover");
+
+function showRowPopover(e, row) {
+  document.getElementById("popoverTitle").innerText = row.name;
+  document.getElementById("popoverBadge").innerText = row.category.toUpperCase();
+  document.getElementById("popoverBadge").className = "popover-badge badge-mazapi";
+  document.getElementById("popoverDesc").innerText = row.desc;
+  document.getElementById("popoverFooter").innerText = "💡 Click row to lock open full technical comparison →";
+
+  positionPopover(e);
+}
+
+function showCellPopover(e, featureId, toolKey) {
+  e.stopPropagation();
+  const row = COMPARISON_DATA.find(r => r.id === featureId);
+  const tool = TOOL_INFO[toolKey];
+  if (!row || !tool) return;
+
+  const toolVal = row[toolKey];
+  const isMaz = toolKey === 'mazapi';
+
+  document.getElementById("popoverTitle").innerText = `${tool.name} — ${row.name}`;
+  document.getElementById("popoverBadge").innerText = toolVal.text.toUpperCase();
+  document.getElementById("popoverBadge").className = "popover-badge " + (isMaz ? "badge-mazapi" : getBadgeClass(toolVal.status));
+
+  if (isMaz) {
+    document.getElementById("popoverDesc").innerText = `Native Support: ${row.mazapi_deep}`;
+  } else {
+    document.getElementById("popoverDesc").innerText = `${tool.name} Status (${toolVal.text}): ${row.other_deep}`;
+  }
+
+  document.getElementById("popoverFooter").innerText = `Deploy Model: ${tool.model} | Type: ${tool.type}`;
+  positionPopover(e);
+}
+
+function showToolHeaderPopover(e, toolKey) {
+  const tool = TOOL_INFO[toolKey];
+  if (!tool) return;
+
+  document.getElementById("popoverTitle").innerText = tool.name;
+  document.getElementById("popoverBadge").innerText = tool.type.toUpperCase();
+  document.getElementById("popoverBadge").className = "popover-badge badge-mazapi";
+  document.getElementById("popoverDesc").innerText = `${tool.desc}\n\nDeployment Model: ${tool.model}`;
+  document.getElementById("popoverFooter").innerText = "Hover over cells for specific capability comparison →";
+
+  positionPopover(e);
+}
+
+function positionPopover(e) {
+  const x = Math.min(e.clientX + 15, window.innerWidth - 340);
+  const y = Math.min(e.clientY + 15, window.innerHeight - 180);
+  popover.style.left = `${x}px`;
+  popover.style.top = `${y}px`;
+  popover.classList.add("active");
+}
+
+function hidePopover() {
+  popover.classList.remove("active");
+}
+
 function openModal(featureId) {
+  hidePopover();
   const data = COMPARISON_DATA.find(item => item.id === featureId);
   if (!data) return;
 
@@ -696,17 +846,14 @@ function closeModal() {
   document.getElementById("detailModal").classList.remove("active");
 }
 
-// Close modal on background click
 document.getElementById("detailModal").addEventListener("click", (e) => {
   if (e.target.id === "detailModal") closeModal();
 });
 
-// Close on Escape key
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeModal();
 });
 
-// Initialize on page load
 renderTable();
 </script>
 </body>
