@@ -6216,6 +6216,16 @@ async def topology_graph():
     return JSONResponse({"nodes": nodes, "edges": edges, "inline_blocking": _INLINE_BLOCKING_ENABLED})
 
 
+@app.get("/comparison", response_class=HTMLResponse)
+async def comparison_workbench():
+    """Serves the interactive feature comparison matrix dashboard."""
+    tmpl_path = os.path.join(BASE_DIR, "templates", "comparison.html")
+    if os.path.exists(tmpl_path):
+        with open(tmpl_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h1>Comparison Workbench Not Found</h1>", status_code=404)
+
+
 # ── transparent proxy (catch-all — AFTER all specific routes) ─────────────────
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy(request: Request, path: str):
