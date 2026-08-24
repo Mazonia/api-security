@@ -78,23 +78,24 @@ A persistent Chrome/Brave Side Panel workbench (Manifest V3) running 100% locall
 
 ---
 
-## 📊 Industry Feature Comparison Matrix
+## 📊 Comprehensive Industry & Open Source Feature Comparison Matrix
 
-| Feature / Capability | **MazAPI Platform** (Ours) | **APISec** (incl. BOLT) | **Noname / Akamai** | **Salt Security** | **Traceable AI** | **42Crunch** | **StackHawk** |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **App Surface AST Discovery (PR-Time)** | **Yes (6 languages)** | *In Development* | ❌ | ❌ | ⚠️ (eBPF Agent) | ⚠️ (Spec lint only) | ❌ |
-| **Shadow API PR Diff Engine** | **Yes (Git base/head)** | *Planned* | ⚠️ (Runtime only) | ⚠️ (Runtime only) | ⚠️ (Runtime only) | ❌ | ❌ |
-| **AI Agent Security Audit** | **Yes (11+ frameworks)** | *Planned* | ❌ | ❌ | ⚠️ (Firewall only) | ❌ | ❌ |
-| **CycloneDX 1.6 AI-BOM Generation** | **Yes** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **MCP (Model Context Protocol) Security** | **Yes (50+ Registry)** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Browser Side Panel Workbench** | **Yes (Side Panel API)** | **Yes (Popup)** | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Harvested JWT Inspection & Replay** | **Yes (Smart Picker)** | **Yes** | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **OpenAPI 3.0 Export from Traffic** | **Yes (YAML/JSON)** | **Yes** | ⚠️ (Gateway) | ⚠️ (Gateway) | ⚠️ (Gateway) | ❌ | ❌ |
-| **Active OWASP API Top 10 DAST** | **Yes (Zero-Egress)** | **Yes (Cloud Engine)** | ⚠️ (Add-on) | ❌ | ⚠️ (DAST module) | ⚠️ (Conformance) | **Yes** (ZAP-based) |
-| **ML Anomaly Detection** | **Yes (99.73% RF)** | ⚠️ (Heuristic) | **Yes** | **Yes** | **Yes** | ❌ | ❌ |
-| **Correlated Attack Chains** | **Yes** | ⚠️ (Basic) | **Yes** | **Yes** | **Yes** | ❌ | ❌ |
-| **Data Privacy / Local Execution** | **100% Local / Zero-Egress** | Cloud SaaS Required | Cloud / On-Prem | Cloud SaaS | Hybrid / Cloud | Cloud / IDE | Cloud / CI |
-| **Unified CLI & CI/CD Workflows** | **Yes (`cli.py`)** | ⚠️ (Runner) | ⚠️ (Plugin) | ❌ | ⚠️ (Agent) | **Yes** | **Yes** |
+| Capability / Feature | **MazAPI Platform** (Ours) | **APISec / BOLT** | **Akamai / Noname** | **Salt Security** | **Traceable AI** | **42Crunch** | **StackHawk** | **OWASP ZAP** | **Nuclei** | **Schemathesis** |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **PR-Time AST Route Discovery (7 Langs)** | **Yes (7 Langs)** | ⚠️ (3 Langs) | ❌ | ❌ | ⚠️ (eBPF) | ⚠️ (Spec only) | ❌ | ❌ | ❌ | ❌ |
+| **Embedded C/C++ & IoT AST Parser** | **Yes (ESP/Arduino)** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Shadow API Git Base/Head PR Diff** | **Yes (Git diff)** | ⚠️ (Planned) | ⚠️ (Runtime) | ⚠️ (Runtime) | ⚠️ (Runtime) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **AsyncAPI 3.0 & OpenAPI Auto-Synthesis** | **Yes (Both)** | ⚠️ (OpenAPI) | ⚠️ (Gateway) | ⚠️ (Gateway) | ⚠️ (Gateway) | ⚠️ (OpenAPI) | ❌ | ❌ | ❌ | ⚠️ (OpenAPI) |
+| **IoT Protocols (MQTT / CoAP / OTA)** | **Yes** | ❌ | ⚠️ (Basic MQTT) | ⚠️ (Basic MQTT) | ⚠️ (Basic MQTT) | ❌ | ❌ | ❌ | ⚠️ (Templates) | ❌ |
+| **AI Agent Security Audit (11+ Fwks)** | **Yes (11+ Fwks)** | ⚠️ (Basic) | ❌ | ❌ | ⚠️ (Firewall) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Cyber-Physical AI Actuation Guard** | **Yes** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **CycloneDX 1.6 AI-BOM Generation** | **Yes** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **MCP (Model Context Protocol) Audit** | **Yes (50+ Reg)** | ⚠️ (Config) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Browser Side Panel Workbench** | **Yes (Side Panel)** | ⚠️ (Popup) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Active Zero-Egress OWASP & IoT DAST** | **Yes (100% Local)**| ⚠️ (Cloud) | ⚠️ (Add-on) | ❌ | ⚠️ (DAST) | ⚠️ (Conformance)| **Yes** (Cloud) | **Yes** (Local) | **Yes** (Local) | **Yes** (Local) |
+| **ML Anomaly Detection Ensemble** | **Yes (99.73% RF)** | ⚠️ (Heuristic) | **Yes** | **Yes** | **Yes** | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Data Privacy / Zero-Egress Architecture** | **100% Local** | Cloud SaaS | Cloud / On-Prem | Cloud SaaS | Hybrid Cloud | Cloud / IDE | Cloud SaaS | **100% Local** | **100% Local** | **100% Local** |
+| **Unified CLI & GitHub SARIF Export** | **Yes (`cli.py`)** | ⚠️ (Runner) | ⚠️ (Plugin) | ❌ | ⚠️ (Agent) | **Yes** | **Yes** | ⚠️ (CLI) | **Yes** | **Yes** |
 
 ---
 

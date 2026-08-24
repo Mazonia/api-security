@@ -200,15 +200,18 @@ The Common Weakness Enumeration (CWE) provides unique identifiers for software w
 
 API security evaluation tools divide into three main operational categories: active security scanners, passive network monitoring tools, and static application security testing (SAST) linters.
 
-| Tool Name | Tool Type | Auth Discovery Capabilities | Real-Time Traffic Monitoring | ML Anomaly Detection | VS Code Secret Detection | License / Deployment Model |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Burp Suite Professional** | Active Proxy / Scanner | Manual / Extension-based | Interactive Traffic Log | No Native ML | No | Commercial / Desktop Application |
-| **OWASP ZAP** | Active Proxy / Scanner | Scripted / Manual Context | Intercepting Proxy | No | No | Open-Source / Desktop Application |
-| **Akto** | API Security Platform | OpenAPI / eBPF Capture | Passive Traffic Analysis | Basic Anomaly Rules | No | Commercial / Hybrid Cloud |
-| **APIsec Surface** | Attack Surface Discovery | Browser Traffic, Static Specs | Passive Browser Capture | No | Static SDK / MCP Scan | Free & Open-Source (MIT/Apache) |
-| **TruffleHog** | Static Secret Scanner | N/A | N/A | No | CLI Only | Open-Source / CLI Tool |
-| **GitLeaks** | Static Secret Scanner | N/A | N/A | No | CLI Only | Open-Source / CLI Tool |
-| **MazAPI Framework** | Unified Security Ecosystem | OpenAPI, Playwright, HAR, Crawling | Transparent Reverse Proxy | Dual Ensemble (IsoForest + RF) | Yes (TypeScript Extension) | Open-Source / Single Docker Stack |
+| Tool / Platform | Category | PR AST Discovery | AsyncAPI & OpenAPI | IoT & Edge Protocols | AI Agent & MCP Audit | Active DAST Scan | ML Threat Detection | Zero-Egress Privacy |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **MazAPI Platform (Ours)** | **Unified Security Intelligence** | **Yes (7 Langs)** | **Yes (Both)** | **Yes (MQTT/CoAP/OTA)**| **Yes (11+ Fwks/BOM)** | **Yes (Zero-Egress)**| **Yes (99.73% RF)** | **100% On-Device** |
+| **APISec / BOLT** | Active Scanner / Surface | ⚠️ (3 Langs) | ⚠️ (OpenAPI) | ❌ | ⚠️ (Basic Config) | **Yes** (Cloud) | ⚠️ (Heuristics) | Cloud SaaS Required |
+| **Akamai / Noname** | Enterprise Gateway Security | ❌ | ⚠️ (Gateway) | ⚠️ (Basic MQTT) | ❌ | ⚠️ (Add-on) | **Yes** (Behavioral) | Cloud / On-Prem |
+| **Salt Security** | Enterprise API Protection | ❌ | ⚠️ (Gateway) | ⚠️ (Basic MQTT) | ❌ | ❌ | **Yes** (Baseline) | Cloud SaaS Required |
+| **Traceable AI** | Enterprise API Security | ⚠️ (eBPF Agent) | ⚠️ (Gateway) | ⚠️ (Basic MQTT) | ⚠️ (WAF Firewall) | ⚠️ (DAST Module) | **Yes** (eBPF ML) | Hybrid Cloud |
+| **42Crunch** | API Spec Security Linting | ⚠️ (Spec Lint) | ⚠️ (OpenAPI) | ❌ | ❌ | ⚠️ (Conformance) | ❌ | Cloud / IDE |
+| **StackHawk** | Active DAST Scanner | ❌ | ❌ | ❌ | ❌ | **Yes** (ZAP Engine) | ❌ | Cloud SaaS Required |
+| **OWASP ZAP** | Open-Source Active DAST | ❌ | ❌ | ❌ | ❌ | **Yes** (Proxy Scan) | ❌ | 100% Local |
+| **Nuclei (ProjectDiscovery)**| Open-Source Vulnerability | ❌ | ❌ | ⚠️ (Templates) | ❌ | **Yes** (Template DAST)| ❌ | 100% Local |
+| **Schemathesis / RESTler** | Property-Based Fuzzer | ❌ | ⚠️ (OpenAPI) | ❌ | ❌ | **Yes** (Spec Fuzzing) | ❌ | 100% Local |
 
 #### 2.3.1 Analysis of APIsec Surface Suite
 APIsec Surface represents a modern family of free, open-source, local-first developer utilities aiming to map application and artificial intelligence (AI) attack surfaces:
