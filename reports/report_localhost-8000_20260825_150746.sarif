@@ -1,0 +1,393 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "MazAPI Testing Engine",
+          "version": "2.0.0",
+          "informationUri": "https://github.com/Mazonia/api-security",
+          "rules": [
+            {
+              "id": "API8:2023---Security-Misconfiguration",
+              "name": "API8:2023",
+              "shortDescription": {
+                "text": "Security Misconfiguration"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API5:2023---Broken-Function-Level-Authorization",
+              "name": "API5:2023",
+              "shortDescription": {
+                "text": "Broken Function Level Authorization"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "API2:2023---Broken-Authentication",
+              "name": "API2:2023",
+              "shortDescription": {
+                "text": "Broken Authentication"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "Beyond-OWASP-\u2014-HTTP-Verb-Tampering",
+              "name": "Beyond OWASP \u2014 HTTP Verb Tampering",
+              "shortDescription": {
+                "text": "Beyond OWASP \u2014 HTTP Verb Tampering"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "Beyond-OWASP-\u2014-Path-Traversal",
+              "name": "Beyond OWASP \u2014 Path Traversal",
+              "shortDescription": {
+                "text": "Beyond OWASP \u2014 Path Traversal"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "Beyond-OWASP-\u2014-Injection",
+              "name": "Beyond OWASP \u2014 Injection",
+              "shortDescription": {
+                "text": "Beyond OWASP \u2014 Injection"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            },
+            {
+              "id": "Beyond-OWASP-\u2014-Open-Redirect",
+              "name": "Beyond OWASP \u2014 Open Redirect",
+              "shortDescription": {
+                "text": "Beyond OWASP \u2014 Open Redirect"
+              },
+              "helpUri": "https://owasp.org/API-Security/",
+              "properties": {
+                "tags": [
+                  "security",
+                  "api"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "error",
+          "message": {
+            "text": "Sensitive path: /debug/config: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "404 or 405",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "error",
+          "message": {
+            "text": "Sensitive path: /docs: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "404 or 405",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "error",
+          "message": {
+            "text": "Sensitive path: /redoc: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "404 or 405",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "error",
+          "message": {
+            "text": "Sensitive path: /openapi.json: 200"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "404 or 405",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "warning",
+          "message": {
+            "text": "CORS wildcard header: ACAO: *"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "MEDIUM",
+            "expected": "No ACAO or specific origin",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API8:2023---Security-Misconfiguration",
+          "level": "error",
+          "message": {
+            "text": "Debug endpoint accessible: 200 (137 bytes)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "404",
+            "compliance": {
+              "pci_dss": [
+                "6.3.3",
+                "6.4.1"
+              ],
+              "gdpr": [
+                "Art. 32"
+              ],
+              "iso27001": [
+                "A.14.1.3",
+                "A.18.1.3"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API5:2023---Broken-Function-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "Sensitive path: /admin/users: 401"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "404 or 405",
+            "compliance": {
+              "pci_dss": [
+                "7.1.1",
+                "7.2.1"
+              ],
+              "gdpr": [
+                "Art. 32(4)"
+              ],
+              "iso27001": [
+                "A.9.2.3",
+                "A.9.4.1"
+              ]
+            }
+          }
+        },
+        {
+          "ruleId": "API5:2023---Broken-Function-Level-Authorization",
+          "level": "error",
+          "message": {
+            "text": "Sensitive path: /admin/orders: 401"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "http://localhost:8000",
+                  "uriBaseId": "TARGETROOT"
+                }
+              }
+            }
+          ],
+          "properties": {
+            "severity": "HIGH",
+            "expected": "404 or 405",
+            "compliance": {
+              "pci_dss": [
+                "7.1.1",
+                "7.2.1"
+              ],
+              "gdpr": [
+                "Art. 32(4)"
+              ],
+              "iso27001": [
+                "A.9.2.3",
+                "A.9.4.1"
+              ]
+            }
+          }
+        }
+      ],
+      "properties": {
+        "target": "http://localhost:8000",
+        "scannedAt": "2026-08-25T15:07:46.876993"
+      }
+    }
+  ]
+}

@@ -517,9 +517,10 @@ def run_scan(
     print(f"  Tests run: {total_t}  |  Vulnerable: {total_v}  |  Score: {score}%\n")
 
     if _REPORT_OK:
-        j, h = make_report(grouped, target, report_dir)
+        j, h, s = make_report(grouped, target, report_dir)
         print(f"  JSON  -> {j}")
-        print(f"  HTML  -> {h}\n")
+        print(f"  HTML  -> {h}")
+        print(f"  SARIF -> {s}\n")
 
     return grouped
 

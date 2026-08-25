@@ -6,6 +6,7 @@ import json
 import os
 import shlex
 import sys
+import traceback
 
 # Ensure UTF-8 output encoding on Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -32,59 +33,58 @@ def print_welcome_banner():
         "[dim]Repository: https://github.com/Mazonia/api-security | UMaT Cybersecurity Lab II[/dim]",
         box=box.ROUNDED,
         border_style="cyan",
-        title="[bold green]⚡ MazAPI Security Suite[/bold green]",
-        subtitle="[bold yellow]Type 'help' or 'mazapi <command> -h' for guidance[/bold yellow]"
+        title="[bold green]⚡ MazAPI Security Suite[/bold green]"
     ))
 
     table = Table(
-        title="[bold white]Subcommands & Short Single-Letter Aliases[/bold white]",
+        title="[bold white]Enterprise Security Commands & Capabilities[/bold white]",
         header_style="bold magenta",
         box=box.SIMPLE_HEAD
     )
+    table.add_column("Command", style="bold cyan", width=16)
     table.add_column("Alias", style="bold yellow", width=8)
-    table.add_column("Full Command", style="bold cyan", width=18)
-    table.add_column("Action / Flags", style="green", width=22)
+    table.add_column("Subcommand / Flags", style="green", width=26)
     table.add_column("Description", style="white")
 
     table.add_row(
-        "s",
         "scan",
-        "-t <url> [-f s|j|t]",
-        "Active OWASP API Top 10 dynamic DAST vulnerability scanner"
+        "s",
+        "--target <url> [--format sarif]",
+        "Active OWASP API Top 10 dynamic DAST security scanner"
     )
     table.add_row(
-        "a",
         "app-surface",
-        "scan [path] [-f t|j|o|a|s]",
+        "a",
+        "scan [path] [--format table]",
         "Static AST route discovery across 7 languages & PR diffs"
     )
     table.add_row(
-        "g",
         "agent-audit",
-        "scan [path] [-g] [-f ai-bom]",
+        "g",
+        "scan [path] [--governance]",
         "Audit AI agent graphs, confused deputy & export CycloneDX AI-BOM"
     )
     table.add_row(
-        "m",
         "mcp-audit",
+        "m",
         "scan | source-scan | registry",
         "Audit Model Context Protocol (MCP) server configs & code"
     )
     table.add_row(
-        "i",
         "iot-audit",
-        "-t <url>",
+        "i",
+        "--target <url>",
         "Audit IoT endpoints, MQTT wildcard ACLs, CoAP & OTA firmware"
     )
     table.add_row(
-        "t",
         "train-models",
+        "t",
         "train-models",
         "Train 32-feature Random Forest & Isolation Forest ML model"
     )
     table.add_row(
-        "sh",
         "shell",
+        "sh",
         "interactive",
         "Launch interactive Cyber REPL console with custom prompt"
     )
@@ -92,25 +92,24 @@ def print_welcome_banner():
     console.print(table)
 
     console.print(Panel(
-        "[bold yellow]💡 Quick Single-Letter Command Examples:[/bold yellow]\n\n"
-        "  [cyan]s -t http://localhost:8000[/cyan]                               [dim]# Run active DAST scan[/dim]\n"
-        "  [cyan]a scan ./api-security-project/vulnerable-api -f t[/cyan]     [dim]# Scan code AST routes[/dim]\n"
-        "  [cyan]g scan ./api-security-project/agent_audit -g[/cyan]          [dim]# Audit AI agent governance[/dim]\n"
-        "  [cyan]m registry[/cyan]                                                [dim]# View MCP server risk registry[/dim]\n"
-        "  [cyan]i -t http://localhost:8000[/cyan]                               [dim]# Audit IoT security surface[/dim]",
+        "[bold yellow]💡 Full Command Usage Examples:[/bold yellow]\n\n"
+        "  [cyan]scan --target http://localhost:8000[/cyan]                                      [dim]# Run active DAST scan[/dim]\n"
+        "  [cyan]app-surface scan ./api-security-project/vulnerable-api --format table[/cyan]   [dim]# Scan code AST routes[/dim]\n"
+        "  [cyan]agent-audit scan ./api-security-project/agent_audit --governance[/cyan]        [dim]# Audit AI agent governance[/dim]\n"
+        "  [cyan]mcp-audit registry[/cyan]                                                      [dim]# View MCP server risk registry[/dim]\n"
+        "  [cyan]iot-audit --target http://localhost:8000[/cyan]                                     [dim]# Audit IoT security surface[/dim]",
         box=box.ROUNDED,
         border_style="cyan"
     ))
 
 
 def run_interactive_shell(parser):
-    """Launches an interactive Cyber REPL Shell with custom prompt."""
+    """Launches an interactive Cyber REPL Shell with custom prompt and graceful error handling."""
     console.clear()
     console.print(Panel(
         f"{BANNER_ART}\n"
         "[bold green]Interactive MazAPI Cyber REPL Console Enabled![/bold green]\n"
-        "[dim]You are now inside the custom MazAPI environment. No need to type 'mazapi' before commands.[/dim]\n"
-        "[bold yellow]Type 's', 'a', 'g', 'm', 'i', 't' or 'help'. Type 'exit' or 'q' to quit.[/bold yellow]",
+        "[dim]You are inside the interactive MazAPI environment. Type any command directly below.[/dim]",
         box=box.ROUNDED,
         border_style="cyan",
         title="[bold green]⚡ MazAPI Cyber Console REPL[/bold green]"
@@ -140,12 +139,10 @@ def run_interactive_shell(parser):
 
         try:
             tokens = shlex.split(cmd_line)
+            execute_args(tokens, parser, in_repl=True)
         except Exception as err:
-            console.print(f"[red]Error parsing command tokens: {err}[/red]")
-            continue
-
-        # Process single command execution within REPL
-        execute_args(tokens, parser, in_repl=True)
+            console.print(f"[red bold]✖ Command Error:[/red bold] [yellow]{err}[/yellow]")
+            console.print("[dim]Type 'help' to view available commands and arguments.[/dim]\n")
 
 
 def cmd_app_surface(args):
@@ -281,9 +278,24 @@ def cmd_dast_scan(args):
     te_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testing-engine")
     if te_dir not in sys.path:
         sys.path.insert(0, te_dir)
-    from generic_scan import scan_target
-    console.print(f"[bold cyan]🎯 Starting MazAPI Dynamic DAST Scan for:[/] {args.target}")
-    results = scan_target(args.target, auth_token=args.auth)
+
+    try:
+        from generic_scan import run_scan
+    except ImportError:
+        console.print("[red]ImportError: Could not load testing-engine generic_scan module.[/red]")
+        return
+
+    target_url = args.target
+    if not target_url.startswith("http://") and not target_url.startswith("https://"):
+        target_url = "http://" + target_url
+
+    console.print(f"[bold cyan]🎯 Starting MazAPI Dynamic DAST Scan for:[/] {target_url}")
+
+    auth_body = {}
+    if args.auth:
+        auth_body = {"token": args.auth}
+
+    results = run_scan(target=target_url, auth_body=auth_body)
 
     fmt = args.format.lower()
     if fmt in ("json", "j"):
@@ -295,23 +307,28 @@ def cmd_dast_scan(args):
         else:
             print(out)
     elif fmt in ("sarif", "s"):
-        from report_generator import generate_sarif_report
-        sarif = generate_sarif_report(results, args.target)
-        out_path = args.output or "scan-results.sarif"
-        with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(sarif, f, indent=2)
-        console.print(f"[green]✔ SARIF 2.1.0 report saved -> {out_path}[/green]")
+        try:
+            from report_generator import generate_sarif_report
+            sarif = generate_sarif_report(results, target_url)
+            out_path = args.output or "scan-results.sarif"
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(sarif, f, indent=2)
+            console.print(f"[green]✔ SARIF 2.1.0 report saved -> {out_path}[/green]")
+        except Exception as e:
+            console.print(f"[yellow]SARIF Export Notice: {e}[/yellow]")
     else:
-        table = Table(title=f"OWASP API Security DAST Scan Summary ({args.target})", header_style="bold magenta")
+        # Formatted Table Output
+        table = Table(title=f"OWASP API Security DAST Scan Summary ({target_url})", header_style="bold magenta")
         table.add_column("Category", style="cyan")
         table.add_column("Pass / Total", style="yellow")
         table.add_column("Status", style="bold")
 
-        for cat, data in results.items():
-            vuln_count = sum(1 for t in data.get("tests", []) if t.get("vulnerable"))
-            tot_count = len(data.get("tests", []))
-            status_str = f"[red]VULNERABLE ({vuln_count})[/red]" if vuln_count > 0 else "[green]SECURE[/green]"
-            table.add_row(cat, f"{tot_count - vuln_count}/{tot_count}", status_str)
+        for group in results:
+            cat = group.get("category", "General Security Probe")
+            v_cnt = group.get("vulnerable_count", 0)
+            tot_cnt = group.get("total", 0)
+            status_str = f"[red]VULNERABLE ({v_cnt})[/red]" if v_cnt > 0 else "[green]SECURE[/green]"
+            table.add_row(cat, f"{tot_cnt - v_cnt}/{tot_cnt}", status_str)
 
         console.print(table)
 
@@ -323,8 +340,14 @@ def cmd_train_models(args):
     console.print("[bold green]✔ ML anomaly model trained & saved successfully.[/bold green]")
 
 
+class NoExitArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that throws exceptions instead of calling sys.exit()."""
+    def error(self, message):
+        raise ValueError(message)
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(
+    parser = NoExitArgumentParser(
         prog="mazapi",
         description="MazAPI Enterprise API & AI Surface Security Platform",
         add_help=True
@@ -387,8 +410,14 @@ def execute_args(sys_args, parser, in_repl=False):
 
     try:
         args = parser.parse_args(sys_args)
-    except SystemExit:
-        return
+    except Exception as err:
+        if in_repl:
+            console.print(f"[red bold]✖ Command Error:[/red bold] [yellow]{err}[/yellow]")
+            console.print("[dim]Type 'help' to view available commands and arguments.[/dim]\n")
+            return
+        else:
+            console.print(f"[red bold]✖ Command Error:[/red bold] [yellow]{err}[/yellow]")
+            sys.exit(1)
 
     sub = args.subcommand
     if sub in ("app-surface", "a", "app"):
@@ -404,7 +433,8 @@ def execute_args(sys_args, parser, in_repl=False):
     elif sub in ("train-models", "t", "train"):
         cmd_train_models(args)
     elif sub in ("shell", "sh", "console"):
-        run_interactive_shell(parser)
+        if not in_repl:
+            run_interactive_shell(parser)
     else:
         print_welcome_banner()
 
