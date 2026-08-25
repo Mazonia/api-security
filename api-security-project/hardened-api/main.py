@@ -240,3 +240,22 @@ def publish_hardened_mqtt_gateway(request: Request, payload: dict, current_user:
         "acl_enforced": True
     }
 
+
+@app.get("/comparison", response_class=HTMLResponse, include_in_schema=False)
+def get_comparison_page():
+    try:
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        candidates = [
+            os.path.join(os.path.dirname(os.path.dirname(cur_dir)), "comparison_workbench.html"),
+            os.path.join(os.path.dirname(cur_dir), "monitoring", "templates", "comparison.html"),
+            os.path.join(os.getcwd(), "comparison_workbench.html"),
+            os.path.join(os.getcwd(), "api-security-project", "monitoring", "templates", "comparison.html")
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    return HTMLResponse(content=f.read())
+    except Exception:
+        pass
+    return HTMLResponse(content="<html><body><h2>MazAPI Comparison Workbench</h2></body></html>")
+

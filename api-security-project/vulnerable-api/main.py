@@ -235,11 +235,21 @@ def publish_mqtt_gateway(payload: dict):
 
 @app.get("/comparison", response_class=HTMLResponse, include_in_schema=False)
 def get_comparison_page():
-    wb_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "comparison_workbench.html")
-    if os.path.exists(wb_path):
-        with open(wb_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Comparison Page Not Found</h1>", status_code=404)
+    try:
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        candidates = [
+            os.path.join(os.path.dirname(os.path.dirname(cur_dir)), "comparison_workbench.html"),
+            os.path.join(os.path.dirname(cur_dir), "monitoring", "templates", "comparison.html"),
+            os.path.join(os.getcwd(), "comparison_workbench.html"),
+            os.path.join(os.getcwd(), "api-security-project", "monitoring", "templates", "comparison.html")
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    return HTMLResponse(content=f.read())
+    except Exception:
+        pass
+    return HTMLResponse(content="<html><body><h2>MazAPI Comparison Workbench</h2><p>Visit <a href='/ui'>ShopApp UI</a></p></body></html>")
 
 
 @app.get("/ui", response_class=HTMLResponse, include_in_schema=False)

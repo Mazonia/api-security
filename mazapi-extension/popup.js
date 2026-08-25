@@ -1163,6 +1163,14 @@ document.getElementById("btn-view-threat")?.addEventListener("click", () => {
   document.querySelector(".tab[data-tab='threats']")?.click();
 });
 
+document.getElementById("btn-open-matrix-9000")?.addEventListener("click", () => {
+  chrome.tabs.create({ url: "http://localhost:9000/comparison" });
+});
+
+document.getElementById("btn-open-matrix-8000")?.addEventListener("click", () => {
+  chrome.tabs.create({ url: "http://localhost:8000/comparison" });
+});
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadSettings();
 loadSession();

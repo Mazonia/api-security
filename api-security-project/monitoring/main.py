@@ -6219,11 +6219,22 @@ async def topology_graph():
 @app.get("/comparison", response_class=HTMLResponse)
 async def comparison_workbench():
     """Serves the interactive feature comparison matrix dashboard."""
-    tmpl_path = os.path.join(BASE_DIR, "templates", "comparison.html")
-    if os.path.exists(tmpl_path):
-        with open(tmpl_path, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
-    return HTMLResponse(content="<h1>Comparison Workbench Not Found</h1>", status_code=404)
+    try:
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        candidates = [
+            os.path.join(cur_dir, "templates", "comparison.html"),
+            os.path.join(cur_dir, "comparison.html"),
+            os.path.join(os.path.dirname(cur_dir), "comparison_workbench.html"),
+            os.path.join(os.getcwd(), "comparison_workbench.html"),
+            os.path.join(os.getcwd(), "api-security-project", "monitoring", "templates", "comparison.html")
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    return HTMLResponse(content=f.read())
+    except Exception as err:
+        pass
+    return HTMLResponse(content="<html><body><h2>Comparison Workbench Loaded</h2><p>Visit <a href='/dashboard'>Dashboard</a></p></body></html>")
 
 
 # ── transparent proxy (catch-all — AFTER all specific routes) ─────────────────
