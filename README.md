@@ -124,25 +124,27 @@ Access the local services:
 
 ### 2. Using the Unified CLI
 
-The `cli.py` tool provides command-line interfaces for all security engines:
+The unified `mazapi` command-line tool provides a rich, colorized terminal interface for all security engines. Simply type `mazapi` or `.\mazapi.bat` in your terminal to see the interactive banner and command menu:
 
 ```bash
-cd api-security-project
+# Display rich interactive banner & command menu
+mazapi
 
-# 1. Scan Application Surface across source code
-python cli.py app-surface --dir ./vulnerable-api --lang python --output-openapi ./openapi.json
+# 1. Scan Application Surface AST across multi-language source code
+mazapi app-surface scan ./api-security-project/vulnerable-api --format table
 
-# 2. Compute Surface Diff between Git commits
-python cli.py app-surface --base main~1 --head main --lang python --output-sarif ./surface-diff.sarif
+# 2. Audit AI Agent workspace & export CycloneDX 1.6 AI-BOM
+mazapi agent-audit scan ./api-security-project/agent_audit --governance --format ai-bom -o ./ai-bom.json
 
-# 3. Audit an AI Agent workspace & generate CycloneDX AI-BOM
-python cli.py agent-audit --target ./agent_src/ --output-bom ./ai-bom.json --output-sarif ./agent-audit.sarif
+# 3. Audit Model Context Protocol (MCP) server registry & source code
+mazapi mcp-audit registry
+mazapi mcp-audit source-scan ./api-security-project/testing-engine
 
-# 4. Audit Model Context Protocol (MCP) configuration
-python cli.py mcp-audit --config ~/.config/mcp/settings.json
+# 4. Audit IoT endpoints, MQTT brokers, CoAP, and OTA surfaces
+mazapi iot-audit --target http://localhost:8000
 
-# 5. Run static shell injection scan on custom MCP server implementation
-python cli.py mcp-audit --source-dir ./custom-mcp-server/ --lang python
+# 5. Run active OWASP API Top 10 dynamic DAST scan & export SARIF
+mazapi scan --target http://localhost:8000 --format sarif -o ./scan-results.sarif
 ```
 
 ---

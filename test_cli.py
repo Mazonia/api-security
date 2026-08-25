@@ -9,7 +9,7 @@ import unittest
 class TestCLI(unittest.TestCase):
     def run_cli(self, args):
         cmd = [sys.executable, "api-security-project/cli.py"] + args
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.path.abspath("."))
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=os.path.abspath("."))
         return result
 
     def test_app_surface_cli(self):
@@ -29,7 +29,7 @@ class TestCLI(unittest.TestCase):
     def test_mcp_audit_registry_cli(self):
         res = self.run_cli(["mcp-audit", "registry"])
         self.assertEqual(res.returncode, 0, f"Error: {res.stderr}")
-        self.assertIn("Known MCP Server Registry", res.stdout)
+        self.assertIn("Known Model Context Protocol", res.stdout)
         self.assertIn("postgres", res.stdout)
 
     def test_mcp_audit_explain_cli(self):
