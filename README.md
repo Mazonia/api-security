@@ -100,7 +100,7 @@ A persistent Chrome/Brave Side Panel workbench (Manifest V3) running 100% locall
 | **Unified CLI & GitHub SARIF Export** | **Yes (`cli.py`)** | ⚠️ (Runner) | ⚠️ (Plugin) | ❌ | ⚠️ (Agent) | **Yes** | **Yes** | ⚠️ (CLI) | **Yes** | **Yes** |
 
 > [!TIP]
-> **Interactive Web Comparison Workbench**: Launch the live interactive matrix web dashboard at `http://localhost:9000/comparison` or `http://localhost:8000/comparison`, or open [`comparison_workbench.html`](file:///c:/Users/Mazonia/Desktop/cyberlab%20work%20II/api-security-main/comparison_workbench.html) directly in your browser. Clicking on any feature row opens a deep-dive drawer analyzing technical capabilities, competitor gaps, security impact, and CLI/code snippets.
+> **Interactive Web Comparison Workbench**: Launch the live interactive matrix web dashboard at `http://localhost:9000/comparison` or `http://localhost:8000/comparison`, or open [`comparison_workbench.html`](./comparison_workbench.html) directly in your browser. Clicking on any feature row opens a deep-dive drawer analyzing technical capabilities, competitor gaps, security impact, and CLI/code snippets.
 
 ---
 

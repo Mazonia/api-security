@@ -631,7 +631,7 @@ The `mazapi-vscode` extension was benchmarked against a test repository containi
 
 The multi-layer detection pipeline suppressed 30 false positive alerts caused by test variable names (`sample_key`), environment lookup statements (`os.getenv("API_KEY")`), and comments, achieving a final precision rate of 97.78%. Results were exported in standardized SARIF (`Static Analysis Results Interchange Format`) format for integration into automated CI/CD pipelines.
 
-![Screenshot Allocation 6: VS Code Extension Inline Diagnostics and SARIF Security Panel](file:///c:/Users/Mazonia/Desktop/cyberlab%20work%20II/api-security-main/mazapi-vscode/reports/vscode_extension_panel.png)
+![Screenshot Allocation 6: VS Code Extension Inline Diagnostics and SARIF Security Panel](mazapi-vscode/reports/vscode_extension_panel.png)
 *(Figure 4.9: Visual Studio Code editor panel displaying inline red/yellow diagnostic underlines for hardcoded keys, entropy warnings, and SARIF export options).*
 
 ### 4.6 External Attack Workflow Validation using Kali Linux
