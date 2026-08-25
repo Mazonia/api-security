@@ -244,14 +244,20 @@ def cmd_mcp_audit(args):
         if args.exit_code and res["critical_count"] > 0:
             sys.exit(1)
     elif mcp_action in ("registry", "reg", "r"):
-        table = Table(title="[bold blue]Known Model Context Protocol (MCP) Server Registry & Risk Posture[/bold blue]", header_style="bold blue")
-        table.add_column("MCP Name", style="cyan", width=22)
+        table = Table(
+            title="[bold blue]Known Model Context Protocol (MCP) Server Registry & Risk Posture[/bold blue]",
+            header_style="bold cyan",
+            box=box.ROUNDED,
+            show_lines=True
+        )
+        table.add_column("MCP Server", style="bold cyan", width=18)
         table.add_column("Risk Level", style="bold", width=12)
-        table.add_column("Scope", style="yellow", width=22)
-        table.add_column("Description", style="dim", width=45)
+        table.add_column("Access Scope", style="bold yellow", width=20)
+        table.add_column("Description & Operational Impact", style="white", width=55)
+
         for name, info in mcp_audit.MCP_REGISTRY.items():
-            r_color = "red" if info["risk"] == "CRITICAL" else ("orange3" if info["risk"] == "HIGH" else "green")
-            table.add_row(name, f"[{r_color}]{info['risk']}[/]", info["scope"], info["desc"])
+            r_color = "red" if info["risk"] == "CRITICAL" else ("orange3" if info["risk"] == "HIGH" else "yellow" if info["risk"] == "MEDIUM" else "green")
+            table.add_row(name, f"[{r_color}]{info['risk']}[/{r_color}]", info["scope"], info["desc"])
         console.print(table)
     elif mcp_action in ("explain", "e"):
         flag = args.flag
@@ -455,8 +461,87 @@ def build_parser():
     return parser
 
 
+def show_command_context_help(tokens):
+    """Displays contextual help and available continuation options when user appends '?'."""
+    if not tokens or tokens == ["?"]:
+        print_welcome_banner()
+        return
+
+    cmd = tokens[0].lower()
+    
+    # Contextual options for app-surface
+    if cmd in ("app-surface", "a", "app"):
+        console.print(Panel(
+            "[bold cyan]🔍 'app-surface' (Static AST Route Discovery) Options & Flags[/bold cyan]\n\n"
+            "[bold white]Available Subactions:[bold white]  [green]scan [path][/green] (Default: '.')\n"
+            "[bold white]Formats (-f / --format):[bold white] [yellow]table (t)[/yellow], [yellow]json (j)[/yellow], [yellow]openapi (o)[/yellow], [yellow]asyncapi (a)[/yellow], [yellow]sarif (s)[/yellow]\n"
+            "[bold white]Output Destination (-o):[bold white] Path to save file (e.g. -o ./routes.json)\n"
+            "[bold white]Baseline Comparison (-b):[bold white] Path to baseline JSON snapshot\n"
+            "[bold white]Update Baseline (-u):[bold white]     Path to save new baseline snapshot\n"
+            "[bold white]CI Gating (--fail-on):[bold white]    [red]high[/red], [red]critical[/red]\n\n"
+            "[bold yellow]Example Continuation:[bold yellow]\n"
+            "  app-surface scan ./api-security-project/vulnerable-api --format table --output-openapi spec.json",
+            box=box.ROUNDED, border_style="cyan"
+        ))
+    # Contextual options for agent-audit
+    elif cmd in ("agent-audit", "g", "agent"):
+        console.print(Panel(
+            "[bold cyan]🤖 'agent-audit' (AI Agent & LLM Security Auditor) Options & Flags[/bold cyan]\n\n"
+            "[bold white]Available Subactions:[bold white]  [green]scan [path][/green] (Default: '.')\n"
+            "[bold white]Governance Audit (-g):[bold white]   Include EU AI Act Art. 14/15, NIST AI RMF, ISO 42001 clauses\n"
+            "[bold white]Formats (-f / --format):[bold white] [yellow]table (t)[/yellow], [yellow]json (j)[/yellow], [yellow]ai-bom (a)[/yellow] (CycloneDX 1.6), [yellow]sarif (s)[/yellow]\n"
+            "[bold white]Output Destination (-o):[bold white] Path to save file (e.g. -o ./ai-bom.json)\n"
+            "[bold white]CI Gating (--fail-on):[bold white]    [red]high[/red], [red]critical[/red]\n\n"
+            "[bold yellow]Example Continuation:[bold yellow]\n"
+            "  agent-audit scan ./api-security-project/agent_audit --governance --format ai-bom -o ./ai-bom.json",
+            box=box.ROUNDED, border_style="cyan"
+        ))
+    # Contextual options for mcp-audit
+    elif cmd in ("mcp-audit", "m", "mcp"):
+        console.print(Panel(
+            "[bold cyan]🔌 'mcp-audit' (Model Context Protocol Security) Options & Subcommands[/bold cyan]\n\n"
+            "[bold white]Available Actions:[bold white]\n"
+            "  [green]scan [path][/green]         Audit desktop & IDE MCP settings (Claude, Cursor, VS Code)\n"
+            "  [green]source-scan [path][/green]  Static AST injection scan on Python/Node MCP server code\n"
+            "  [green]registry[/green]           Explore 50+ known MCP servers and risk levels\n"
+            "  [green]explain [flag][/green]      Show remediation guide for specific risk flag\n\n"
+            "[bold yellow]Example Continuation:[bold yellow]\n"
+            "  mcp-audit source-scan ./api-security-project/testing-engine --exit-code",
+            box=box.ROUNDED, border_style="cyan"
+        ))
+    # Contextual options for iot-audit
+    elif cmd in ("iot-audit", "i", "iot"):
+        console.print(Panel(
+            "[bold cyan]📡 'iot-audit' (IoT Protocol & Edge Security) Options & Flags[/bold cyan]\n\n"
+            "[bold white]Target URL (-t / --target):[bold white] HTTP/MQTT/CoAP device endpoint (Default: http://localhost:8000)\n\n"
+            "[bold yellow]Example Continuation:[bold yellow]\n"
+            "  iot-audit --target http://192.168.1.100",
+            box=box.ROUNDED, border_style="cyan"
+        ))
+    # Contextual options for scan
+    elif cmd in ("scan", "s"):
+        console.print(Panel(
+            "[bold cyan]🎯 'scan' (OWASP API Top 10 Dynamic DAST Scanner) Options & Flags[/bold cyan]\n\n"
+            "[bold white]Target URL (-t / --target):[bold white] Base API endpoint URL\n"
+            "[bold white]Auth Header (-a / --auth):[bold white]    Bearer JWT token or auth string\n"
+            "[bold white]Formats (-f / --format):[bold white]    [yellow]table (t)[/yellow], [yellow]json (j)[/yellow], [yellow]sarif (s)[/yellow]\n"
+            "[bold white]Output Report (-o):[bold white]       Destination path for report\n"
+            "[bold white]Details Panel (-d):[bold white]       Show detailed vulnerability evidence breakdown & fixes\n\n"
+            "[bold yellow]Example Continuation:[bold yellow]\n"
+            "  scan --target https://geekbyte.tech/ --details --format sarif -o report.sarif",
+            box=box.ROUNDED, border_style="cyan"
+        ))
+    else:
+        print_welcome_banner()
+
+
 def execute_args(sys_args, parser, in_repl=False):
-    # Filter out stray '?' argument if user passed it
+    # Check if user requested contextual options via '?'
+    if sys_args and sys_args[-1] == "?":
+        show_command_context_help(sys_args[:-1])
+        return
+
+    # Filter out stray '?' argument if user passed it elsewhere
     sys_args = [arg for arg in sys_args if arg != "?"]
 
     if not sys_args or sys_args[0] in ("-h", "--help"):
