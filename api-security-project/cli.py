@@ -274,10 +274,43 @@ def cmd_iot_audit(args):
         sys.path.insert(0, te_dir)
     from owasp_tests.test_iot_api import run_iot_security_tests
     findings = run_iot_security_tests(args.target)
-    console.print(f"[bold cyan]⚡ MazAPI IoT Security Audit Target:[/] {args.target}")
-    console.print(f"Discovered [bold red]{len(findings)}[/bold red] IoT vulnerability findings.\n")
+
+    target_url = args.target if args.target.startswith("http") else f"http://{args.target}"
+
+    console.print(Panel(
+        f"[bold cyan]⚡ MazAPI IoT Security Audit Target:[/bold cyan] [link={target_url}][bold yellow]{target_url}[/bold yellow][/link]\n"
+        f"[dim]Discovered [bold red]{len(findings)}[/bold red] IoT vulnerability findings across MQTT, CoAP & OTA update surfaces.[/dim]",
+        box=box.ROUNDED,
+        border_style="cyan"
+    ))
+
+    table = Table(
+        title=f"[bold magenta]IoT Edge & Embedded Security Audit Findings ({target_url})[/bold magenta]",
+        header_style="bold cyan",
+        box=box.ROUNDED,
+        show_lines=True
+    )
+    table.add_column("Severity", style="bold", width=12)
+    table.add_column("Vulnerability Title", style="white", width=32)
+    table.add_column("Endpoint", style="cyan", width=24)
+    table.add_column("CWE", style="bold yellow", width=14)
+    table.add_column("Captured Evidence", style="dim", width=45)
+
     for f in findings:
-        console.print(f"[bold { 'red' if f['severity'] == 'CRITICAL' else 'yellow' }][{f['severity']}][/bold] [white]{f['title']}[/white] on [cyan]{f['endpoint']}[/cyan]\n  CWE: {f['cwe']}\n  Evidence: {f['evidence']}\n")
+        sev = f.get("severity", "HIGH")
+        color = "red" if sev == "CRITICAL" else ("orange3" if sev == "HIGH" else "yellow")
+        endpoint = f.get("endpoint", "")
+        full_endpoint = target_url.rstrip("/") + ("/" + endpoint.lstrip("/") if endpoint else "")
+
+        table.add_row(
+            f"[{color}]{sev}[/{color}]",
+            f.get("title", "IoT Vulnerability"),
+            f"[link={full_endpoint}]{endpoint}[/link]",
+            f.get("cwe", "CWE-1188"),
+            f.get("evidence", "Unauthenticated access allowed.")
+        )
+
+    console.print(table)
 
 
 def cmd_dast_scan(args):
