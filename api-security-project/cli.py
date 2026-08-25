@@ -392,10 +392,31 @@ def cmd_dast_scan(args):
             print_dast_details(results, target_url)
 
 
+REMEDIATION_MAP = {
+    "API1": "Implement object-level authorization checks verifying token subject against resource owner (e.g. user_id == resource.owner_id).",
+    "API2": "Enforce strong JWT signature validation (HS256/RS256) and explicitly reject unsigned ('alg:none') tokens.",
+    "API3": "Use explicit DTO allowlists or schema validation to filter unauthorized properties (e.g., 'role', 'balance') on write requests.",
+    "API4": "Implement IP & account rate-limiting middleware (e.g. Redis sliding window counter) returning HTTP 429.",
+    "API5": "Enforce strict role-based access control (RBAC) middleware on administrative and sensitive endpoints.",
+    "API8": "Disable DEBUG mode, restrict CORS Access-Control-Allow-Origin to trusted origins, and suppress server stack traces.",
+    "Verb Tampering": "Block unhandled HTTP methods (TRACE, PATCH, DELETE) at the API gateway returning 405 Method Not Allowed.",
+    "Path Traversal": "Sanitize user input file paths and use os.path.basename / canonical path validation against base directory bounds.",
+    "Injection": "Use parameterized queries or ORM prepared statements for all database operations.",
+    "Open Redirect": "Validate target redirect URLs against a whitelist of allowed trusted domains."
+}
+
+def get_remediation_for_test(test_name, cat_name):
+    combined = f"{test_name} {cat_name}"
+    for key, fix in REMEDIATION_MAP.items():
+        if key in combined:
+            return fix
+    return "Enforce strict authentication, authorization, and input validation bounds."
+
+
 def print_dast_details(results, target_url):
-    """Renders a detailed breakdown of all vulnerabilities found with clickable URLs and fix steps."""
+    """Renders a detailed breakdown of all vulnerabilities found with unique evidence and specific fix steps."""
     console.print(Panel(
-        f"[bold red]🔍 Detailed Vulnerability Evidence & Remediation Breakdown[/bold red]\n"
+        f"[bold red]Detailed Vulnerability Evidence & Remediation Breakdown[/bold red]\n"
         f"[dim]Target: [link={target_url}]{target_url}[/link][/dim]",
         box=box.ROUNDED,
         border_style="red"
@@ -408,16 +429,29 @@ def print_dast_details(results, target_url):
 
         for test in vulnerable_tests:
             vuln_count += 1
-            path = test.get("path", "")
-            full_url = target_url.rstrip("/") + ("/" + path.lstrip("/") if path else "")
+            test_title = test.get("test", cat_name)
+            req_info = test.get("request", test.get("name", ""))
+            act_resp = test.get("actual", "Vulnerable response returned")
+            exp_resp = test.get("expected", "Access Denied / 404")
+            sev = test.get("severity", "HIGH")
+            color = "red" if sev == "CRITICAL" else ("orange3" if sev == "HIGH" else "yellow")
+
+            # Extract request path if available
+            path = req_info.split(" ")[-1] if " " in req_info else req_info
+            if not path.startswith("/"):
+                path = "/" + path
+            full_url = target_url.rstrip("/") + path
+
+            evidence_text = f"Probe Request: {req_info}\n  Server Response: {act_resp} (Expected: {exp_resp})"
+            fix_text = get_remediation_for_test(test_title, cat_name)
 
             console.print(Panel(
-                f"[bold red]Vulnerability #{vuln_count}: {test.get('name', cat_name)}[/bold red]\n\n"
-                f"[bold white]Category:[bold white] [cyan]{cat_name}[/cyan]\n"
-                f"[bold white]Clickable Endpoint:[bold white] [link={full_url}][bold yellow]{full_url}[/bold yellow][/link]\n"
-                f"[bold white]Evidence:[bold white] [red]{test.get('evidence', 'Vulnerable payload response accepted by server.')}[/red]\n\n"
-                f"[bold green]💡 Remediation Guidance:[bold green]\n"
-                f"[dim]{test.get('fix', 'Enforce strict authentication, authorization, and input validation bounds.')}[/dim]",
+                f"[bold red]Vulnerability #{vuln_count}: {test_title}[/bold red]\n\n"
+                f"[bold white]Category:[/bold white] [cyan]{cat_name}[/cyan]   |   [bold white]Severity:[/bold white] [{color}]{sev}[/{color}]\n"
+                f"[bold white]Clickable Endpoint:[/bold white] [link={full_url}][bold yellow]{full_url}[/bold yellow][/link]\n"
+                f"[bold white]Captured Evidence:[/bold white]\n[red]  {evidence_text}[/red]\n\n"
+                f"[bold green]Remediation Fix:[/bold green]\n"
+                f"[dim]{fix_text}[/dim]",
                 box=box.ROUNDED,
                 border_style="yellow"
             ))
@@ -495,77 +529,53 @@ def build_parser():
 
 
 def show_command_context_help(tokens):
-    """Displays contextual help and available continuation options when user appends '?'."""
+    """Displays concise, minimal continuation options when user types '?'."""
     if not tokens or tokens == ["?"]:
-        print_welcome_banner()
+        console.print("[bold cyan]MazAPI Security Suite — Available Commands:[/bold cyan]")
+        console.print("  [bold yellow]scan (s)[/bold yellow]         Active OWASP API Top 10 dynamic DAST scanner")
+        console.print("  [bold yellow]app-surface (a)[/bold yellow]  Static AST route discovery across 7 languages")
+        console.print("  [bold yellow]agent-audit (g)[/bold yellow]  AI Agent & LLM security auditor + AI-BOM")
+        console.print("  [bold yellow]mcp-audit (m)[/bold yellow]    MCP server configuration & source code auditor")
+        console.print("  [bold yellow]iot-audit (i)[/bold yellow]    IoT protocol, MQTT, CoAP & OTA security auditor")
+        console.print("  [bold yellow]train-models (t)[/bold yellow] Train 32-feature ML anomaly ensemble")
+        console.print("  [bold yellow]shell (sh)[/bold yellow]       Launch interactive Cyber REPL console\n")
         return
 
     cmd = tokens[0].lower()
-    
-    # Contextual options for app-surface
-    if cmd in ("app-surface", "a", "app"):
-        console.print(Panel(
-            "[bold cyan]🔍 'app-surface' (Static AST Route Discovery) Options & Flags[/bold cyan]\n\n"
-            "[bold white]Available Subactions:[bold white]  [green]scan [path][/green] (Default: '.')\n"
-            "[bold white]Formats (-f / --format):[bold white] [yellow]table (t)[/yellow], [yellow]json (j)[/yellow], [yellow]openapi (o)[/yellow], [yellow]asyncapi (a)[/yellow], [yellow]sarif (s)[/yellow]\n"
-            "[bold white]Output Destination (-o):[bold white] Path to save file (e.g. -o ./routes.json)\n"
-            "[bold white]Baseline Comparison (-b):[bold white] Path to baseline JSON snapshot\n"
-            "[bold white]Update Baseline (-u):[bold white]     Path to save new baseline snapshot\n"
-            "[bold white]CI Gating (--fail-on):[bold white]    [red]high[/red], [red]critical[/red]\n\n"
-            "[bold yellow]Example Continuation:[bold yellow]\n"
-            "  app-surface scan ./api-security-project/vulnerable-api --format table --output-openapi spec.json",
-            box=box.ROUNDED, border_style="cyan"
-        ))
-    # Contextual options for agent-audit
+
+    if cmd in ("scan", "s"):
+        console.print("[bold cyan]Available continuation options for 'scan':[/bold cyan]")
+        console.print("  [yellow]-t, --target <url>[/yellow]  Base API URL to scan (e.g. -t https://geekbyte.tech/)")
+        console.print("  [yellow]-a, --auth <token>[/yellow]  Bearer authentication token or header string")
+        console.print("  [yellow]-f, --format <fmt>[/yellow]  Report format: table (t), json (j), sarif (s)")
+        console.print("  [yellow]-o, --output <path>[/yellow] Destination file path for report")
+        console.print("  [yellow]-d, --details[/yellow]       Display detailed evidence & remediation breakdown\n")
+    elif cmd in ("app-surface", "a", "app"):
+        console.print("[bold cyan]Available continuation options for 'app-surface':[/bold cyan]")
+        console.print("  [green]scan [path][/green]         Target repository directory (default: '.')")
+        console.print("  [yellow]-f, --format <fmt>[/yellow]  Report format: table (t), json (j), openapi (o), asyncapi (a), sarif (s)")
+        console.print("  [yellow]-o, --output <path>[/yellow] Destination output file path")
+        console.print("  [yellow]-b, --baseline <file>[/yellow]Compare endpoints against baseline JSON file")
+        console.print("  [yellow]-u, --update-baseline <file>[/yellow] Save current endpoints to baseline JSON")
+        console.print("  [yellow]--fail-on <high|critical>[/yellow] Exit code threshold for CI\n")
     elif cmd in ("agent-audit", "g", "agent"):
-        console.print(Panel(
-            "[bold cyan]🤖 'agent-audit' (AI Agent & LLM Security Auditor) Options & Flags[/bold cyan]\n\n"
-            "[bold white]Available Subactions:[bold white]  [green]scan [path][/green] (Default: '.')\n"
-            "[bold white]Governance Audit (-g):[bold white]   Include EU AI Act Art. 14/15, NIST AI RMF, ISO 42001 clauses\n"
-            "[bold white]Formats (-f / --format):[bold white] [yellow]table (t)[/yellow], [yellow]json (j)[/yellow], [yellow]ai-bom (a)[/yellow] (CycloneDX 1.6), [yellow]sarif (s)[/yellow]\n"
-            "[bold white]Output Destination (-o):[bold white] Path to save file (e.g. -o ./ai-bom.json)\n"
-            "[bold white]CI Gating (--fail-on):[bold white]    [red]high[/red], [red]critical[/red]\n\n"
-            "[bold yellow]Example Continuation:[bold yellow]\n"
-            "  agent-audit scan ./api-security-project/agent_audit --governance --format ai-bom -o ./ai-bom.json",
-            box=box.ROUNDED, border_style="cyan"
-        ))
-    # Contextual options for mcp-audit
+        console.print("[bold cyan]Available continuation options for 'agent-audit':[/bold cyan]")
+        console.print("  [green]scan [path][/green]         Target AI agent project directory (default: '.')")
+        console.print("  [yellow]-g, --governance[/yellow]   Include EU AI Act, NIST AI RMF, ISO 42001 clauses")
+        console.print("  [yellow]-f, --format <fmt>[/yellow]  Report format: table (t), json (j), ai-bom (a), sarif (s)")
+        console.print("  [yellow]-o, --output <path>[/yellow] Destination file path (e.g. -o ./ai-bom.json)")
+        console.print("  [yellow]--fail-on <high|critical>[/yellow] Exit code threshold for CI\n")
     elif cmd in ("mcp-audit", "m", "mcp"):
-        console.print(Panel(
-            "[bold cyan]🔌 'mcp-audit' (Model Context Protocol Security) Options & Subcommands[/bold cyan]\n\n"
-            "[bold white]Available Actions:[bold white]\n"
-            "  [green]scan [path][/green]         Audit desktop & IDE MCP settings (Claude, Cursor, VS Code)\n"
-            "  [green]source-scan [path][/green]  Static AST injection scan on Python/Node MCP server code\n"
-            "  [green]registry[/green]           Explore 50+ known MCP servers and risk levels\n"
-            "  [green]explain [flag][/green]      Show remediation guide for specific risk flag\n\n"
-            "[bold yellow]Example Continuation:[bold yellow]\n"
-            "  mcp-audit source-scan ./api-security-project/testing-engine --exit-code",
-            box=box.ROUNDED, border_style="cyan"
-        ))
-    # Contextual options for iot-audit
+        console.print("[bold cyan]Available subcommands for 'mcp-audit':[/bold cyan]")
+        console.print("  [green]scan [path][/green]         Audit desktop & IDE MCP config files (Claude, Cursor, VS Code)")
+        console.print("  [green]source-scan [path][/green]  Static AST shell injection scan on MCP server code")
+        console.print("  [green]registry[/green]           Explore 50+ known MCP servers & risk ratings")
+        console.print("  [green]explain [flag][/green]      Display remediation guide for specific risk flag\n")
     elif cmd in ("iot-audit", "i", "iot"):
-        console.print(Panel(
-            "[bold cyan]📡 'iot-audit' (IoT Protocol & Edge Security) Options & Flags[/bold cyan]\n\n"
-            "[bold white]Target URL (-t / --target):[bold white] HTTP/MQTT/CoAP device endpoint (Default: http://localhost:8000)\n\n"
-            "[bold yellow]Example Continuation:[bold yellow]\n"
-            "  iot-audit --target http://192.168.1.100",
-            box=box.ROUNDED, border_style="cyan"
-        ))
-    # Contextual options for scan
-    elif cmd in ("scan", "s"):
-        console.print(Panel(
-            "[bold cyan]🎯 'scan' (OWASP API Top 10 Dynamic DAST Scanner) Options & Flags[/bold cyan]\n\n"
-            "[bold white]Target URL (-t / --target):[bold white] Base API endpoint URL\n"
-            "[bold white]Auth Header (-a / --auth):[bold white]    Bearer JWT token or auth string\n"
-            "[bold white]Formats (-f / --format):[bold white]    [yellow]table (t)[/yellow], [yellow]json (j)[/yellow], [yellow]sarif (s)[/yellow]\n"
-            "[bold white]Output Report (-o):[bold white]       Destination path for report\n"
-            "[bold white]Details Panel (-d):[bold white]       Show detailed vulnerability evidence breakdown & fixes\n\n"
-            "[bold yellow]Example Continuation:[bold yellow]\n"
-            "  scan --target https://geekbyte.tech/ --details --format sarif -o report.sarif",
-            box=box.ROUNDED, border_style="cyan"
-        ))
+        console.print("[bold cyan]Available continuation options for 'iot-audit':[/bold cyan]")
+        console.print("  [yellow]-t, --target <url>[/yellow]  Base URL / IP of IoT endpoint (default: http://localhost:8000)\n")
     else:
-        print_welcome_banner()
+        console.print(f"[yellow]Unknown command '{cmd}'. Type '?' to list available subcommands.[/yellow]\n")
 
 
 def execute_args(sys_args, parser, in_repl=False):

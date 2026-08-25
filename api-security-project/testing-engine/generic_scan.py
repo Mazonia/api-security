@@ -575,10 +575,10 @@ def run_scan(
         abs_j = os.path.abspath(j)
         abs_s = os.path.abspath(s)
 
-        r_console.print("[bold yellow]📄 Generated Security Reports (Clickable Links):[/bold yellow]")
-        r_console.print(f"   🌐 [bold cyan]HTML Interactive Report:[/bold cyan] [link=file:///{abs_h.replace('\\', '/')}]{h}[/link]")
-        r_console.print(f"   📊 [bold cyan]JSON Raw Dataset:[/bold cyan]        [link=file:///{abs_j.replace('\\', '/')}]{j}[/link]")
-        r_console.print(f"   🛡️ [bold cyan]SARIF CI/CD Document:[/bold cyan]     [link=file:///{abs_s.replace('\\', '/')}]{s}[/link]\n")
+        r_console.print("[bold yellow]Generated Security Reports (Clickable Links):[/bold yellow]")
+        r_console.print(f"   [bold cyan]HTML Interactive Report:[/bold cyan] [link=file:///{abs_h.replace('\\', '/')}]file:///{abs_h.replace('\\', '/')}[/link]")
+        r_console.print(f"   [bold cyan]JSON Raw Dataset:[/bold cyan]        [link=file:///{abs_j.replace('\\', '/')}]file:///{abs_j.replace('\\', '/')}[/link]")
+        r_console.print(f"   [bold cyan]SARIF CI/CD Document:[/bold cyan]     [link=file:///{abs_s.replace('\\', '/')}]file:///{abs_s.replace('\\', '/')}[/link]\n")
 
     return grouped
 
