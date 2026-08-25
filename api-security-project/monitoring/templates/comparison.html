@@ -438,7 +438,7 @@ td.mazapi-cell {
 
 .scenario-header h2 {
   font-family: 'Outfit', sans-serif;
-  font-size: 1.8rem;
+  font-size: 2rem;
   color: #ffffff;
   margin-top: 8px;
   margin-bottom: 6px;
@@ -446,7 +446,7 @@ td.mazapi-cell {
 
 .scenario-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: 24px;
 }
 
@@ -454,7 +454,7 @@ td.mazapi-cell {
   background: var(--surf);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 26px;
   box-shadow: var(--shadow-glass);
   backdrop-filter: var(--glass-blur);
   transition: all 0.25s ease;
@@ -470,7 +470,7 @@ td.mazapi-cell {
 }
 
 .scenario-icon {
-  font-size: 2rem;
+  font-size: 2.2rem;
   margin-bottom: 12px;
 }
 
@@ -490,48 +490,73 @@ td.mazapi-cell {
 
 .scenario-card h3 {
   font-family: 'Outfit', sans-serif;
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   color: #ffffff;
   margin-bottom: 8px;
 }
 
+.target-pill {
+  background: var(--surf-elevated);
+  border: 1px solid var(--border);
+  color: var(--amber);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  display: inline-block;
+  width: fit-content;
+}
+
 .scenario-card p {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.55;
   margin-bottom: 16px;
 }
 
 .scenario-steps {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 8px 12px;
-  font-size: 0.84rem;
+  gap: 10px 12px;
+  font-size: 0.86rem;
   color: var(--text);
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .step-num {
-  background: var(--surf-elevated);
-  border: 1px solid var(--border);
-  color: var(--indigo);
+  background: var(--indigo-bg);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #a5b4fc;
   font-weight: 700;
-  font-size: 0.72rem;
-  padding: 2px 8px;
+  font-size: 0.74rem;
+  padding: 3px 8px;
   border-radius: 4px;
   height: fit-content;
+}
+
+.result-box {
+  background: rgba(16, 185, 129, 0.08);
+  border-left: 3px solid var(--emerald);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  color: #34d399;
+  margin-top: 10px;
+  margin-bottom: 12px;
 }
 
 .scenario-cmd {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   font-family: 'Fira Code', monospace;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: #38bdf8;
   word-break: break-all;
   margin-top: auto;
+  line-height: 1.4;
 }
 
 footer {
@@ -584,105 +609,119 @@ footer {
   <section class="scenario-section">
     <div class="scenario-header">
       <div class="brand-badge" style="background:var(--indigo-bg);color:var(--indigo);border-color:rgba(99,102,241,0.3)">
-        🧪 Hands-On Testing Scenarios
+        🧪 Comprehensive Testing Guide
       </div>
-      <h2>How to Test MazAPI Features on Your Own Applications & Websites</h2>
-      <p class="subtitle">Step-by-Step interactive scenarios demonstrating how developers and AppSec engineers use MazAPI features on local, staging, or production websites and APIs.</p>
+      <h2>How to Test MazAPI Features on External Websites, AI Agents &amp; IoT Devices</h2>
+      <p class="subtitle">Detailed step-by-step testing workflows with copyable commands, target examples, and expected visual results.</p>
     </div>
 
     <div class="scenario-grid">
-      <!-- Scenario Card 1 -->
+      <!-- Scenario Card 1: External Websites & Web Apps -->
       <div class="scenario-card">
         <div class="scenario-icon">🌐</div>
         <div class="scenario-badge">Browser Extension</div>
-        <h3>1. Test Chrome Side Panel on Any Website</h3>
-        <p>Intercept live traffic, inspect JWT claims for weak secrets, and replay tampered BOLA requests on any web application in real-time.</p>
+        <h3>1. Test Chrome Side Panel on Any External Website</h3>
+        <div class="target-pill">🎯 Target Example: http://localhost:8000/ui or https://jwt.io or your own web app</div>
+        <p>Intercept live traffic, harvest Bearer tokens, decode JWT claims for <code>alg:none</code> bypasses, and replay tampered BOLA/IDOR requests directly in your browser.</p>
         <div class="scenario-steps">
-          <div class="step-num">Step 1</div><div>Open Chrome/Brave &amp; navigate to your target site (e.g. <code>http://localhost:3000</code> or <code>jwt.io</code>).</div>
-          <div class="step-num">Step 2</div><div>Click MazAPI Extension icon to open the <b>BOLT Side Panel</b>.</div>
-          <div class="step-num">Step 3</div><div>Log in to harvest Bearer tokens; check <b>JWT Inspector</b> for <code>alg:none</code> &amp; expiration warnings.</div>
-          <div class="step-num">Step 4</div><div>Use <b>Request Manipulator</b> to edit parameters (BOLA/IDOR) &amp; click <b>Replay Request</b>.</div>
+          <div class="step-num">Step 1</div><div>Open Chrome or Brave and load the unpacked extension from <code>./mazapi-extension</code> in <code>chrome://extensions</code>.</div>
+          <div class="step-num">Step 2</div><div>Navigate to your website (e.g., <code>http://localhost:8000/ui</code>) and press <b>Ctrl+Shift+Y</b> (or click extension icon) to open the <b>BOLT Side Panel</b>.</div>
+          <div class="step-num">Step 3</div><div>Log in as user <code>alice</code> (pass: <code>alice123</code>). Notice the panel automatically captures Bearer tokens and decodes JWT payload claims inline.</div>
+          <div class="step-num">Step 4</div><div>In the captured endpoint list, click <code>GET /users/1</code>. Change the parameter ID from <code>1</code> to <code>2</code> using <b>Smart Parameter Picker</b>.</div>
+          <div class="step-num">Step 5</div><div>Click <b>Replay Request</b>. Watch user <code>bob</code>'s private profile exfiltrated directly in the panel.</div>
         </div>
-        <div class="scenario-cmd">Side Panel Shortcut: Ctrl+Shift+Y (Windows) / Cmd+Shift+Y (Mac)</div>
+        <div class="result-box">✅ Expected Output: Panel alerts "Weak Secret (secret)", "Missing Exp Claim", and shows Bob's data on parameter tampering (BOLA Vulnerability Verified).</div>
+        <div class="scenario-cmd">Extension Folder: ./mazapi-extension (Manifest V3) | Shortcut: Ctrl+Shift+Y</div>
       </div>
 
-      <!-- Scenario Card 2 -->
-      <div class="scenario-card">
-        <div class="scenario-icon">⚡</div>
-        <div class="scenario-badge">AST Surface Engine</div>
-        <h3>2. Scan Your Own Source Code AST</h3>
-        <p>Map API endpoints, shadow routes, and parameters across 7 ecosystems (Python, Node, Java, .NET, Go, PHP, C/C++) before deployment.</p>
-        <div class="scenario-steps">
-          <div class="step-num">Step 1</div><div>Open terminal in your project directory.</div>
-          <div class="step-num">Step 2</div><div>Run static AST route discovery:</div>
-        </div>
-        <div class="scenario-cmd">python cli.py app-surface scan /path/to/your/codebase --format table</div>
-        <div class="scenario-steps" style="margin-top:8px">
-          <div class="step-num">Step 3</div><div>Check PR diffs for undocumented shadow routes:</div>
-        </div>
-        <div class="scenario-cmd">python cli.py app-surface diff --base main --head feature-branch /path/to/repo</div>
-      </div>
-
-      <!-- Scenario Card 3 -->
+      <!-- Scenario Card 2: AI Agents & LLM Tools -->
       <div class="scenario-card">
         <div class="scenario-icon">🤖</div>
         <div class="scenario-badge">AI Agent Audit</div>
-        <h3>3. Audit Your AI Agents &amp; Generate AI-BOM</h3>
-        <p>Evaluate LangChain, CrewAI, AutoGen, or Bedrock tools for confused deputy, excessive agency, and physical actuation risks.</p>
+        <h3>2. Audit Your AI Agents &amp; Generate CycloneDX AI-BOM</h3>
+        <div class="target-pill">🎯 Target Example: LangChain, CrewAI, AutoGen, Swarm, Bedrock Agent Python files</div>
+        <p>Audit autonomous AI agent graphs for authorization gaps, unconstrained shell execution, confused deputy risks, and cyber-physical actuation violations.</p>
         <div class="scenario-steps">
-          <div class="step-num">Step 1</div><div>Scan AI Agent source files against EU AI Act &amp; NIST AI RMF:</div>
+          <div class="step-num">Step 1</div><div>Open terminal in the <code>api-security-main</code> workspace directory.</div>
+          <div class="step-num">Step 2</div><div>Run AI Agent auditor with regulatory governance flags (EU AI Act Art. 14/15, NIST AI RMF, ISO 42001):</div>
         </div>
-        <div class="scenario-cmd">python cli.py agent-audit scan /path/to/ai/agent/code --governance</div>
-        <div class="scenario-steps" style="margin-top:8px">
-          <div class="step-num">Step 2</div><div>Export CycloneDX 1.6 AI-BOM for AI models &amp; tool sinks:</div>
+        <div class="scenario-cmd">python api-security-project/cli.py agent-audit scan ./api-security-project/agent_audit --governance</div>
+        <div class="scenario-steps" style="margin-top:10px">
+          <div class="step-num">Step 3</div><div>Export a structured CycloneDX 1.6 Artificial Intelligence Bill of Materials (AI-BOM) for your model pipeline:</div>
         </div>
-        <div class="scenario-cmd">python cli.py agent-audit scan /path/to/code --format ai-bom -o ./ai-bom.json</div>
+        <div class="scenario-cmd">python api-security-project/cli.py agent-audit scan ./api-security-project/agent_audit --format ai-bom -o ./ai-bom.json</div>
+        <div class="result-box">✅ Expected Output: Flags 'unlock_door' tool executing without Human-in-the-Loop approval &amp; generates compliant ai-bom.json detailing models &amp; tool sinks.</div>
       </div>
 
-      <!-- Scenario Card 4 -->
-      <div class="scenario-card">
-        <div class="scenario-icon">🎯</div>
-        <div class="scenario-badge">Active DAST Scanner</div>
-        <h3>4. Run Active DAST Scans Against Your API</h3>
-        <p>Execute zero-egress dynamic security probes (OWASP API Top 10) against your live staging or production API endpoints.</p>
-        <div class="scenario-steps">
-          <div class="step-num">Step 1</div><div>Target your API with Bearer JWT or API Key auth:</div>
-        </div>
-        <div class="scenario-cmd">python cli.py scan --target https://api.yourcompany.com --auth "Bearer YOUR_JWT"</div>
-        <div class="scenario-steps" style="margin-top:8px">
-          <div class="step-num">Step 2</div><div>Export SARIF report for GitHub Code Scanning:</div>
-        </div>
-        <div class="scenario-cmd">python cli.py scan --target https://api.yourcompany.com --format sarif -o results.sarif</div>
-      </div>
-
-      <!-- Scenario Card 5 -->
+      <!-- Scenario Card 3: Embedded IoT Microcontrollers & Devices -->
       <div class="scenario-card">
         <div class="scenario-icon">📡</div>
         <div class="scenario-badge">IoT &amp; Edge Security</div>
-        <h3>5. Test Embedded IoT Devices &amp; Firmware</h3>
-        <p>Parse embedded C/C++ firmware (ESP-IDF, Arduino) &amp; audit MQTT topic wildcards, CoAP reflection, and unsigned OTA uploads.</p>
+        <h3>3. Audit Embedded IoT Devices, Microcontrollers &amp; OTA</h3>
+        <div class="target-pill">🎯 Target Example: ESP32 / Arduino C/C++ firmware (.ino, .cpp), MQTT brokers, CoAP servers</div>
+        <p>Parse C/C++ AST syntax trees for microcontroller routes, audit MQTT broker wildcard ACLs, CoAP reflection, and unsigned OTA firmware updates.</p>
         <div class="scenario-steps">
-          <div class="step-num">Step 1</div><div>Scan embedded microcontroller C/C++ source code:</div>
+          <div class="step-num">Step 1</div><div>Scan embedded C/C++ microcontroller source files (ESP-IDF <code>httpd_register_uri_handler</code>, Arduino WebServer):</div>
         </div>
-        <div class="scenario-cmd">python cli.py app-surface scan /path/to/embedded/firmware/src</div>
-        <div class="scenario-steps" style="margin-top:8px">
-          <div class="step-num">Step 2</div><div>Run dynamic IoT vulnerability audit on device IP:</div>
+        <div class="scenario-cmd">python api-security-project/cli.py app-surface scan ./api-security-project/vulnerable-api --format table</div>
+        <div class="scenario-steps" style="margin-top:10px">
+          <div class="step-num">Step 2</div><div>Run dynamic IoT vulnerability probes against your live target device or local API container:</div>
         </div>
-        <div class="scenario-cmd">python cli.py iot-audit --target http://192.168.1.100 --broker mqtt://192.168.1.100:1883</div>
+        <div class="scenario-cmd">python api-security-project/cli.py iot-audit --target http://localhost:8000</div>
+        <div class="result-box">✅ Expected Output: Uncovers IOT-OTA-01 (Unauthenticated &amp; Unsigned Firmware Upload) and IOT-ACT-01 (Unauthenticated Door Lock Actuation).</div>
       </div>
 
-      <!-- Scenario Card 6 -->
+      <!-- Scenario Card 4: Active DAST Security Scanner -->
+      <div class="scenario-card">
+        <div class="scenario-icon">🎯</div>
+        <div class="scenario-badge">Active DAST Scanner</div>
+        <h3>4. Run Active DAST Scans Against Your Live REST APIs</h3>
+        <p>Execute zero-egress dynamic security probes testing OWASP API Top 10 (SQLi, BOLA, BFLA, CORS, Rate Limiting, SSRF) against any URL.</p>
+        <div class="scenario-steps">
+          <div class="step-num">Step 1</div><div>Target your local, staging, or production REST API with Bearer JWT token authentication:</div>
+        </div>
+        <div class="scenario-cmd">python api-security-project/cli.py scan --target http://localhost:8000 --auth "Bearer YOUR_JWT_TOKEN"</div>
+        <div class="scenario-steps" style="margin-top:10px">
+          <div class="step-num">Step 2</div><div>Export scan results as GitHub SARIF 2.1.0 format for automated CI/CD PR checks:</div>
+        </div>
+        <div class="scenario-cmd">python api-security-project/cli.py scan --target http://localhost:8000 --format sarif -o ./scan-results.sarif</div>
+        <div class="result-box">✅ Expected Output: Generates detailed scorecard detailing vulnerable endpoints, actual payloads, severity ratings, and remediation steps.</div>
+      </div>
+
+      <!-- Scenario Card 5: PR-Time AST Discovery & Diff Engine -->
+      <div class="scenario-card">
+        <div class="scenario-icon">⚡</div>
+        <div class="scenario-badge">AST Surface Engine</div>
+        <h3>5. Scan Source Code AST &amp; Git PR Shadow Route Diffs</h3>
+        <div class="target-pill">🎯 Target Example: Python, Node.js, Java, .NET, Go, PHP, C/C++ git repos</div>
+        <p>Extract API endpoints straight from source code syntax trees before building Docker images or deploying code to production.</p>
+        <div class="scenario-steps">
+          <div class="step-num">Step 1</div><div>Run multi-language AST surface discovery on your project directory:</div>
+        </div>
+        <div class="scenario-cmd">python api-security-project/cli.py app-surface scan ./api-security-project/vulnerable-api --format table</div>
+        <div class="scenario-steps" style="margin-top:10px">
+          <div class="step-num">Step 2</div><div>Compare two Git branches (or PR Base vs Head) to catch undocumented shadow APIs:</div>
+        </div>
+        <div class="scenario-cmd">python api-security-project/cli.py app-surface diff --base main --head feature-branch /path/to/repo</div>
+        <div class="result-box">✅ Expected Output: Displays grade (e.g. Grade F 50/100), 45 mapped endpoints, missing auth flags, and newly introduced shadow routes.</div>
+      </div>
+
+      <!-- Scenario Card 6: Real-Time ML Anomaly Proxy -->
       <div class="scenario-card">
         <div class="scenario-icon">🛡️</div>
         <div class="scenario-badge">ML Anomaly Proxy</div>
-        <h3>6. Monitor Live Microservice Traffic &amp; Anomaly ML</h3>
-        <p>Proxy backend traffic through MazAPI's 32-feature Random Forest &amp; Isolation Forest ML model for real-time zero-day blocking.</p>
+        <h3>6. Monitor Live Microservice Traffic &amp; ML Threat Detector</h3>
+        <div class="target-pill">🎯 Target Example: http://localhost:9000/dashboard &amp; http://localhost:9000 proxy</div>
+        <p>Inspect incoming HTTP traffic in real-time through a 32-feature Random Forest &amp; Isolation Forest ML ensemble model (99.73% accuracy).</p>
         <div class="scenario-steps">
-          <div class="step-num">Step 1</div><div>Point frontend requests through local proxy (<code>http://localhost:9000</code>).</div>
-          <div class="step-num">Step 2</div><div>Set upstream target header: <code>X-Target: https://api.yourcompany.com</code>.</div>
-          <div class="step-num">Step 3</div><div>Watch live threat scores &amp; anomaly badges at <code>http://localhost:9000/dashboard</code>.</div>
+          <div class="step-num">Step 1</div><div>Open <code>http://localhost:9000/dashboard</code> in your web browser.</div>
+          <div class="step-num">Step 2</div><div>Send normal vs malicious attack traffic through the proxy using terminal:</div>
         </div>
-        <div class="scenario-cmd">Dashboard URL: http://localhost:9000/dashboard</div>
+        <div class="scenario-cmd">python api-security-project/rate_limit_demo.py</div>
+        <div class="scenario-steps" style="margin-top:10px">
+          <div class="step-num">Step 3</div><div>Observe live threat classification, anomaly scores (-0.95), and explainable attack type badges (SQLi, BOLA, IoT OTA Tampering).</div>
+        </div>
+        <div class="result-box">✅ Expected Output: Dashboard streams live intercepted requests, flags anomalies instantly with zero cloud egress, and auto-blocks high-risk attacks.</div>
       </div>
     </div>
   </section>
