@@ -318,19 +318,73 @@ def cmd_dast_scan(args):
             console.print(f"[yellow]SARIF Export Notice: {e}[/yellow]")
     else:
         # Formatted Table Output
-        table = Table(title=f"OWASP API Security DAST Scan Summary ({target_url})", header_style="bold magenta")
+        table = Table(
+            title=f"[bold magenta]OWASP API Security DAST Summary for [link={target_url}]{target_url}[/link][/bold magenta]",
+            header_style="bold magenta",
+            box=box.ROUNDED
+        )
         table.add_column("Category", style="cyan")
         table.add_column("Pass / Total", style="yellow")
         table.add_column("Status", style="bold")
 
+        vuln_found = False
         for group in results:
             cat = group.get("category", "General Security Probe")
             v_cnt = group.get("vulnerable_count", 0)
             tot_cnt = group.get("total", 0)
-            status_str = f"[red]VULNERABLE ({v_cnt})[/red]" if v_cnt > 0 else "[green]SECURE[/green]"
+            if v_cnt > 0:
+                vuln_found = True
+            status_str = f"[bold red]✖ VULNERABLE ({v_cnt})[/bold red]" if v_cnt > 0 else "[bold green]✔ SECURE[/bold green]"
             table.add_row(cat, f"{tot_cnt - v_cnt}/{tot_cnt}", status_str)
 
         console.print(table)
+
+        # Print detailed breakdown if requested or prompt user
+        show_details = getattr(args, "details", False)
+        if not show_details and vuln_found and sys.stdin.isatty():
+            try:
+                ans = console.input("\n[bold yellow]💡 View detailed vulnerability evidence & remediation guidance? [Y/n]: [/bold yellow]").strip().lower()
+                if ans in ("", "y", "yes"):
+                    show_details = True
+            except Exception:
+                pass
+
+        if show_details or vuln_found:
+            print_dast_details(results, target_url)
+
+
+def print_dast_details(results, target_url):
+    """Renders a detailed breakdown of all vulnerabilities found with clickable URLs and fix steps."""
+    console.print(Panel(
+        f"[bold red]🔍 Detailed Vulnerability Evidence & Remediation Breakdown[/bold red]\n"
+        f"[dim]Target: [link={target_url}]{target_url}[/link][/dim]",
+        box=box.ROUNDED,
+        border_style="red"
+    ))
+
+    vuln_count = 0
+    for group in results:
+        cat_name = group.get("category", "General Vulnerability")
+        vulnerable_tests = [t for t in group.get("tests", []) if t.get("vulnerable")]
+
+        for test in vulnerable_tests:
+            vuln_count += 1
+            path = test.get("path", "")
+            full_url = target_url.rstrip("/") + ("/" + path.lstrip("/") if path else "")
+
+            console.print(Panel(
+                f"[bold red]Vulnerability #{vuln_count}: {test.get('name', cat_name)}[/bold red]\n\n"
+                f"[bold white]Category:[bold white] [cyan]{cat_name}[/cyan]\n"
+                f"[bold white]Clickable Endpoint:[bold white] [link={full_url}][bold yellow]{full_url}[/bold yellow][/link]\n"
+                f"[bold white]Evidence:[bold white] [red]{test.get('evidence', 'Vulnerable payload response accepted by server.')}[/red]\n\n"
+                f"[bold green]💡 Remediation Guidance:[bold green]\n"
+                f"[dim]{test.get('fix', 'Enforce strict authentication, authorization, and input validation bounds.')}[/dim]",
+                box=box.ROUNDED,
+                border_style="yellow"
+            ))
+
+    if vuln_count == 0:
+        console.print("[bold green]✔ Zero vulnerabilities detected across all executed test probes![/bold green]\n")
 
 
 def cmd_train_models(args):
@@ -390,6 +444,7 @@ def build_parser():
     p_scan.add_argument("--auth", "-a", help="Auth token or header value (e.g. 'Bearer <jwt>')")
     p_scan.add_argument("--format", "-f", choices=["table", "t", "json", "j", "sarif", "s"], default="table")
     p_scan.add_argument("--output", "-o", help="Output report file path")
+    p_scan.add_argument("--details", "-d", action="store_true", help="Print detailed vulnerability evidence and remediation guidance")
 
     # 6. train-models (aliases: t, train)
     subparsers.add_parser("train-models", aliases=["t", "train"], help="Train 32-feature calibrated ML anomaly models")

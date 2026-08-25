@@ -417,45 +417,69 @@ def run_scan(
     run_extra: bool = True,
 ) -> list:
     auth_body = auth_body or {}
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    from rich import box
+
+    r_console = Console(force_terminal=True)
+    abs_target = target if target.startswith("http") else f"http://{target}"
+
+    r_console.print(Panel(
+        f"[bold cyan]🎯 MazAPI Dynamic DAST Security Probe[/bold cyan]\n"
+        f"[bold white]Target URL:[/bold white] [link={abs_target}][bold yellow]{abs_target}[/bold yellow][/link]\n"
+        f"[dim]Executing OWASP API Security Top 10 & Zero-Egress Dynamic Audits...[/dim]",
+        box=box.ROUNDED,
+        border_style="cyan"
+    ))
+
     flat_results = []
-
     with httpx.Client(follow_redirects=True) as client:
-        print(f"\n  Target: {target}")
-        print(f"  {'─'*55}\n")
-
         # Sensitive path enumeration
-        print("  [API5/API8] Probing sensitive paths ...")
+        r_console.print("[cyan]🔍 Probing sensitive endpoints & admin paths...[/cyan]")
         sp = probe_sensitive_paths(client, target)
         flat_results.extend(sp)
         exposed = [t for t in sp if t["vulnerable"]]
-        print(f"           {len(exposed)}/{len(sp)} paths exposed")
+        if exposed:
+            r_console.print(f"   [bold red]✖ Exposed {len(exposed)}/{len(sp)} sensitive endpoints[/bold red]")
+        else:
+            r_console.print(f"   [green]✔ {len(sp)}/{len(sp)} sensitive endpoints protected[/green]")
 
         # CORS
-        print("  [API8]     Checking CORS headers ...")
+        r_console.print("[cyan]🔍 Testing CORS headers & wildcard origin policy...[/cyan]")
         cors = probe_cors(client, target)
         if cors:
             flat_results.append(cors)
-            print(f"           ACAO wildcard: {'YES (vulnerable)' if cors['vulnerable'] else 'no'}")
+            if cors['vulnerable']:
+                r_console.print("   [bold red]✖ CORS Wildcard Origin Exfiltratable (Access-Control-Allow-Origin: *)[/bold red]")
+            else:
+                r_console.print("   [green]✔ CORS Headers Properly Restricted[/green]")
 
         # Debug endpoint
-        print("  [API8]     Probing debug endpoint ...")
+        r_console.print("[cyan]🔍 Probing debug & health endpoints...[/cyan]")
         dbg = probe_debug_endpoint(client, target)
         flat_results.append(dbg)
-        print(f"           Debug exposed: {'YES' if dbg['vulnerable'] else 'no'}")
+        if dbg['vulnerable']:
+            r_console.print("   [bold red]✖ Debug & Internal Stack Traces Exposed[/bold red]")
+        else:
+            r_console.print("   [green]✔ Debug Endpoints Secured[/green]")
 
         # Rate limiting
         if auth_body:
-            print(f"  [API4]     Rate-limit test on {auth_endpoint} ...")
+            r_console.print(f"[cyan]🔍 Testing rate limiting on [link={target}{auth_endpoint}]{auth_endpoint}[/link]...[/cyan]")
             rl = probe_rate_limit(client, target, auth_endpoint, auth_body)
             flat_results.append(rl)
-            print(f"           Rate limited: {'yes' if not rl['vulnerable'] else 'NO (vulnerable)'}")
+            if rl['vulnerable']:
+                r_console.print("   [bold red]✖ Rate Limiting Missing (Brute-Force Vulnerable)[/bold red]")
+            else:
+                r_console.print("   [green]✔ Rate Limiting Active[/green]")
             time.sleep(0.5)
 
         # Obtain a real token for authenticated probes
         token = ""
         user_id = 1
         if auth_body:
-            print(f"  [AUTH]     Logging in via {auth_endpoint} ...")
+            r_console.print(f"[cyan]🔍 Logging in via [link={target}{auth_endpoint}]{auth_endpoint}[/link]...[/cyan]")
             token = _login(client, target, auth_endpoint, auth_body, token_field)
             if token:
                 try:
@@ -464,63 +488,97 @@ def run_scan(
                     user_id = int(payload.get("sub", 1))
                 except Exception:
                     pass
-            print(f"           Token obtained: {'yes' if token else 'no (skipping auth probes)'}")
+                r_console.print("   [green]✔ Authenticated session established[/green]")
+            else:
+                r_console.print("   [yellow]⚠ Authentication skipped (no valid token)[/yellow]")
 
         # JWT forge
-        print(f"  [API2]     Testing JWT weak secret on {protected_path} ...")
+        r_console.print(f"[cyan]🔍 Testing JWT weak secret & alg:none on [link={target}{protected_path}]{protected_path}[/link]...[/cyan]")
         jwt_r = probe_jwt_forge(client, target, protected_path)
         flat_results.append(jwt_r)
-        print(f"           Forged JWT accepted: {'YES (vulnerable)' if jwt_r['vulnerable'] else 'no'}")
+        if jwt_r['vulnerable']:
+            r_console.print("   [bold red]✖ Broken Authentication: Forged 'alg:none' JWT Token Accepted![/bold red]")
+        else:
+            r_console.print("   [green]✔ JWT Signature Verification Enforced[/green]")
 
         # BOLA
         if token:
-            print(f"  [API1]     BOLA probe on {bola_path} ...")
+            r_console.print(f"[cyan]🔍 Testing BOLA / IDOR parameter tampering on {bola_path}...[/cyan]")
             bola = probe_bola(client, target, token, user_id, bola_path)
             flat_results.append(bola)
-            print(f"           BOLA exposed: {'YES' if bola['vulnerable'] else 'no'}")
+            if bola['vulnerable']:
+                r_console.print("   [bold red]✖ BOLA Vulnerability Detected: Cross-Tenant Data Leak[/bold red]")
+            else:
+                r_console.print("   [green]✔ Object Level Authorization Enforced[/green]")
 
             # Mass assignment
-            print(f"  [API3]     Mass assignment probe on {update_path} ...")
+            r_console.print(f"[cyan]🔍 Testing Mass Assignment property injection on {update_path}...[/cyan]")
             ma = probe_mass_assign(client, target, token, update_path)
             flat_results.append(ma)
-            print(f"           Mass assign accepted: {'YES (vulnerable)' if ma['vulnerable'] else 'no'}")
+            if ma['vulnerable']:
+                r_console.print("   [bold red]✖ Mass Assignment Vulnerability Detected[/bold red]")
+            else:
+                r_console.print("   [green]✔ Mass Assignment Protected[/green]")
 
         # ── Beyond-OWASP probes ───────────────────────────────────────────────
         if run_extra:
-            print("  [EXTRA]    HTTP verb tampering ...")
+            r_console.print("[cyan]🔍 Testing HTTP verb tampering...[/cyan]")
             vt = probe_verb_tampering(client, target)
             flat_results.extend(vt)
             vuln_vt = [t for t in vt if t["vulnerable"]]
-            print(f"           Unsafe methods accepted: {len(vuln_vt)}/{len(vt)}")
+            if vuln_vt:
+                r_console.print(f"   [bold red]✖ {len(vuln_vt)} Unsafe HTTP Verbs Accepted[/bold red]")
+            else:
+                r_console.print("   [green]✔ HTTP Verb Tampering Protected[/green]")
 
-            print("  [EXTRA]    Path traversal ...")
+            r_console.print("[cyan]🔍 Testing Path traversal...[/cyan]")
             pt = probe_path_traversal(client, target)
             flat_results.extend(pt)
-            print(f"           Traversal exposed: {'YES' if any(t['vulnerable'] for t in pt) else 'no'}")
+            if any(t['vulnerable'] for t in pt):
+                r_console.print("   [bold red]✖ Directory Traversal Vulnerability Exposed[/bold red]")
+            else:
+                r_console.print("   [green]✔ Path Traversal Protected[/green]")
 
-            print("  [EXTRA]    SQL injection ...")
+            r_console.print("[cyan]🔍 Testing SQL injection...[/cyan]")
             sq = probe_sql_injection(client, target, token)
             flat_results.extend(sq)
-            print(f"           SQL injection: {'YES (vulnerable)' if any(t['vulnerable'] for t in sq) else 'no'}")
+            if any(t['vulnerable'] for t in sq):
+                r_console.print("   [bold red]✖ SQL Injection Vulnerability Exposed[/bold red]")
+            else:
+                r_console.print("   [green]✔ SQL Injection Protected[/green]")
 
-            print("  [EXTRA]    Open redirect ...")
+            r_console.print("[cyan]🔍 Testing Open redirect...[/cyan]")
             rd = probe_open_redirect(client, target)
             flat_results.extend(rd)
-            print(f"           Open redirect: {'YES (vulnerable)' if any(t['vulnerable'] for t in rd) else 'no'}")
+            if any(t['vulnerable'] for t in rd):
+                r_console.print("   [bold red]✖ Open Redirect Vulnerability Exposed[/bold red]")
+            else:
+                r_console.print("   [green]✔ Open Redirect Protected[/green]")
 
     grouped = _group_by_category(flat_results)
     total_v = sum(g["vulnerable_count"] for g in grouped)
     total_t = sum(g["total"] for g in grouped)
     score   = round((1 - total_v / total_t) * 100) if total_t else 100
 
-    print(f"\n  {'─'*55}")
-    print(f"  Tests run: {total_t}  |  Vulnerable: {total_v}  |  Score: {score}%\n")
+    r_console.print(Panel(
+        f"[bold white]Scan Execution Complete[/bold white]\n"
+        f"[cyan]Tests Executed:[/cyan] [bold white]{total_t}[/bold white]   |   "
+        f"[bold red]Vulnerabilities Found:[/bold red] [bold red]{total_v}[/bold red]   |   "
+        f"[bold green]Security Score:[/bold green] [{'bold green' if score >= 80 else 'bold yellow' if score >= 60 else 'bold red'}]{score}%[/{'bold green' if score >= 80 else 'bold yellow' if score >= 60 else 'bold red'}]",
+        box=box.ROUNDED,
+        border_style="green" if score >= 80 else "yellow" if score >= 60 else "red"
+    ))
 
     if _REPORT_OK:
         j, h, s = make_report(grouped, target, report_dir)
-        print(f"  JSON  -> {j}")
-        print(f"  HTML  -> {h}")
-        print(f"  SARIF -> {s}\n")
+        abs_h = os.path.abspath(h)
+        abs_j = os.path.abspath(j)
+        abs_s = os.path.abspath(s)
+
+        r_console.print("[bold yellow]📄 Generated Security Reports (Clickable Links):[/bold yellow]")
+        r_console.print(f"   🌐 [bold cyan]HTML Interactive Report:[/bold cyan] [link=file:///{abs_h.replace('\\', '/')}]{h}[/link]")
+        r_console.print(f"   📊 [bold cyan]JSON Raw Dataset:[/bold cyan]        [link=file:///{abs_j.replace('\\', '/')}]{j}[/link]")
+        r_console.print(f"   🛡️ [bold cyan]SARIF CI/CD Document:[/bold cyan]     [link=file:///{abs_s.replace('\\', '/')}]{s}[/link]\n")
 
     return grouped
 
