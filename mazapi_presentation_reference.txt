@@ -1,0 +1,60 @@
+MazAPI Security Suite - Presentation Reference Guide
+====================================================
+
+This document serves as a reference guide for presenting and explaining the features, terminology, and architecture of the MazAPI Security Suite.
+
+----------------------------------------------------
+1. KEY TERMINOLOGY & ABBREVIATIONS
+----------------------------------------------------
+Before diving into the features, here are the core terms used throughout the tool:
+
+* API (Application Programming Interface): A set of rules that allows different software applications to communicate with each other. It's how the front-end of a website talks to the database, or how your phone app gets weather data.
+* DAST (Dynamic Application Security Testing): A security testing method that interacts with a running application from the outside, acting like a hacker to find vulnerabilities. It actively attacks the system and does NOT look at the source code.
+* SAST (Static Application Security Testing): A security testing method that analyzes source code or compiled code to find security flaws without actually running the application (like a spell-checker for code).
+* IoT (Internet of Things): Physical devices (like smart locks, thermostats, or sensors) that connect to the internet and share data.
+* MCP (Model Context Protocol): A new standard that allows AI agents (like Claude, Cursor, or Windsurf) to securely connect to local tools and data on a developer's computer.
+* OTA (Over-The-Air): The process of updating firmware or software on a device (usually IoT devices) wirelessly over the internet.
+* MQTT (Message Queuing Telemetry Transport): A lightweight messaging protocol commonly used for communication between IoT devices.
+* CoAP (Constrained Application Protocol): Another lightweight protocol designed for simple IoT devices to communicate over the web.
+* JWT (JSON Web Token): A standard way to securely transmit information between parties as a JSON object, most commonly used as a digital ID card for logging into APIs.
+* BOLA (Broken Object Level Authorization): A vulnerability where an API doesn't properly check if the logged-in user actually has permission to access a specific piece of data (e.g., User A changing User B's password).
+
+----------------------------------------------------
+2. CORE FEATURES OF MAZAPI
+----------------------------------------------------
+MazAPI is divided into several distinct scanning modules, each designed to test a different aspect of a modern application ecosystem.
+
+A. Standard API Security Scanning (DAST)
+- What it does: Actively sends crafted network requests (attacks) to a running API to find common flaws (like those listed in the OWASP API Top 10).
+- Examples of tests: It checks if the API allows accessing data without a JWT (authentication token), if it leaks sensitive information in error messages, or if it lacks rate limiting (allowing someone to spam the server).
+- How it works: The "testing-engine" coordinates attacks against a provided Target URL and analyzes the responses.
+
+B. IoT (Internet of Things) Security Audit
+- What it does: Tests vulnerabilities specific to hardware and physical devices that are connected to the internet.
+- Examples of tests:
+  - Insecure OTA Updates: Can an attacker upload fake firmware without a digital signature?
+  - Unauthenticated Actuation: Can an attacker send a physical command (like "unlock door") without logging in?
+  - Cleartext Telemetry: Is the device transmitting sensitive sensor data without encryption?
+  - MQTT Gateway Testing: Can an anonymous user connect and publish messages to wildcard topics?
+
+C. MCP (Model Context Protocol) & AI Agent Auditing
+- What it does: Acts as a static analyzer (like an antivirus) for your local development environment to ensure AI coding tools aren't given too much power.
+- Configuration Scanning: It searches your computer for AI settings files (e.g., in VS Code or Cursor). It checks if you've given the AI dangerous tools, like root file access or raw database admin rights, by checking against a built-in registry of known risky servers.
+- Source Code Scanning: It scans your project's source code to find "Shell Injection" vulnerabilities—places where a custom AI tool might accidentally allow the AI to run arbitrary system commands on your computer.
+
+----------------------------------------------------
+3. HOW WE TEST THE SCANNER (THE "SIMULATION")
+----------------------------------------------------
+Because it is illegal and unethical to test security tools against real-world companies without permission, the MazAPI project includes its own "dummy" applications to practice on. 
+
+When demonstrating the tool, we run it against these local, simulated environments:
+- "vulnerable-api" & "vulnbank": These are real APIs written by the development team, but they have been intentionally built with security flaws (missing auth, bad rate limiting, insecure IoT endpoints). Scanning these proves the tool can successfully detect vulnerabilities.
+- "hardened-api": This is a secure, patched version of the API. We scan this to ensure the tool doesn't accidentally report problems when everything is safe (proving it doesn't generate "false positives").
+
+----------------------------------------------------
+4. ARCHITECTURE BREAKDOWN (WHAT DOES WHAT)
+----------------------------------------------------
+- cli.py: The user interface. This is the interactive "mazapi" shell where the user types commands. It parses input and tells the engine what to do.
+- testing-engine/: The brains/core logic. This folder contains the scripts (like generic_scan.py and the owasp_tests folder) that actually perform the attacks, send the network requests, and generate reports.
+- agent_audit/: Specialized logic for analyzing AI systems and frameworks.
+- vulnerable-api/ & vulnbank/: The simulated, vulnerable target environments used for demonstrations and testing.

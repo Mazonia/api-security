@@ -32,10 +32,10 @@
 }
 [data-theme="light"]{
   --bg:#f8fafc;
-  --surf:rgba(255,255,255,0.85);
-  --surf2:rgba(241,245,249,0.9);
-  --border:rgba(203,213,225,0.8);
-  --border-glow:rgba(79,70,229,0.3);
+  --surf:#ffffff;
+  --surf2:#f1f5f9;
+  --border:#e2e8f0;
+  --border-glow:rgba(79,70,229,0.25);
   --text:#0f172a;
   --muted:#64748b;
   --red:#dc2626;
@@ -48,6 +48,33 @@
   --orange:#ea580c;
   --glass-blur:blur(12px);
   --shadow-glass:0 8px 24px 0 rgba(149,157,165,0.15);
+}
+[data-theme="light"] #cve-tip {
+  background:#ffffff !important;
+  border-color:#cbd5e1 !important;
+  box-shadow:0 10px 30px rgba(0,0,0,0.12) !important;
+  color:#0f172a !important;
+}
+[data-theme="light"] .tip-cve-chip {
+  background:#f1f5f9 !important;
+  border-color:#cbd5e1 !important;
+  color:#4f46e5 !important;
+}
+[data-theme="light"] .tip-fix {
+  color:#334155 !important;
+}
+[data-theme="light"] pre {
+  background:#f8fafc !important;
+  color:#0f172a !important;
+  border-color:#e2e8f0 !important;
+}
+[data-theme="light"] #topology-network {
+  background:#ffffff !important;
+  border-color:#e2e8f0 !important;
+}
+[data-theme="light"] .modal-box {
+  background:#ffffff !important;
+  box-shadow:0 20px 40px rgba(0,0,0,0.2) !important;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;transition:background 0.2s,color 0.2s}
@@ -159,7 +186,7 @@ input[type=checkbox]{accent-color:var(--blue);cursor:pointer;width:14px;height:1
 .table-wrap{background:var(--surf);border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:480px}
 table{width:100%;border-collapse:collapse;min-width:700px}
 thead{position:sticky;top:0;z-index:10}
-th{background:#0d1117;padding:10px 14px;text-align:left;font-size:.76em;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;cursor:pointer;user-select:none}
+th{background:var(--surf2);padding:10px 14px;text-align:left;font-size:.76em;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;cursor:pointer;user-select:none;border-bottom:1px solid var(--border)}
 th:hover{color:var(--text)}
 td{padding:9px 14px;border-top:1px solid var(--border);font-size:.83em;white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
 tr.row-anomaly{background:rgba(248,81,73,.05)}
