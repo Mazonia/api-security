@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from passlib.context import CryptContext

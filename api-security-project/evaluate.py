@@ -191,114 +191,595 @@ SCENARIOS = [
 # ── HTML template ──────────────────────────────────────────────────────────────
 
 _TMPL = """<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Comparative Security Evaluation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#0d1117;color:#c9d1d9}
-.hdr{background:linear-gradient(135deg,#1a1a2e,#16213e);padding:40px;text-align:center}
-.hdr h1{color:#58a6ff;font-size:2.2em;margin-bottom:8px}
-.hdr p{color:#8b949e}
-.wrap{max-width:1200px;margin:0 auto;padding:30px}
-.summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:28px}
-.api-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:28px;text-align:center}
-.api-card h2{font-size:1.05em;color:#8b949e;margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
-.api-card .sc{font-size:3em;font-weight:700;margin-bottom:6px}
-.api-card p{color:#8b949e;font-size:.85em}
-.rv{color:#f85149}.gh{color:#3fb950}.impr{color:#e3b341}
-.improvement{font-size:2em;font-weight:700}
-.charts{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px}
-.cb{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px}
-.cb h3{color:#58a6ff;margin-bottom:14px;font-size:.95em}
-.section-hdr{font-size:.78em;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8b949e;padding:10px 0 8px;margin-bottom:10px;border-bottom:1px solid #21262d}
-/* Scenario cards */
-.scenario{background:#161b22;border:1px solid #30363d;border-radius:10px;margin-bottom:14px;overflow:hidden}
-.sc-hdr{padding:14px 18px;border-bottom:1px solid #30363d;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.owasp-tag{font-size:.78em;font-weight:700;color:#8b949e;background:#0d1117;padding:2px 8px;border-radius:4px;border:1px solid #30363d}
-.sc-name{font-size:.95em;font-weight:600;color:#e6edf3;flex:1}
-.badge{padding:3px 10px;border-radius:12px;font-size:.76em;font-weight:700}
-.sc-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
-.sc-col{padding:14px 18px;border-right:1px solid #21262d}
-.sc-col:last-child{border-right:none}
-.sc-col-lbl{font-size:.72em;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#8b949e;margin-bottom:8px}
-.attack-code{background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;font-size:.8em;font-family:Consolas,monospace;color:#79c0ff;word-break:break-all;line-height:1.5}
-.result-status{font-size:1em;font-weight:700;margin-bottom:6px}
-.result-reason{font-size:.83em;color:#8b949e;line-height:1.6}
-.col-vuln .result-status{color:#f85149}
-.col-hard-ok .result-status{color:#3fb950}
-.col-hard-fail .result-status{color:#f85149}
-.col-vuln{background:rgba(248,81,73,.04)}
-.col-hard-ok{background:rgba(63,185,80,.04)}
-.sc-footer{padding:10px 18px;border-top:1px solid #21262d;background:#0a0d10;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.cve-badge{background:#161b22;border:1px solid #30363d;border-radius:5px;padding:2px 8px;font-size:.76em;font-family:monospace;color:#58a6ff;text-decoration:none}
-.cve-badge:hover{border-color:#58a6ff}
-.owasp-link{font-size:.78em;color:#8b949e;text-decoration:none;margin-left:auto}
-.owasp-link:hover{color:#58a6ff}
-.footer{text-align:center;padding:28px;color:#8b949e;font-size:.82em;border-top:1px solid #21262d;margin-top:32px}
+:root {
+  --bg: #070b13;
+  --surf: #0e1424;
+  --surf2: #171e35;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-glow: rgba(99, 102, 241, 0.35);
+  --text: #f3f4f6;
+  --text-muted: #9ca3af;
+  --emerald: #10b981;
+  --emerald-dim: rgba(16, 185, 129, 0.15);
+  --indigo: #6366f1;
+  --indigo-dim: rgba(99, 102, 241, 0.15);
+  --rose: #f43f5e;
+  --rose-dim: rgba(244, 63, 94, 0.15);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245, 158, 11, 0.15);
+  --purple: #8b5cf6;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 10px 30px rgba(0,0,0,0.35);
+  --toc-bg: rgba(14, 20, 36, 0.92);
+}
+
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --surf: #ffffff;
+  --surf2: #f1f5f9;
+  --border: #e2e8f0;
+  --border-glow: rgba(99, 102, 241, 0.25);
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --emerald: #059669;
+  --emerald-dim: rgba(5, 150, 105, 0.12);
+  --indigo: #4f46e5;
+  --indigo-dim: rgba(79, 70, 229, 0.1);
+  --rose: #dc2626;
+  --rose-dim: rgba(220, 38, 38, 0.1);
+  --amber: #d97706;
+  --amber-dim: rgba(217, 119, 6, 0.12);
+  --purple: #7c3aed;
+  --shadow: 0 8px 24px rgba(149, 157, 165, 0.12);
+  --toc-bg: rgba(255, 255, 255, 0.95);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  padding-bottom: 60px;
+  transition: background 0.25s, color 0.25s;
+}
+
+.hdr {
+  background: linear-gradient(135deg, #0a0f1d 0%, #1e1b4b 50%, #070b13 100%);
+  padding: 40px 24px 36px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  position: relative;
+}
+[data-theme="light"] .hdr {
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 60%, #f8fafc 100%);
+  border-bottom: 1px solid #cbd5e1;
+}
+.hdr-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1320px;
+  margin: 0 auto 18px;
+}
+.brand-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--emerald-dim);
+  color: var(--emerald);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 5px 14px;
+  border-radius: 99px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.theme-toggle-btn {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 18px;
+  border-radius: 99px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.theme-toggle-btn:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  transform: translateY(-1px);
+}
+.hdr h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+[data-theme="light"] .hdr h1 {
+  color: #0f172a;
+}
+.hdr p { color: var(--text-muted); font-size: 0.95rem; font-weight: 500; }
+
+.layout {
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .layout { grid-template-columns: 1fr; }
+  .report-toc { display: none; }
+}
+
+.report-toc {
+  position: sticky;
+  top: 24px;
+  background: var(--toc-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 14px;
+  box-shadow: var(--shadow);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.toc-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 8px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.toc-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.toc-item a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.toc-item a:hover {
+  background: var(--surf2);
+  color: var(--indigo);
+  transform: translateX(3px);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 30px;
+}
+@media (max-width: 768px) {
+  .summary { grid-template-columns: 1fr; }
+}
+.api-card {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s, border-color 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.api-card:hover { transform: translateY(-3px); border-color: var(--border-glow); }
+.api-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3.5px; }
+.api-card.rv::before { background: var(--rose); }
+.api-card.gh::before { background: var(--emerald); }
+.api-card.impr::before { background: var(--purple); }
+
+.api-card h2 {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.api-card .sc {
+  font-family: 'Outfit', sans-serif;
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+.api-card p { color: var(--text-muted); font-size: 0.82rem; font-weight: 600; }
+.rv { color: var(--rose); }
+.gh { color: var(--emerald); }
+.impr { color: var(--purple); }
+
+.charts { display: grid; grid-template-columns: 1.2fr 1fr; gap: 22px; margin-bottom: 36px; }
+@media (max-width: 800px) { .charts { grid-template-columns: 1fr; } }
+.cb {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+.cb h3 {
+  font-family: 'Outfit', sans-serif;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cb h3::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: var(--indigo);
+  border-radius: 2px;
+}
+.chart-container { position: relative; height: 230px; width: 100%; }
+
+.section-hdr {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 12px 0 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scenario {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s ease;
+}
+.scenario:hover { border-color: var(--border-glow); }
+.sc-hdr {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surf2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.owasp-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surf);
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.sc-name { font-size: 1.05rem; font-weight: 700; color: var(--text); flex: 1; font-family: 'Outfit', sans-serif; }
+.badge { padding: 4px 10px; border-radius: 12px; font-size: 0.76rem; font-weight: 700; }
+.badge-ok { background: var(--emerald-dim); color: var(--emerald); border: 1px solid rgba(16,185,129,0.35); }
+.badge-fail { background: var(--rose-dim); color: var(--rose); border: 1px solid rgba(244,63,94,0.35); }
+
+.sc-body { display: grid; grid-template-columns: 1fr 1.1fr 1.1fr; gap: 0; }
+@media (max-width: 900px) { .sc-body { grid-template-columns: 1fr; } }
+.sc-col { padding: 18px 24px; border-right: 1px solid var(--border); }
+@media (max-width: 900px) { .sc-col { border-right: none; border-bottom: 1px solid var(--border); } }
+.sc-col:last-child { border-right: none; border-bottom: none; }
+.sc-col-lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.attack-code {
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  font-family: 'Fira Code', monospace;
+  color: var(--indigo);
+  word-break: break-all;
+  line-height: 1.5;
+}
+.result-status { font-size: 0.95rem; font-weight: 700; margin-bottom: 6px; }
+.result-reason { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; }
+.col-vuln .result-status { color: var(--rose); }
+.col-hard-ok .result-status { color: var(--emerald); }
+.col-hard-fail .result-status { color: var(--rose); }
+.col-vuln { background: rgba(244,63,94,0.03); }
+.col-hard-ok { background: rgba(16,185,129,0.03); }
+.col-hard-fail { background: rgba(244,63,94,0.03); }
+
+.sc-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surf2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.cve-badge {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 0.76rem;
+  font-family: 'Fira Code', monospace;
+  color: var(--indigo);
+  text-decoration: none;
+  font-weight: 600;
+}
+.cve-badge:hover { border-color: var(--indigo); transform: translateY(-1px); }
+.owasp-link { font-size: 0.8rem; color: var(--emerald); text-decoration: none; margin-left: auto; font-weight: 700; }
+.owasp-link:hover { text-decoration: underline; }
+
+.footer {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+}
+.footer span { color: var(--emerald); font-weight: 700; }
 </style>
 </head>
 <body>
+
 <div class="hdr">
+  <div class="hdr-top">
+    <div class="brand-pill">📊 Comparative Security Workbench</div>
+    <button class="theme-toggle-btn" id="theme-btn" onclick="toggleReportTheme()">☀️ Light Mode</button>
+  </div>
   <h1>Comparative Security Evaluation</h1>
-  <p>Vulnerable API vs Hardened API &nbsp;|&nbsp; {{ timestamp }} &nbsp;|&nbsp; {{ total }} OWASP Attack Scenarios</p>
+  <p>Vulnerable API vs Hardened API &nbsp;•&nbsp; {{ timestamp }} &nbsp;•&nbsp; {{ total }} OWASP Attack Scenarios</p>
 </div>
-<div class="wrap">
 
-  <div class="summary">
-    <div class="api-card"><h2>Vulnerable API</h2><div class="sc rv">{{ vuln_score }}%</div><p>{{ vuln_pass }}/{{ total }} attacks blocked</p></div>
-    <div class="api-card"><h2>Security Improvement</h2><div class="sc impr">+{{ hard_score - vuln_score }}pp</div><p>percentage points gained</p></div>
-    <div class="api-card"><h2>Hardened API</h2><div class="sc gh">{{ hard_score }}%</div><p>{{ hard_pass }}/{{ total }} attacks blocked</p></div>
-  </div>
-
-  <div class="charts">
-    <div class="cb"><h3>Security Score Comparison</h3><canvas id="barChart" height="200"></canvas></div>
-    <div class="cb"><h3>Hardened API — Attack Outcomes</h3><canvas id="pieChart" height="200"></canvas></div>
-  </div>
-
-  <div class="section-hdr">Attack Scenario Results — {{ total }} Scenarios</div>
-
-  {% for r in rows %}
-  {% set sev_css = sev_styles.get(r.severity, '') %}
-  <div class="scenario">
-    <div class="sc-hdr">
-      <span class="owasp-tag">{{ r.owasp_id }}</span>
-      <span class="badge" style="{{ sev_css }}">{{ r.severity }}</span>
-      <span class="sc-name">{{ r.id }} &mdash; {{ r.name }}</span>
-    </div>
-    <div class="sc-body">
-      <div class="sc-col">
-        <div class="sc-col-lbl">Attack Sent</div>
-        <div class="attack-code">{{ r.attack_payload }}</div>
-        <div style="margin-top:8px;font-size:.82em;color:#8b949e">{{ r.desc }}</div>
-      </div>
-      <div class="sc-col col-vuln">
-        <div class="sc-col-lbl">Vulnerable API (port 8000)</div>
-        <div class="result-status">{{ r.v_status }} — {{ 'SECURE' if r.v_pass else 'EXPOSED' }}</div>
-        <div class="result-reason">{{ r.vuln_reason }}</div>
-      </div>
-      <div class="sc-col {% if r.h_pass %}col-hard-ok{% else %}col-hard-fail{% endif %}">
-        <div class="sc-col-lbl">Hardened API (port 8001)</div>
-        <div class="result-status">{{ r.h_status }} — {{ 'BLOCKED' if r.h_pass else 'EXPOSED' }}</div>
-        <div class="result-reason">{{ r.hard_reason }}</div>
-      </div>
-    </div>
-    <div class="sc-footer">
-      {% for cve in r.cves %}
-      <a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/{{ cve }}" target="_blank" rel="noopener">{{ cve }}</a>
+<div class="layout">
+  <aside class="report-toc">
+    <div class="toc-title">📑 Scenarios</div>
+    <ul class="toc-list">
+      <li class="toc-item"><a href="#overview"><span>📊</span> Overview Metrics</a></li>
+      <li class="toc-item"><a href="#analytics"><span>📈</span> Visual Analytics</a></li>
+      <li class="toc-title" style="margin-top: 12px;">🔍 Detailed Tests</li>
+      {% for r in rows %}
+      <li class="toc-item">
+        <a href="#sc-{{ loop.index }}">
+          <span>•</span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.name }}</span>
+        </a>
+      </li>
       {% endfor %}
-      <a class="owasp-link" href="{{ r.owasp_ref }}" target="_blank" rel="noopener">{{ r.owasp_id }} Reference &rarr;</a>
-    </div>
-  </div>
-  {% endfor %}
+    </ul>
+  </aside>
 
+  <main class="content">
+    <section id="overview">
+      <div class="summary">
+        <div class="api-card rv">
+          <h2>Vulnerable API</h2>
+          <div class="sc rv">{{ vuln_score }}%</div>
+          <p>{{ vuln_pass }}/{{ total }} attacks blocked</p>
+        </div>
+        <div class="api-card impr">
+          <h2>Security Improvement</h2>
+          <div class="sc impr">+{{ hard_score - vuln_score }}pp</div>
+          <p>percentage points gained</p>
+        </div>
+        <div class="api-card gh">
+          <h2>Hardened API</h2>
+          <div class="sc gh">{{ hard_score }}%</div>
+          <p>{{ hard_pass }}/{{ total }} attacks blocked</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="analytics">
+      <div class="charts">
+        <div class="cb">
+          <h3>Security Score Comparison</h3>
+          <div class="chart-container">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+        <div class="cb">
+          <h3>Hardened API — Attack Outcomes</h3>
+          <div class="chart-container">
+            <canvas id="pieChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <h2 class="section-hdr">Detailed Comparative Log</h2>
+
+    {% for r in rows %}
+    {% set sev_css = sev_styles.get(r.severity, '') %}
+    <div class="scenario" id="sc-{{ loop.index }}">
+      <div class="sc-hdr">
+        <span class="owasp-tag">{{ r.owasp_id }}</span>
+        <span class="badge" style="{{ sev_css }}">{{ r.severity }}</span>
+        <span class="sc-name">{{ r.id }} &mdash; {{ r.name }}</span>
+        <span class="badge {% if r.h_pass %}badge-ok{% else %}badge-fail{% endif %}">
+          Hardened: {{ "SECURE" if r.h_pass else "VULNERABLE" }}
+        </span>
+      </div>
+      <div class="sc-body">
+        <div class="sc-col">
+          <div class="sc-col-lbl">Attack Sent</div>
+          <div class="attack-code">{{ r.attack_payload }}</div>
+          <div style="margin-top:8px;font-size:.82em;color:var(--text-muted)">{{ r.desc }}</div>
+        </div>
+        <div class="sc-col col-vuln">
+          <div class="sc-col-lbl">Vulnerable API (port 8000)</div>
+          <div class="result-status">{{ r.v_status }} — {{ 'SECURE' if r.v_pass else 'EXPOSED' }}</div>
+          <div class="result-reason">{{ r.vuln_reason }}</div>
+        </div>
+        <div class="sc-col {% if r.h_pass %}col-hard-ok{% else %}col-hard-fail{% endif %}">
+          <div class="sc-col-lbl">Hardened API (port 8001)</div>
+          <div class="result-status">{{ r.h_status }} — {{ 'BLOCKED' if r.h_pass else 'EXPOSED' }}</div>
+          <div class="result-reason">{{ r.hard_reason }}</div>
+        </div>
+      </div>
+      <div class="sc-footer">
+        {% if r.cves %}
+          {% for c in r.cves %}
+            <a class="cve-badge" href="https://nvd.nist.gov/vuln/detail/{{ c }}" target="_blank">{{ c }}</a>
+          {% endfor %}
+        {% endif %}
+        <a class="owasp-link" href="{{ r.owasp_ref }}" target="_blank">OWASP Docs &rarr;</a>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="footer">
+      MazAPI Security Scanner &nbsp;•&nbsp; <span>CY384 Cybersecurity Lab Work II</span> &nbsp;•&nbsp; UMaT Ghana
+    </div>
+  </main>
 </div>
-<div class="footer">CY384 API Security Project &nbsp;|&nbsp; University of Mines and Technology, Ghana &nbsp;|&nbsp; OWASP API Security Top 10:2023</div>
+
 <script>
-new Chart(document.getElementById('barChart'),{type:'bar',data:{labels:['Vulnerable API','Hardened API'],datasets:[{label:'Security Score (%)',data:[{{ vuln_score }},{{ hard_score }}],backgroundColor:['rgba(248,81,73,.7)','rgba(63,185,80,.7)'],borderColor:['#f85149','#3fb950'],borderWidth:2}]},options:{plugins:{legend:{labels:{color:'#c9d1d9'}}},scales:{y:{min:0,max:100,ticks:{color:'#8b949e'},grid:{color:'#21262d'}},x:{ticks:{color:'#8b949e'},grid:{color:'#21262d'}}}}});
-new Chart(document.getElementById('pieChart'),{type:'doughnut',data:{labels:['Attacks Blocked','Still Exposed'],datasets:[{data:[{{ hard_pass }},{{ total - hard_pass }}],backgroundColor:['rgba(63,185,80,.7)','rgba(248,81,73,.7)'],borderColor:['#3fb950','#f85149'],borderWidth:2}]},options:{plugins:{legend:{labels:{color:'#c9d1d9'}}}}});
+let barChartInstance = null;
+let doughnutChartInstance = null;
+
+function getThemeColors() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    textColor: isLight ? '#475569' : '#9ca3af',
+    gridColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
+    cardBg: isLight ? '#ffffff' : '#0e1424'
+  };
+}
+
+function initCharts() {
+  const tc = getThemeColors();
+
+  const ctxBar = document.getElementById('barChart').getContext('2d');
+  if (barChartInstance) barChartInstance.destroy();
+  barChartInstance = new Chart(ctxBar, {
+    type: 'bar',
+    data: {
+      labels: ['Vulnerable API', 'Hardened API'],
+      datasets: [{
+        label: 'Security Score (%)',
+        data: [{{ vuln_score }}, {{ hard_score }}],
+        backgroundColor: ['#f43f5e', '#10b981'],
+        borderColor: ['#f43f5e', '#10b981'],
+        borderWidth: 1.5,
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { color: tc.textColor, font: { family: 'Inter' } },
+          grid: { color: tc.gridColor }
+        },
+        x: {
+          ticks: { color: tc.textColor, font: { family: 'Inter' } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+
+  const ctxPie = document.getElementById('pieChart').getContext('2d');
+  if (doughnutChartInstance) doughnutChartInstance.destroy();
+  doughnutChartInstance = new Chart(ctxPie, {
+    type: 'doughnut',
+    data: {
+      labels: ['Attacks Blocked', 'Still Exposed'],
+      datasets: [{
+        data: [{{ hard_pass }}, {{ total - hard_pass }}],
+        backgroundColor: ['#10b981', '#f43f5e'],
+        borderColor: [tc.cardBg, tc.cardBg],
+        borderWidth: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '72%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: tc.textColor, font: { family: 'Inter', size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+function toggleReportTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('mazapi_report_theme', next);
+
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.innerHTML = next === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
+
+  initCharts();
+}
+
+// Load saved theme
+const savedTheme = localStorage.getItem('mazapi_report_theme');
+if (savedTheme) {
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.innerHTML = savedTheme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
+}
+
+window.addEventListener('DOMContentLoaded', initCharts);
 </script>
 </body>
 </html>"""

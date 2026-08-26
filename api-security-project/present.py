@@ -80,6 +80,27 @@ HUD_INJECTION_JS = """
             margin-top: 2px;
             line-height: 1.4;
         }
+        #mazapi-presenter-hud .hud-close {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            padding: 6px 12px;
+            font-weight: 700;
+            pointer-events: auto;
+            transition: all 0.15s ease;
+            margin-left: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #mazapi-presenter-hud .hud-close:hover {
+            background: #f43f5e;
+            border-color: #f43f5e;
+            box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+        }
         @keyframes hudPulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.15); }
@@ -108,6 +129,14 @@ HUD_INJECTION_JS = """
             <div class="hud-title" id="mazapi-hud-title">Demonstration Step</div>
             <div class="hud-desc" id="mazapi-hud-desc">Initializing scenario...</div>
         </div>
+        <button class="hud-close" onclick="(() => {
+            const h = document.getElementById('mazapi-presenter-hud');
+            if (h) {
+                h.style.opacity = '0';
+                h.style.transform = 'translateX(-50%) translateY(-100px)';
+            }
+            document.querySelectorAll('.mazapi-pulse-target').forEach(el => el.classList.remove('mazapi-pulse-target'));
+        })()">✕ Dismiss</button>
     `;
     document.body.appendChild(hud);
 })();
@@ -694,24 +723,9 @@ def run_visible_cli_demos():
     print("  🖥  Launching external visible terminal window running MazAPI commands...")
     
     try:
-        # Launch visible external terminal showing MazAPI commands in real time
+        # Launch visible external terminal executing the pre-built CLI demonstration batch file
         subprocess.Popen(
-            ["cmd.exe", "/c", "start", "MazAPI Live CLI Scan", "cmd.exe", "/k",
-             "cd /d \"c:\\Users\\Mazonia\\Desktop\\cyberlab work II\\api-security-main\" && "
-             "echo =================================================== && "
-             "echo    MazAPI Interactive Security Scanner - LIVE CLI   && "
-             "echo =================================================== && "
-             "echo. && "
-             "echo [1/3] Running DAST API Security Scan... && "
-             "python cli_entry.py scan --target http://localhost:8000 && "
-             "echo. && "
-             "echo [2/3] Running IoT Protocol Security Audit... && "
-             "python cli_entry.py iot-audit --target http://localhost:8000 && "
-             "echo. && "
-             "echo [3/3] Running Model Context Protocol (MCP) Audit... && "
-             "python cli_entry.py mcp-audit scan && "
-             "echo. && "
-             "echo MazAPI CLI Scans Complete! Feel free to explore or close this window."],
+            ["cmd.exe", "/c", "start", "MazAPI Live CLI Scan", "run_cli_presentation.bat"],
             shell=True
         )
         print("  ✅  External live CLI terminal window launched successfully.")

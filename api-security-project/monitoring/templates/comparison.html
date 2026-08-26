@@ -29,6 +29,68 @@
   --glass-blur: blur(16px) saturate(180%);
 }
 
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --surf: #ffffff;
+  --surf-elevated: #f1f5f9;
+  --border: #e2e8f0;
+  --border-glow: rgba(99, 102, 241, 0.25);
+  --text: #0f172a;
+  --muted: #64748b;
+  --emerald: #059669;
+  --emerald-bg: rgba(5, 150, 105, 0.12);
+  --indigo: #4f46e5;
+  --indigo-bg: rgba(79, 70, 229, 0.1);
+  --rose: #dc2626;
+  --rose-bg: rgba(220, 38, 38, 0.1);
+  --amber: #d97706;
+  --amber-bg: rgba(217, 119, 6, 0.12);
+  --shadow-glass: 0 8px 24px rgba(149, 157, 165, 0.12);
+}
+
+[data-theme="light"] h1 {
+  background: linear-gradient(135deg, #0f172a 0%, #4f46e5 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+[data-theme="light"] body {
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 40%) !important;
+}
+
+[data-theme="light"] .drawer {
+  background: #ffffff !important;
+  border-left-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .modal-content {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+[data-theme="light"] .popover-content {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+}
+
+[data-theme="light"] th.mazapi-header {
+  background: rgba(5, 150, 105, 0.05) !important;
+}
+
+[data-theme="light"] tr:hover td {
+  background: #f1f5f9 !important;
+}
+
+[data-theme="light"] pre {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
 
 body {
@@ -578,11 +640,12 @@ footer {
 
   <div class="controls-bar">
     <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search features, protocols, frameworks..." onkeyup="filterFeatures()">
-    <div class="legend">
+    <div class="legend" style="align-items: center;">
       <div class="legend-item"><span class="badge badge-mazapi">MazAPI</span> Native Core</div>
       <div class="legend-item"><span class="badge badge-yes">YES</span> Full Support</div>
       <div class="legend-item"><span class="badge badge-partial">PARTIAL</span> Limited/Cloud Only</div>
       <div class="legend-item"><span class="badge badge-no">NO</span> Lacking / Missing</div>
+      <button id="btn-theme-matrix" onclick="toggleMatrixTheme()" style="background:var(--surf-elevated);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:20px;cursor:pointer;font-weight:700;margin-left:14px;font-size:0.8rem">☀️ Light</button>
     </div>
   </div>
 
@@ -1108,6 +1171,23 @@ document.getElementById("detailModal").addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeModal();
 });
+
+function toggleMatrixTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  localStorage.setItem("mazapi_report_theme", next);
+  const btn = document.getElementById("btn-theme-matrix");
+  if (btn) btn.innerHTML = next === "light" ? "🌙 Dark" : "☀️ Light";
+}
+
+// Load saved theme state
+const savedTheme = localStorage.getItem("mazapi_report_theme");
+if (savedTheme) {
+  document.documentElement.setAttribute("data-theme", savedTheme);
+  const btn = document.getElementById("btn-theme-matrix");
+  if (btn) btn.innerHTML = savedTheme === "light" ? "🌙 Dark" : "☀️ Light";
+}
 
 renderTable();
 </script>
