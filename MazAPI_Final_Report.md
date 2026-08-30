@@ -1,25 +1,17 @@
 # UNIVERSITY OF MINES AND TECHNOLOGY
 ## Department of Cybersecurity and Information Systems
 
-```
-+-----------------------------------------------------------------------+
-|                                                                       |
-|                 UNIVERSITY OF MINES AND TECHNOLOGY                    |
-|             DEPARTMENT OF CYBERSECURITY AND INFO SYSTEMS              |
-|                                                                       |
-+-----------------------------------------------------------------------+
-```
+![UMaT Logo](visuals/umat_logo.png)
+
 
 ### FINAL PROJECT REPORT
 
-**Title of Report**: MazAPI: An Open-Source Framework with Automated Vulnerability Discovery, Machine Learning Anomaly Detection, and Multi-Platform Deployment
+**Title of Report**: MazAPI: An Open-Source API Framework with Automated Vulnerability Discovery, Machine Learning Anomaly Detection, and Multi-Platform Deployment
 
 **Student Name**: ENOCH NANA TABI ODURO  
 **Student ID**: FCM.41.018.197.23  
 **Degree Title**: Bachelor of Science in Cybersecurity  
 **Course Code**: CY384 - Cybersecurity Lab Work II  
-**Department**: Department of Cybersecurity and Information Systems  
-**Institution**: University of Mines and Technology, Tarkwa, Ghana  
 **Academic Year**: Semester 2, Academic Year 2025/26  
 **Submission Date**: 30th August 2026  
 
@@ -33,7 +25,7 @@ Application Programming Interfaces (APIs) form the core communication channels o
 
 ## Acknowledgements
 
-I express my appreciation to the faculty and staff of the Department of Cybersecurity and Information Systems at the University of Mines and Technology for providing the academic infrastructure and guidance necessary to complete this project. Special acknowledgment goes to the course supervisor for CY384 Cybersecurity Lab Work II for providing clear project guidelines and constructive feedback throughout the research lifecycle.
+I express my appreciation to the faculty and staff of the Department of Cybersecurity and Information Systems at the University of Mines and Technology for providing the academic infrastructure and guidance necessary to complete this project. Special acknowledgment goes to the course lecturer for CY384 Cybersecurity Lab Work II for providing clear project guidelines and constructive feedback throughout the research lifecycle.
 
 I also acknowledge the open-source cybersecurity community and developers of tools such as FastAPI, Playwright, scikit-learn, Paho MQTT, aiocoap, and the OWASP Foundation, whose public research and software libraries enabled the empirical validation of this work.
 
@@ -60,6 +52,9 @@ API Security, IoT API Security, OWASP API Top 10, OWASP IoT Top 10, AsyncAPI 3.0
 - [Chapter 1: Introduction, Aims and Objectives](#chapter-1-introduction-aims-and-objectives)
   - [1.1 Introduction to Problem](#11-introduction-to-problem)
   - [1.2 Introduction to Project, Aim and Objectives](#12-introduction-to-project-aim-and-objectives)
+    - [1.2.1 Project Overview](#121-project-overview)
+    - [1.2.2 Aim](#122-aim)
+    - [1.2.3 Objectives](#123-objectives)
   - [1.3 Research Questions](#13-research-questions)
   - [1.4 Scope of the Project](#14-scope-of-the-project)
   - [1.5 Project Justification](#15-project-justification)
@@ -67,23 +62,47 @@ API Security, IoT API Security, OWASP API Top 10, OWASP IoT Top 10, AsyncAPI 3.0
 - [Chapter 2: Literature Review](#chapter-2-literature-review)
   - [2.1 Theoretical Foundations of API Security](#21-theoretical-foundations-of-api-security)
   - [2.2 Review of Security Taxonomies: OWASP, MITRE ATT&CK, and CWE](#22-review-of-security-taxonomies-owasp-mitre-attck-and-cwe)
+    - [2.2.1 OWASP API Security Top 10:2023 Taxonomy](#221-owasp-api-security-top-102023-taxonomy)
+    - [2.2.2 MITRE ATT&CK Knowledge Base Alignment](#222-mitre-attck-knowledge-base-alignment)
+    - [2.2.3 Common Weakness Enumeration (CWE) Mapping](#223-common-weakness-enumeration-cwe-mapping)
   - [2.3 Evaluation of Existing API Security Tools and Operational Gaps](#23-evaluation-of-existing-api-security-tools-and-operational-gaps)
-  - [2.4 Machine Learning Applications in Network and API Anomaly Detection](#24-machine-learning-applications-in-network-and-api-anomaly-detection)
+    - [2.3.1 Analysis of APIsec Surface Suite](#231-analysis-of-apisec-surface-suite)
+    - [2.3.2 Analysis of Tooling Gaps and MazAPI Differentiation](#232-analysis-of-tooling-gaps-and-mazapi-differentiation)
   - [2.5 Static Secret Analysis and Browser Interception Techniques](#25-static-secret-analysis-and-browser-interception-techniques)
+    - [2.5.1 Static Code Secret Analysis](#251-static-code-secret-analysis)
+    - [2.5.2 Dynamic Browser Interception via Manifest V3](#252-dynamic-browser-interception-via-manifest-v3)
 - [Chapter 3: Methodology](#chapter-3-methodology)
   - [3.1 Agile-Iterative Engineering Framework](#31-agile-iterative-engineering-framework)
-  - [3.2 System Architecture and Containerized Deployment Stack](#32-system-architecture-and-containerized-deployment-stack)
+  - [3.2 System Architecture and Enterprise Production Deployment Stack](#32-system-architecture-and-enterprise-production-deployment-stack)
   - [3.3 Transparent Monitoring Proxy and Rule-Based Pre-Check Design](#33-transparent-monitoring-proxy-and-rule-based-pre-check-design)
+    - [3.3.1 Rule-Based BOLA Pre-Check Layer](#331-rule-based-bola-pre-check-layer)
+    - [3.3.2 Dynamic OpenAPI 3.0 Synthesizer, Schema Drift & Active Inline Auto-Blocking](#332-dynamic-openapi-30-synthesizer-schema-drift--active-inline-auto-blocking)
+    - [3.3.3 Unified BOM Generator & Model Context Protocol (MCP) Auditor](#333-unified-bom-generator--model-context-protocol-mcp-auditor)
   - [3.4 Feature Engineering and Dataset Synthesizer Specification](#34-feature-engineering-and-dataset-synthesizer-specification)
+    - [3.4.1 Dataset Synthesizer Implementation](#341-dataset-synthesizer-implementation)
   - [3.5 Machine Learning Ensemble Architecture](#35-machine-learning-ensemble-architecture)
   - [3.6 MazAPI Web Scanner and Playwright Session Interception Engine](#36-mazapi-web-scanner-and-playwright-session-interception-engine)
+    - [3.6.1 Endpoint Discovery Strategies](#361-endpoint-discovery-strategies)
+    - [3.6.2 Playwright Headless Session Interception](#362-playwright-headless-session-interception)
   - [3.7 Manifest V3 Browser Extension Architecture](#37-manifest-v3-browser-extension-architecture)
+    - [3.7.1 Service Worker Security Probe Execution](#371-service-worker-security-probe-execution)
   - [3.8 Visual Studio Code Static Analysis Extension Engineering](#38-visual-studio-code-static-analysis-extension-engineering)
+    - [3.8.1 Multi-Layer Detection Strategy](#381-multi-layer-detection-strategy)
+  - [3.9 Interactive Command-Line Management Console](#39-interactive-command-line-management-console)
 - [Chapter 4: Design, Testing and Evaluation](#chapter-4-design-testing-and-evaluation)
   - [4.1 Comparative Vulnerable vs. Hardened API Implementation](#41-comparative-vulnerable-vs-hardened-api-implementation)
+    - [4.1.1 Implementation Comparison Matrix](#411-implementation-comparison-matrix)
   - [4.2 Empirical Security Testing Results across Vulnerability Classes](#42-empirical-security-testing-results-across-vulnerability-classes)
+    - [4.2.1 Detailed Evaluation Breakdown](#421-detailed-evaluation-breakdown)
   - [4.3 Machine Learning Ensemble Performance Metrics and Evaluation](#43-machine-learning-ensemble-performance-metrics-and-evaluation)
+    - [4.3.1 Classification Performance Metrics](#431-classification-performance-metrics)
+    - [4.3.2 Confusion Matrix Analysis](#432-confusion-matrix-analysis)
+    - [4.3.3 Feature Importance Ranking](#433-feature-importance-ranking)
+    - [4.3.4 Operational Latency Overhead Analysis](#434-operational-latency-overhead-analysis)
   - [4.4 Validation on External Real-World Targets and VulnBank Lab](#44-validation-on-external-real-world-targets-and-vulnbank-lab)
+    - [4.4.1 Google Gemini API External Scanning Validation](#441-google-gemini-api-external-scanning-validation)
+    - [4.4.2 VulnBank Banking Lab Evaluation](#442-vulnbank-banking-lab-evaluation)
+    - [4.4.3 API Surface OpenAPI Documentation Comparison](#443-api-surface-openapi-documentation-comparison)
   - [4.5 VS Code Extension Secret Scanning and Static Analysis Benchmark](#45-vs-code-extension-secret-scanning-and-static-analysis-benchmark)
   - [4.6 External Attack Workflow Validation using Kali Linux](#46-external-attack-workflow-validation-using-kali-linux)
 - [Chapter 5: Conclusions & Further Work](#chapter-5-conclusions--further-work)
@@ -143,7 +162,7 @@ The project covers API security testing, traffic monitoring, and static code sca
 
 ### 1.5 Project Justification
 
-API security breaches result in unauthorized data exposure, financial loss, and compliance violations under regulatory standards such as the General Data Protection Regulation (GDPR) and the Payment Card Industry Data Security Standard (PCI DSS). Existing commercial API security platforms are costly, proprietary, and require cloud connectivity, making them unsuitable for offline research, localized laboratory testing, or academic instruction. Existing open-source tools address isolated phases of the security lifecycle—such as active scanning or static linting—without providing real-time traffic monitoring or side-by-side comparative validation targets. MazAPI addresses these limitations by offering a modular, zero-cost, offline-capable framework that bridges development, testing, and operational monitoring.
+API security breaches result in unauthorized data exposure, financial loss, and compliance violations under regulatory standards such as the General Data Protection Regulation (GDPR) and the Payment Card Industry Data Security Standard (PCI DSS). Existing commercial API security platforms are costly, proprietary, and require cloud connectivity, making them unsuitable for offline research, localized laboratory testing, or academic instruction. Existing open-source tools address isolated phases of the security lifecycle, such as active scanning or static linting, without providing real-time traffic monitoring or side-by-side comparative validation targets. MazAPI addresses these limitations by offering a modular, zero-cost, offline-capable framework that bridges development, testing, and operational monitoring.
 
 ### 1.6 Organization of Chapters
 
@@ -171,7 +190,7 @@ The Open Worldwide Application Security Project (OWASP) maintains the API Securi
 2. **API2:2023 Broken Authentication**: Involves weak implementations of authentication mechanisms, such as hardcoded JWT signing keys, missing token expiration claims (`exp`), or acceptance of unverified signing algorithms (e.g., `alg:none`).
 3. **API3:2023 Broken Object Property Level Authorization (Mass Assignment & Excessive Data Exposure)**: Arises when endpoints accept request bodies containing attributes that callers should not modify, or when endpoints return complete database records containing internal fields.
 4. **API4:2023 Unrestricted Resource Consumption (Rate Abuse)**: Occurs when endpoints omit execution limits on computational or network resources, permitting brute-force credential stuffing, password guessing, or resource exhaustion.
-5. **API5:2023 Broken Function Level Authorization (BFLA)**: Emerges when administrative functions or elevated endpoints fail to enforce role-based access control, allowing standard users to execute privileged operations.
+5. **API5:2023 Broken Function Level Authorization (BFLA)**: Emerges when administrative functions or improved endpoints fail to enforce role-based access control, allowing standard users to execute privileged operations.
 6. **API6:2023 Server-Side Request Forgery (SSRF)**: Occurs when an API endpoint fetches remote resources specified by user input without validating destination domain names or internal IP ranges.
 7. **API7:2023 Security Misconfiguration**: Involves permissive Cross-Origin Resource Sharing (CORS) policies (such as `Access-Control-Allow-Origin: *`), exposed debugging endpoints, verbose error traces, or unneeded HTTP methods.
 8. **API8:2023 Lack of Protection from Automated Threats**: Concerns susceptibility to automated scraping, credential enumeration, and bot traffic due to missing behavior analysis.
@@ -181,7 +200,7 @@ The Open Worldwide Application Security Project (OWASP) maintains the API Securi
 #### 2.2.2 MITRE ATT&CK Knowledge Base Alignment
 The MITRE ATT&CK framework categorizes adversary tactics, techniques, and procedures (TTPs) based on real-world observations. API exploitation maps directly to several key ATT&CK techniques:
 - **T1190: Exploit Public-Facing Application**: Adversaries target unpatched API vulnerabilities (such as command injection or SSRF) to gain initial access to host infrastructure.
-- **T1078: Valid Accounts**: Attackers leverage stolen or forged API Bearer tokens to impersonate legitimate accounts and maintain access.
+- **T1078: Valid Accounts**: Attackers utilize stolen or forged API Bearer tokens to impersonate legitimate accounts and maintain access.
 - **T1059: Command and Scripting Interpreter**: Exploitation of API request inputs to execute arbitrary shell commands via system calls.
 - **T1552: Unsecured Credentials**: Discovery of hardcoded API keys and secrets in client-side code repositories or public storage.
 
@@ -231,7 +250,7 @@ Despite the capabilities of modern tools like APIsec Surface, several operationa
 ### 2.5 Static Secret Analysis and Browser Interception Techniques
 
 #### 2.5.1 Static Code Secret Analysis
-Hardcoded secrets—such as API keys, database credentials, and JWT signing keys—committed to public repositories represent a frequent compromise vector. Static analysis tools analyze source code files prior to deployment. Effective secret detection requires a multi-layered detection strategy:
+Hardcoded secrets, such as API keys, database credentials, and JWT signing keys, committed to public repositories represent a frequent compromise vector. Static analysis tools analyze source code files prior to deployment. Effective secret detection requires a multi-layered detection strategy:
 - **Pattern Matching**: Utilizing regular expressions tailored to vendor-specific key structures (e.g., Google API keys starting with `AIzaSy`, OpenAI keys starting with `sk-`).
 - **Shannon Entropy Calculation**: Measuring string randomness using Shannon entropy:
   $$H(X) = -\sum_{i=1}^{n} P(x_i) \log_2 P(x_i)$$
@@ -268,7 +287,7 @@ Phase 4: Client Extensions & System Evaluation (Weeks 8-9)
 
 ### 3.2 System Architecture and Enterprise Production Deployment Stack
 
-For real-world production environments, the MazAPI security framework is architected to run decoupled from the core application business logic. Rather than embedding security controls directly in the primary codebase—which increases CPU overhead and risks crashing target applications—the system utilizes a high-throughput, non-intrusive sidecar proxy and kernel-level traffic mirroring.
+For real-world production environments, the MazAPI security framework is architected to run decoupled from the core application business logic. Rather than embedding security controls directly in the primary codebase, which increases CPU overhead and risks crashing target applications, the system utilizes a high-throughput, non-intrusive sidecar proxy and kernel-level traffic mirroring.
 
 The architecture comprises three main logical planes:
 1. **The Ingress/Control Plane**: An API Gateway (such as Kong or Nginx) acts as the single point of entry. It decodes JWTs, enforces global rate-limiting (using a distributed Redis cluster), and manages CORS configuration.
@@ -386,6 +405,10 @@ The anomaly monitoring service implements a dual-model machine learning ensemble
 
 ### 3.6 MazAPI Web Scanner and Playwright Session Interception Engine
 
+![Automated Web Scanner Interface UI](visuals/03_web_scanner_interface.png)
+*(Figure 3.1: MazAPI Web Scanner interactive wizard interface for automated vulnerability scanning configuration).*
+
+
 The MazAPI Web Scanner is a black-box security scanning engine hosted at `/scan-ui`. The engine incorporates a four-step configuration wizard:
 
 ```
@@ -421,8 +444,11 @@ Web Page (DOM) <--- Content Script <---> Background Service Worker <---> Local S
                                   In-Browser Security Probes
 ```
 
+![MazAPI Browser Extension Installation in Developer Mode](visuals/chrome_extension_installation.png.jpeg)
+
+
 #### 3.7.1 Service Worker Security Probe Execution
-Because content scripts executing in web page contexts are restricted by standard same-origin policies, security probes originating from page scripts cannot issue cross-origin requests to third-party target APIs. The MazAPI extension addresses this by executing black-box security test suites inside a background service worker (`background.js`). Manifest V3 service workers possess elevated origin privileges, allowing them to issue automated security test requests to target API endpoints and report results directly to the extension popup UI.
+Because content scripts executing in web page contexts are restricted by standard same-origin policies, security probes originating from page scripts cannot issue cross-origin requests to third-party target APIs. The MazAPI extension addresses this by executing black-box security test suites inside a background service worker (`background.js`). Manifest V3 service workers possess improved origin privileges, allowing them to issue automated security test requests to target API endpoints and report results directly to the extension popup UI.
 
 ![MazAPI Browser Extension Interception and Scanning Panel](visuals/04_extension_live_interception.png)
 *(Figure 3.4: MazAPI Manifest V3 browser extension live data interception feed displaying automated session token capture and endpoint telemetry).*
@@ -459,6 +485,14 @@ Raw Source Code Line
 
 4. **Git-Aware `.env` Analysis**: Inspects `.gitignore` rules. If an environment file (`.env`) is correctly ignored by git, diagnostic warnings are suppressed; if an unignored `.env` file containing secrets is detected, a high-severity alert is generated.
 
+### 3.9 Interactive Command-Line Management Console
+
+The MazAPI framework includes an interactive terminal shell (`cli.py` and `mazapi.bat`) allowing security operators to trigger AST code parsing, dataset synthesis, model training, and automated DAST scans directly from the command line.
+
+![MazAPI interactive command-line interface execution window](visuals/cli_terminal_execution.png.png)
+
+*(Figure 3.6: MazAPI interactive command-line interface execution window).* 
+
 ## Chapter 4: Design, Testing and Evaluation
 
 ### 4.1 Comparative Vulnerable vs. Hardened API Implementation
@@ -474,6 +508,12 @@ Vulnerable API (Port 8000)                   Hardened API (Port 8001)
 ├── GET /debug/config (Exposed secret dump) ├── GET /debug/config (ENV check: 404)
 └── CORS: Access-Control-Allow-Origin: *    └── CORS: Restricted origin allowlist
 ```
+
+![Simulated Vulnerable Shop Target Application UI](visuals/13_vulnerable_shop_ui.png)
+*(Figure 4.1: Simulated Vulnerable Shop e-commerce web interface used for target interaction and session token capture testing).*
+
+![Interactive Side-by-Side API Security Comparison Workbench](visuals/14_comparison_workbench.png)
+*(Figure 4.2: MazAPI interactive comparison workbench displaying real-time security posture differentials between Vulnerable and Hardened API implementations).*
 
 #### 4.1.1 Implementation Comparison Matrix
 
@@ -587,7 +627,7 @@ The Gini feature importance distribution derived from the 200 decision trees in 
 To evaluate the feasibility of deploying MazAPI in latency-sensitive production environments, benchmark latency tests were conducted under a simulated load of 10,000 requests. We compared three operational states:
 1. **Direct API (Baseline)**: Requests routed directly to backend microservices with zero security controls, yielding a mean response latency of $15.2\text{ ms}$.
 2. **Inline Middleware Routing**: Enforcing JWT validation, BOLA ownership checks, and regular expression Egress DLP sanitization directly within the API gateway. This configuration introduces a $+23.0\%$ latency overhead, increasing the mean response time to $18.7\text{ ms}$.
-3. **eBPF Out-of-Band (OOB) Mirroring**: Bypassing inline inspection by leveraging Linux kernel eBPF socket taps. Mirrored request packets are forwarded asynchronously to the machine learning engine, leaving the primary response loop unaffected. This configuration adds negligible latency ($+0.6\%$ overhead, $15.3\text{ ms}$ mean response), proving its suitability for enterprise scale.
+3. **eBPF Out-of-Band (OOB) Mirroring**: Bypassing inline inspection by utilizing Linux kernel eBPF socket taps. Mirrored request packets are forwarded asynchronously to the machine learning engine, leaving the primary response loop unaffected. This configuration adds negligible latency ($+0.6\%$ overhead, $15.3\text{ ms}$ mean response), proving its suitability for enterprise scale.
 
 ![Mean Latency Overhead Comparison (Direct vs Inline vs eBPF Out-of-band)](visuals/latency_comparison.png)
 *(Figure 4.3: Comparison of API latency overhead between inline middleware filtering and asynchronous out-of-band eBPF packet mirroring).*
@@ -618,6 +658,9 @@ The framework includes dynamic OpenAPI documentation hubs for both backend micro
 ![Vulnerable API Unauthenticated Debug Secret Leak](visuals/10_vulnerable_api_debug_secret_leak.png)
 *(Figure 4.8: Unauthenticated GET request to /debug/config on Vulnerable API exposing hardcoded JWT secret keys and configuration environment variables).*
 
+![CY384 Interactive Presenter and Architecture Reference Guide](visuals/15_presenter_guide.png)
+*(Figure 4.11: Interactive Presenter Reference Guide detailing system architecture, feature categories, and attack simulation workflows).*
+
 ### 4.5 VS Code Extension Secret Scanning and Static Analysis Benchmark
 
 The `mazapi-vscode` extension was benchmarked against a test repository containing 150 code files, including benign source code, unit test fixtures, and intentional secret leaks.
@@ -631,8 +674,9 @@ The `mazapi-vscode` extension was benchmarked against a test repository containi
 
 The multi-layer detection pipeline suppressed 30 false positive alerts caused by test variable names (`sample_key`), environment lookup statements (`os.getenv("API_KEY")`), and comments, achieving a final precision rate of 97.78%. Results were exported in standardized SARIF (`Static Analysis Results Interchange Format`) format for integration into automated CI/CD pipelines.
 
-![Screenshot Allocation 6: VS Code Extension Inline Diagnostics and SARIF Security Panel](mazapi-vscode/reports/vscode_extension_panel.png)
-*(Figure 4.9: Visual Studio Code editor panel displaying inline red/yellow diagnostic underlines for hardcoded keys, entropy warnings, and SARIF export options).*
+![Visual Studio Code editor panel displaying inline diagnostic underlines for hardcoded keys, entropy warnings, and SARIF export options](visuals/vscode_extension_panel.png.png)
+
+*(Figure 4.9: Visual Studio Code editor panel displaying inline diagnostic underlines for hardcoded keys, entropy warnings, and SARIF export options).*
 
 ### 4.6 External Attack Workflow Validation using Kali Linux
 

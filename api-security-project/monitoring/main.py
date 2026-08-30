@@ -22,9 +22,10 @@ from pydantic import BaseModel
 
 from anomaly_detector import detector
 
-DB_PATH   = "/data/traffic.db"
-UPSTREAM  = "http://vulnerable-api:8000"
-templates = Jinja2Templates(directory="templates")
+DB_PATH   = os.getenv("DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "traffic.db"))
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+UPSTREAM  = os.getenv("UPSTREAM_URL", "http://localhost:8000")
+templates = Jinja2Templates(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"))
 
 
 @asynccontextmanager
@@ -61,7 +62,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+os.makedirs(_static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 
 async def _log(rec: dict) -> None:

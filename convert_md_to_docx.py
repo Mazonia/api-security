@@ -3,7 +3,7 @@ import os
 import docx
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_TAB_ALIGNMENT, WD_TAB_LEADER
 from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
@@ -99,6 +99,82 @@ def build_docx(md_filepath, docx_filepath):
     code_block_lines = []
     in_table = False
     table_lines = []
+
+    in_title_page = True
+    in_toc = False
+
+    TOC_PAGE_MAP = {
+        "Abstract": "ii",
+        "Acknowledgements": "iii",
+        "Dedication": "iv",
+        "Keywords": "v",
+        "Chapter 1: Introduction, Aims and Objectives": "1",
+        "1.1 Introduction to Problem": "1",
+        "1.2 Introduction to Project, Aim and Objectives": "1",
+        "1.2.1 Project Overview": "1",
+        "1.2.2 Aim": "2",
+        "1.2.3 Objectives": "2",
+        "1.3 Research Questions": "3",
+        "1.4 Scope of the Project": "3",
+        "1.5 Project Justification": "4",
+        "1.6 Organization of Chapters": "4",
+        "Chapter 2: Literature Review": "5",
+        "2.1 Theoretical Foundations of API Security": "5",
+        "2.2 Review of Security Taxonomies: OWASP, MITRE ATT&CK, and CWE": "6",
+        "2.2.1 OWASP API Security Top 10:2023 Taxonomy": "6",
+        "2.2.2 MITRE ATT&CK Knowledge Base Alignment": "7",
+        "2.2.3 Common Weakness Enumeration (CWE) Mapping": "7",
+        "2.3 Evaluation of Existing API Security Tools and Operational Gaps": "8",
+        "2.3.1 Analysis of APIsec Surface Suite": "8",
+        "2.3.2 Analysis of Tooling Gaps and MazAPI Differentiation": "9",
+        "2.5 Static Secret Analysis and Browser Interception Techniques": "10",
+        "2.5.1 Static Code Secret Analysis": "10",
+        "2.5.2 Dynamic Browser Interception via Manifest V3": "11",
+        "Chapter 3: Methodology": "12",
+        "3.1 Agile-Iterative Engineering Framework": "12",
+        "3.2 System Architecture and Enterprise Production Deployment Stack": "13",
+        "3.3 Transparent Monitoring Proxy and Rule-Based Pre-Check Design": "14",
+        "3.3.1 Rule-Based BOLA Pre-Check Layer": "14",
+        "3.3.2 Dynamic OpenAPI 3.0 Synthesizer, Schema Drift & Active Inline Auto-Blocking": "15",
+        "3.3.3 Unified BOM Generator & Model Context Protocol (MCP) Auditor": "16",
+        "3.4 Feature Engineering and Dataset Synthesizer Specification": "17",
+        "3.4.1 Dataset Synthesizer Implementation": "17",
+        "3.5 Machine Learning Ensemble Architecture": "18",
+        "3.6 MazAPI Web Scanner and Playwright Session Interception Engine": "19",
+        "3.6.1 Endpoint Discovery Strategies": "19",
+        "3.6.2 Playwright Headless Session Interception": "20",
+        "3.7 Manifest V3 Browser Extension Architecture": "21",
+        "3.7.1 Service Worker Security Probe Execution": "21",
+        "3.8 Visual Studio Code Static Analysis Extension Engineering": "22",
+        "3.8.1 Multi-Layer Detection Strategy": "22",
+        "3.9 Interactive Command-Line Management Console": "23",
+        "Chapter 4: Design, Testing and Evaluation": "24",
+        "4.1 Comparative Vulnerable vs. Hardened API Implementation": "24",
+        "4.1.1 Implementation Comparison Matrix": "25",
+        "4.2 Empirical Security Testing Results across Vulnerability Classes": "26",
+        "4.2.1 Detailed Evaluation Breakdown": "26",
+        "4.3 Machine Learning Ensemble Performance Metrics and Evaluation": "28",
+        "4.3.1 Classification Performance Metrics": "28",
+        "4.3.2 Confusion Matrix Analysis": "29",
+        "4.3.3 Feature Importance Ranking": "30",
+        "4.3.4 Operational Latency Overhead Analysis": "31",
+        "4.4 Validation on External Real-World Targets and VulnBank Lab": "32",
+        "4.4.1 Google Gemini API External Scanning Validation": "32",
+        "4.4.2 VulnBank Banking Lab Evaluation": "33",
+        "4.4.3 API Surface OpenAPI Documentation Comparison": "34",
+        "4.5 VS Code Extension Secret Scanning and Static Analysis Benchmark": "35",
+        "4.6 External Attack Workflow Validation using Kali Linux": "36",
+        "Chapter 5: Conclusions & Further Work": "38",
+        "5.1 Summary of Findings and Contributions": "38",
+        "5.2 System Limitations and Challenges": "39",
+        "5.3 Recommendations for Future Work": "40",
+        "References": "41",
+        "Appendices": "42",
+        "Appendix A: Implementation Schedule and Project Gantt Chart": "42",
+        "Appendix B: Vulnerability and Defense Mapping Matrix": "43",
+        "Appendix C: Feature Vector Pipeline and ML Model Parameters": "44",
+        "Appendix D: Static Secret Detector Regex Patterns and Compliance Mappings": "45"
+    }
 
     def flush_table(lines):
         if not lines:
@@ -202,6 +278,7 @@ def build_docx(md_filepath, docx_filepath):
 
         # Horizontal Rule
         if stripped in ['---', '***', '___']:
+            in_toc = False
             p = add_styled_paragraph(doc, space_after=18, space_before=12)
             r = p.add_run("_________________________________________________________________________________")
             format_run(r, font_size=9, color=RGBColor(180, 180, 180))
@@ -211,44 +288,107 @@ def build_docx(md_filepath, docx_filepath):
         # Headings
         if stripped.startswith('# '):
             p = add_styled_paragraph(doc, space_after=18, space_before=24, align=WD_ALIGN_PARAGRAPH.CENTER)
-            parse_inline_markdown(p, stripped[2:], font_size=18, base_color=RGBColor(31, 73, 125))
+            parse_inline_markdown(p, stripped[2:], font_size=18, base_color=RGBColor(0, 0, 0))
             for run in p.runs:
                 run.bold = True
         elif stripped.startswith('## '):
-            if stripped[3:].startswith('Chapter') or stripped[3:].startswith('References') or stripped[3:].startswith('Appendices'):
-                p = doc.add_paragraph()
-                p.add_run().add_break(WD_BREAK.PAGE)
-            p = add_styled_paragraph(doc, space_after=18, space_before=24)
-            parse_inline_markdown(p, stripped[3:], font_size=15, base_color=RGBColor(31, 73, 125))
-            for run in p.runs:
-                run.bold = True
+            heading_text = stripped[3:]
+            if heading_text == "Abstract":
+                in_title_page = False
+            
+            if heading_text == "Table of Contents":
+                in_toc = True
+            else:
+                in_toc = False
+
+            if in_title_page:
+                p = add_styled_paragraph(doc, space_after=18, space_before=24)
+                parse_inline_markdown(p, heading_text, font_size=15, base_color=RGBColor(0, 0, 0))
+                for run in p.runs:
+                    run.bold = True
+            else:
+                if heading_text.startswith('Chapter') or heading_text.startswith('References') or heading_text.startswith('Appendices'):
+                    p = doc.add_paragraph()
+                    p.add_run().add_break(WD_BREAK.PAGE)
+                p = add_styled_paragraph(doc, style='Heading 1', space_after=18, space_before=24)
+                parse_inline_markdown(p, heading_text, font_size=15, base_color=RGBColor(0, 0, 0))
+                for run in p.runs:
+                    run.bold = True
         elif stripped.startswith('### '):
-            p = add_styled_paragraph(doc, space_after=12, space_before=18)
-            parse_inline_markdown(p, stripped[4:], font_size=13, base_color=RGBColor(59, 89, 152))
-            for run in p.runs:
-                run.bold = True
+            heading_text = stripped[4:]
+            if in_title_page:
+                p = add_styled_paragraph(doc, space_after=12, space_before=18)
+                parse_inline_markdown(p, heading_text, font_size=13, base_color=RGBColor(0, 0, 0))
+                for run in p.runs:
+                    run.bold = True
+            else:
+                p = add_styled_paragraph(doc, style='Heading 2', space_after=12, space_before=18)
+                parse_inline_markdown(p, heading_text, font_size=13, base_color=RGBColor(0, 0, 0))
+                for run in p.runs:
+                    run.bold = True
         elif stripped.startswith('#### '):
-            p = add_styled_paragraph(doc, space_after=10, space_before=12)
-            parse_inline_markdown(p, stripped[5:], font_size=12, base_color=RGBColor(51, 51, 51))
-            for run in p.runs:
-                run.bold = True
-                run.italic = True
+            heading_text = stripped[5:]
+            if in_title_page:
+                p = add_styled_paragraph(doc, space_after=10, space_before=12)
+                parse_inline_markdown(p, heading_text, font_size=12, base_color=RGBColor(0, 0, 0))
+                for run in p.runs:
+                    run.bold = True
+                    run.italic = True
+            else:
+                p = add_styled_paragraph(doc, style='Heading 3', space_after=10, space_before=12)
+                parse_inline_markdown(p, heading_text, font_size=12, base_color=RGBColor(0, 0, 0))
+                for run in p.runs:
+                    run.bold = True
+                    run.italic = True
         # Bullet list items
         elif stripped.startswith('- ') or stripped.startswith('* ') or re.match(r'^\d+\.\s', stripped):
-            p = add_styled_paragraph(doc, space_after=8, line_spacing=1.5)
-            p.paragraph_format.left_indent = Inches(0.25)
-            
-            if stripped.startswith('- ') or stripped.startswith('* '):
-                r_bullet = p.add_run("• ")
-                format_run(r_bullet, font_size=12, bold=True)
-                content = stripped[2:]
+            if in_toc:
+                leading_spaces = len(line) - len(line.lstrip())
+                if leading_spaces >= 4:
+                    left_indent = Inches(0.50)
+                    font_size = 11
+                    is_bold = False
+                elif leading_spaces >= 2:
+                    left_indent = Inches(0.25)
+                    font_size = 11.5
+                    is_bold = False
+                else:
+                    left_indent = Inches(0.0)
+                    font_size = 12
+                    is_bold = True
+
+                match_link = re.search(r'\[(.*?)\]\(.*?\)', stripped)
+                if match_link:
+                    title_text = match_link.group(1).strip()
+                else:
+                    title_text = stripped[2:].strip()
+
+                page_num = TOC_PAGE_MAP.get(title_text, "1")
+
+                p = add_styled_paragraph(doc, space_after=4, space_before=4, line_spacing=1.15)
+                p.paragraph_format.left_indent = left_indent
+                p.paragraph_format.tab_stops.add_tab_stop(Inches(5.93), alignment=WD_TAB_ALIGNMENT.RIGHT, leader=WD_TAB_LEADER.DOTS)
+
+                r_text = p.add_run(f"{title_text}\t")
+                format_run(r_text, font_size=font_size, bold=is_bold, color=RGBColor(0, 0, 0))
+
+                r_page = p.add_run(page_num)
+                format_run(r_page, font_size=font_size, bold=is_bold, color=RGBColor(0, 0, 0))
             else:
-                match = re.match(r'^(\d+\.)\s*(.*)', stripped)
-                r_bullet = p.add_run(match.group(1) + " ")
-                format_run(r_bullet, font_size=12, bold=True)
-                content = match.group(2)
-            
-            parse_inline_markdown(p, content, font_size=12)
+                p = add_styled_paragraph(doc, space_after=8, line_spacing=1.5)
+                p.paragraph_format.left_indent = Inches(0.25)
+                
+                if stripped.startswith('- ') or stripped.startswith('* '):
+                    r_bullet = p.add_run("• ")
+                    format_run(r_bullet, font_size=12, bold=True)
+                    content = stripped[2:]
+                else:
+                    match = re.match(r'^(\d+\.)\s*(.*)', stripped)
+                    r_bullet = p.add_run(match.group(1) + " ")
+                    format_run(r_bullet, font_size=12, bold=True)
+                    content = match.group(2)
+                
+                parse_inline_markdown(p, content, font_size=12)
         # Blockquote / Figure Caption / Standard Paragraph
         elif stripped.startswith('> '):
             p = add_styled_paragraph(doc, space_after=10, space_before=6, line_spacing=1.3)
@@ -292,8 +432,14 @@ def build_docx(md_filepath, docx_filepath):
 
         i += 1
 
-    doc.save(docx_filepath)
-    print(f"Document successfully created: {docx_filepath}")
+    try:
+        doc.save(docx_filepath)
+        print(f"Document successfully created: {docx_filepath}")
+    except PermissionError:
+        backup_path = docx_filepath.replace(".docx", "_output.docx")
+        doc.save(backup_path)
+        print(f"WARNING: Permission denied when writing to {docx_filepath} (likely open in Word).")
+        print(f"Saved document to backup path: {backup_path}")
 
 if __name__ == '__main__':
     script_dir = os.path.dirname(os.path.abspath(__file__))
