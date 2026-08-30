@@ -35,6 +35,7 @@ api-security-project/reports/*.json
 api-security-project/reports/*.html
 reports/*.html
 reports/*.json
+reports/*.sarif
 
 # Generated presenter guide
 CY384_Presenter_Guide.pdf
@@ -81,4 +82,8 @@ node_env/
 check_extension.py
 patch_popup_js.py
 verify_all_modules.py
+take_all_screenshots.py
+update_report.py
 
+# Archives
+*.zip
