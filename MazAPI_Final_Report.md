@@ -133,7 +133,7 @@ Securing APIs presents distinct operational challenges. Existing vulnerability s
 #### 1.2.1 Project Overview
 This project introduces **MazAPI**, an integrated open-source API security framework designed to address gaps in API security testing, traffic monitoring, and exploitation prevention. MazAPI combines multi-standard black-box scanning, an asynchronous transparent reverse proxy, a dual-model machine learning anomaly detector, a Manifest V3 browser extension, and a static analysis extension for Visual Studio Code into a unified ecosystem.
 
-To facilitate direct evaluation and open-source reproducibility, the complete project source code, configuration files, and deployment scripts are maintained in a public GitHub repository at [https://github.com/Mazonia/api-security](https://github.com/Mazonia/api-security). Furthermore, a clean, self-contained digital submission package (`MazAPI_Project_Submission.zip`) containing the entire buildable workspace is provided as part of the project deliverables to enable local review and offline testing.
+To facilitate direct evaluation and open-source reproducibility, the complete project source code, configuration files, and deployment scripts are maintained in a public GitHub repository at [https://github.com/Mazonia/api-security](https://github.com/Mazonia/api-security). Furthermore, a clean, self-contained digital submission package (`API Security Project.zip`) containing the entire buildable workspace is provided as part of the project deliverables to enable local review and offline testing.
 
 
 #### 1.2.2 Aim
