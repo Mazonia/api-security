@@ -1,4 +1,4 @@
-# MazAPI — Enterprise API & AI Security Intelligence Platform
+# MazAPI - Enterprise API & AI Security Intelligence Platform
 
 [![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-Passing-emerald?style=flat-square&logo=githubactions)](.github/workflows/)
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-indigo?style=flat-square&logo=python)](https://python.org)
@@ -21,8 +21,8 @@ api-security/
 │   ├── app_surface/           # Multi-language AST route parsers, PR diff, & SARIF exporter
 │   ├── monitoring/            # Real-time proxy, 32-feature ML model, & threat dashboard
 │   ├── testing-engine/        # Active OWASP API scanner, DAST engine, & MCP auditor
-│   ├── vulnerable-api/        # Port 8000 — Intentionally vulnerable FastAPI service & shop
-│   ├── hardened-api/          # Port 8001 — Mitigated FastAPI service with OWASP controls
+│   ├── vulnerable-api/        # Port 8000 - Intentionally vulnerable FastAPI service & shop
+│   ├── hardened-api/          # Port 8001 - Mitigated FastAPI service with OWASP controls
 │   └── cli.py                 # Unified CLI for CI/CD and terminal execution
 ├── mazapi-extension/          # Chrome / Brave Manifest V3 Side Panel extension
 ├── mazapi-vscode/             # VS Code / Antigravity IDE Workspace scanner extension
@@ -201,6 +201,22 @@ Ran 22 tests in 2.904s -> OK (100% Passed)
 
 ---
 
-## 📄 License & Attribution
+## ❓ Frequently Asked Questions (FAQ)
+
+### What is MazAPI?
+MazAPI is an enterprise zero-egress API and AI security platform that unifies static code AST discovery across 7 ecosystems, AI Agent and MCP supply-chain audits, active OWASP API Top 10 DAST scanning, and calibrated machine learning threat detection.
+
+### How does MazAPI identify Shadow and undocumented APIs?
+MazAPI analyzes source code at Pull Request time using language-specific Abstract Syntax Tree (AST) parsers. By comparing Git commits (--base vs --head), it pinpoints newly added or altered routes that lack formal API documentation and generates OpenAPI 3.0 and AsyncAPI 3.0 specifications automatically.
+
+### What risks does the AI Agent & MCP auditor look for?
+The AI audit engine analyzes agent frameworks (LangChain, CrewAI, AutoGen, etc.) for cyber-physical actuator triggers executing without Human-in-the-Loop approval, confused deputy sinks, excessive agency (unconstrained OS shells and financial mutations), and missing tenant isolation in vector databases. It also generates CycloneDX 1.6 AI-BOM documents.
+
+### Does MazAPI send proprietary code or traffic to third-party clouds?
+No. MazAPI operates under a strict 100% zero-egress architecture. All AST parsing, DAST security scanning, machine learning classification, and side-panel request tampering execute entirely locally on your machine or private CI/CD runners.
+
+---
+
+## License & Attribution
 
 This project is licensed under the **MIT License**. Created for research and practical training in modern API, Agentic AI, and Cloud security architectures.

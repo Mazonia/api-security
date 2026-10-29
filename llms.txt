@@ -1,0 +1,52 @@
+# MazAPI - Enterprise API & AI Security Intelligence Platform
+
+> Comprehensive, zero-egress, multi-tier API and AI security platform unifying pre-production static AST code discovery, AI Agent & MCP supply-chain audits, active OWASP API Top 10 DAST testing, calibrated ML threat detection, and an in-browser Side Panel interactive workbench.
+
+## Project Overview
+- **Name:** MazAPI Security Platform
+- **Repository:** https://github.com/Mazonia/api-security
+- **License:** MIT
+- **Runtime:** Python 3.10+, Docker, Manifest V3 (Chrome/Brave), VS Code Extension
+- **Compliance:** OWASP API Security Top 10 (2023), CycloneDX 1.6 AI-BOM, PCI-DSS v4.0, GDPR, ISO/IEC 27001
+
+## Core Architecture & Engines
+
+### 1. App Surface Discovery Engine (PR-Time Static Analysis)
+- Native AST syntax tree parsers across 7 ecosystems: Python (FastAPI/Flask/Django), Node.js (Express/Nest/Fastify), Embedded C/C++ IoT (ESP-IDF/Arduino/FreeRTOS), Java (Spring Boot), .NET (ASP.NET Core), Go (Gin/Echo/Fiber), and PHP (Laravel/Symfony).
+- Shadow API Git Diffing: Compares `--base` vs `--head` commits to isolate undocumented routes before deployment.
+- Specification Synthesis: Automatically generates OpenAPI 3.0 and AsyncAPI 3.0 specs and exports findings to GitHub SARIF.
+
+### 2. AI Agent Audit Engine (AI Supply-Chain & Actuation Guardrails)
+- Analyzes 11+ agentic frameworks: LangChain, LangGraph, CrewAI, AutoGen, Semantic Kernel, LlamaIndex, Haystack, DSPy, OpenAI Swarm, and AWS Bedrock Agents.
+- Flags cyber-physical actuator triggers executing without Human-in-the-Loop (HITL) authorization.
+- Detects confused deputy sinks, excessive agency (unbounded OS shells, financial mutation), and unconstrained multi-tenant RAG queries.
+- Generates CycloneDX 1.6 AI-BOM tracking models, parameters, data flows, and tool sinks.
+
+### 3. Model Context Protocol (MCP) & IoT Security Auditor
+- Audits custom MCP server source code and inspects against a database of 50+ vetted MCP servers.
+- Evaluates IoT protocol endpoints (MQTT broker ACLs, CoAP UDP reflection, and insecure OTA surfaces).
+
+### 4. Machine Learning Threat Detector & BOLT Workbench
+- Calibrated 32-feature Random Forest model with 99.73% validation accuracy for anomaly and OWASP threat detection.
+- Persistent Chrome/Brave Side Panel workbench (Manifest V3) for live traffic harvesting, JWT inspection, and BOLA/IDOR parameter tampering.
+
+## Quickstart & CLI Reference
+
+```bash
+# Clone the repository
+git clone https://github.com/Mazonia/api-security.git
+cd api-security
+
+# Launch complete local testing lab (Docker)
+cd api-security-project
+docker compose up -d --build
+
+# Run AST route discovery
+mazapi app-surface scan ./vulnerable-api --format table
+
+# Audit AI Agent workspace and export AI-BOM
+mazapi agent-audit scan ./agent_audit --governance --format ai-bom -o ./ai-bom.json
+
+# Run active OWASP DAST vulnerability scan
+mazapi scan --target http://localhost:8000 --format sarif -o ./scan-results.sarif
+```
